@@ -42,7 +42,7 @@ services:
     # build: ./apache
 
     # Docker Hub Image
-    image: vuknf/cyberphish-apache-empty:latest
+    image: vuknf/cyberphish-apache:latest
 
     user: 1000:1000
     read_only: true
