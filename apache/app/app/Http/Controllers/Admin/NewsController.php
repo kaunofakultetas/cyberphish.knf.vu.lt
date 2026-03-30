@@ -76,7 +76,7 @@ class NewsController extends BaseController
 
         $validatedData = $request->validate([
             'title' => [ 'required', 'min:1', 'max:255' ],
-           // 'feat' => ['image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
+            'feat' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
         ]);
 
         $addRecord = new News;
@@ -87,7 +87,7 @@ class NewsController extends BaseController
 
         if ($request->hasFile('feat')) {
 
-            $imageName = time().'.'.$request->feat->extension();
+            $imageName = Str::random(40).'.'.$request->feat->extension();
             $request->feat->move(storage_path('app/public/feat'), $imageName);
             $addRecord->feat_img = 'feat/'.$imageName;
 
@@ -106,6 +106,7 @@ class NewsController extends BaseController
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
             'title' => [ 'required', 'min:1', 'max:255' ],
+            'feat' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
         ]);
 
         $update = [
@@ -118,7 +119,7 @@ class NewsController extends BaseController
 
         if ($request->hasFile('feat')) {
 
-            $imageName = time().'.'.$request->feat->extension();
+            $imageName = Str::random(40).'.'.$request->feat->extension();
             $request->feat->move(storage_path('app/public/feat'), $imageName);
             $update['feat_img'] = 'feat/'.$imageName;
 
