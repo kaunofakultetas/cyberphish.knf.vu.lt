@@ -285,10 +285,9 @@ class LMController extends BaseController
 
     private static $allowed_extensions = [
         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp',
-        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp',
+        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
         'mp4', 'mp3', 'wav', 'avi', 'mov',
         'zip', 'rar', 'txt', 'csv', 'rtf',
-        'html', 'htm',
     ];
 
     public function files_create(Request $request){
