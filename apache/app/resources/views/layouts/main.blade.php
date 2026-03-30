@@ -32,8 +32,8 @@
                      document.addEventListener("adobe_dc_view_sdk.ready", function(){
                              var adobeDCView = new AdobeDC.View({clientId: "{{ env('ADOBE_EMBED_API') }}", divId: "adobe-dc-view-{{ $loop->iteration }}"});
                              adobeDCView.previewFile({
-                                  content:{location: {url: "{{ env('APP_URL') }}/upload/{{ $vv['file_name'] }}"}},
-                                  metaData:{fileName: "{{ $content['title'] }}"}
+                                  content:{location: {url: @json(env('APP_URL') . '/upload/' . $vv['file_name'])}},
+                                  metaData:{fileName: @json($content['title'])}
                              }, {embedMode: "SIZED_CONTAINER", showDownloadPDF: false, showPrintPDF: false});
                      });
                 </script>
