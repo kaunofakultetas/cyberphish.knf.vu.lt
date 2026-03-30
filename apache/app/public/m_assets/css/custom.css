@@ -1,0 +1,92 @@
+.btn-info,.btn-primary {
+	background-color:#74A3DA!important;
+	border-color:#74A3DA!important;
+}
+
+.border-left-info {
+	border-left:#74A3DA 4px solid!important;
+}
+
+.border-x {
+	border-color:#74A3DA!important;
+}
+
+.csla {
+	text-transform:uppercase;
+	font-weight:bold;
+}
+
+.csll {
+	display:block;
+	padding-top:10px;
+}
+
+.csll::before {
+	font-family: "Font Awesome 5 Free"; 
+	font-weight: 700; 
+	content: "\f101"; 
+	padding-right:7px;
+}
+
+.cslt {
+	display:block;
+	padding-top:10px;
+	color:#009331!important;
+	font-weight:bold;
+	text-decoration: line-through;
+}
+
+.cslt::before {
+	font-family: "Font Awesome 5 Free"; 
+	font-weight: 700; 
+	content: "\f058"; 
+	padding-right:7px;
+	color:#00bc28!important;
+}
+
+.lm_sidebar {
+	padding:15px;
+	font-size:13px;
+}
+
+.buttonscd {
+	border:1px solid #56ddef;
+	color:#36B9CC;
+}
+
+.buttonscd:hover {
+	color:#36B9CC;
+}
+
+.buttonscd2 {
+	border:1px solid #36B9CC;
+	color:#fff;
+	background-color:#36B9CC;
+}
+
+.buttonscd2:hover {
+	color:#fff;
+}
+
+.column { display:inline-block!important;}
+
+.navbar .megamenu{ padding: 1rem; }
+
+/* ============ desktop view ============ */
+@media all and (min-width: 992px) {
+
+  .navbar .has-megamenu{position:static!important;}
+  .navbar .megamenu{left:0; right:0; width:100%; margin-top:0;  }
+
+}	
+/* ============ desktop view .end// ============ */
+
+/* ============ mobile view ============ */
+@media(max-width: 991px){
+  .navbar.fixed-top .navbar-collapse, .navbar.sticky-top .navbar-collapse{
+    overflow-y: auto;
+      max-height: 90vh;
+      margin-top:10px;
+  }
+}
+/* ============ mobile view .end// ============ */

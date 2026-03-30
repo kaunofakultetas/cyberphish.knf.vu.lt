@@ -1,0 +1,21 @@
+:80 {
+
+    # DBGate endpoint
+    redir /dbgate /dbgate/
+    handle /dbgate/* {
+        reverse_proxy cyberphish-dbgate:3000 {
+            header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+        }
+    }
+
+
+    # Apache (HTTP backend)
+    handle {
+        reverse_proxy cyberphish-apache:8080 {
+            header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+            header_up X-Forwarded-Proto https
+            header_up Host {http.request.host}
+        }
+    }
+
+}

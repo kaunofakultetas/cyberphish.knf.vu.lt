@@ -1,0 +1,204 @@
+services:
+
+  # ------------------------------------------------------------
+  #                Incoming and outgoing endpoints
+  # ------------------------------------------------------------
+  cyberphish-endpoint:
+    container_name: cyberphish-endpoint
+    image: caddy:2.11-alpine
+    user: 1000:1000
+    read_only: true
+    volumes:
+      - ./endpoint/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - 80:80
+    restart: unless-stopped
+
+
+  # cyberphish-exit:
+  #   container_name: cyberphish-exit
+  #   image: vuknf/caddy-l4:2.11
+  #   user: 1000:1000
+  #   read_only: true
+  #   volumes:
+  #     - ./exit/Caddyfile:/etc/caddy/Caddyfile:ro
+  #   restart: unless-stopped
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+
+
+
+
+
+  # ------------------------------------------------------------
+  #                     WEB Application stack
+  # ------------------------------------------------------------
+  cyberphish-apache:
+    container_name: cyberphish-apache
+
+    # # Self-Built Image
+    # image: cyberphish-apache
+    # build: ./apache
+
+    # Docker Hub Image
+    image: vuknf/cyberphish-apache-empty:latest
+
+    user: 1000:1000
+    read_only: true
+    tmpfs:
+      - /var/run/apache2:uid=1000,gid=1000
+      - /tmp:uid=1000,gid=1000
+      - /var/www/html/storage/framework/cache:uid=1000,gid=1000
+      - /var/www/html/storage/framework/sessions:uid=1000,gid=1000
+      - /var/www/html/storage/framework/views:uid=1000,gid=1000
+    volumes:
+      # Configuration
+      - /etc/localtime:/etc/localtime:ro
+
+      # Web application 
+      - ./_DATA/apache/public:/var/www/html/storage/app/public:ro
+      - ./_DATA/apache/upload:/var/www/html/public/upload:ro
+
+      # Logs
+      - ./_LOGS/apache/laravel_logs:/var/www/html/storage/logs
+      - ./_LOGS/apache/logs:/var/www/logs
+    environment:
+      # Laravel
+      APP_NAME: "CYBERPHISH"
+      APP_KEY: ${LARAVEL_APP_KEY}
+      APP_SALT: ${LARAVEL_APP_SALT}
+      APP_DEBUG: "false"
+      APP_URL: https://cyberphish.knf.vu.lt
+      APP_URL_ADMIN: https://cyberphish.knf.vu.lt/admin
+
+      # Database
+      DB_HOST: cyberphish-mysql
+      DB_DATABASE: ${MYSQL_DATABASE}
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+
+      # Redis
+      REDIS_HOST: cyberphish-redis
+
+      # NoCAPTCHA
+      NOCAPTCHA_SECRET: ${NOCAPTCHA_SECRET}
+      NOCAPTCHA_SITEKEY: ${NOCAPTCHA_SITEKEY}
+
+      # Mailjet
+      MAILJET_APIKEY: ${MAILJET_APIKEY}
+      MAILJET_APISECRET: ${MAILJET_APISECRET}
+      MAIL_FROM_ADDRESS: noreply@cyberphish.knf.vu.lt
+      MAIL_FROM_NAME: "CYBERPHISH"
+
+      # Adobe
+      ADOBE_EMBED_API: ${ADOBE_EMBED_API}
+    restart: unless-stopped
+
+
+  cyberphish-mysql:
+    container_name: cyberphish-mysql
+    image: mysql:5.7.42
+    user: 1000:1000
+    read_only: true
+    tmpfs:
+      - /run/mysqld:uid=999,gid=999
+      - /tmp
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./_DATA/mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    restart: unless-stopped
+
+
+  cyberphish-redis:
+    container_name: cyberphish-redis
+    image: redis:alpine
+    read_only: true
+    restart: unless-stopped
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+
+
+
+
+
+
+  # ------------------------------------------------------------
+  #                      Database backupers
+  # ------------------------------------------------------------
+  cyberphish-dbback-st:
+    container_name: cyberphish-dbback-st
+    image: dkruger/mysql-backup@sha256:8558bec0ca0ead1dabfd4e2036c63119181ac727ec058a6453a17ea227cc0c8f
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./_DATA/backuper/db-short-term:/backup
+    environment:
+      DB_HOST: cyberphish-mysql
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+      BACKUP_CRONTAB: "0 3 * * *" # Kasdien 03:00 val
+      ROTATE_COUNT: 20
+    depends_on:
+      - cyberphish-mysql
+    restart: unless-stopped
+
+  cyberphish-dbback-lt:
+    container_name: cyberphish-dbback-lt
+    image: dkruger/mysql-backup@sha256:8558bec0ca0ead1dabfd4e2036c63119181ac727ec058a6453a17ea227cc0c8f
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./_DATA/backuper/db-long-term:/backup
+    environment:
+      DB_HOST: cyberphish-mysql
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+      BACKUP_CRONTAB: "0 3 * * 6" # Šeštadienį 03:00 val
+      ROTATE_COUNT: 60
+    depends_on:
+      - cyberphish-mysql
+    restart: unless-stopped
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+
+
+
+
+
+
+
+  # ------------------------------------------------------------
+  #               Additional administration tools
+  # ------------------------------------------------------------
+  cyberphish-dbgate:
+    container_name: cyberphish-dbgate
+    image: dbgate/dbgate:7.1.4-alpine
+    user: root
+    read_only: true
+    environment:
+      WEB_ROOT: /dbgate
+
+      LOGINS: admin
+      LOGIN_PASSWORD_admin: ${DBGATE_PASSWORD}
+
+      CONNECTIONS: con1
+      LABEL_con1: Cyberphish - Duomenų Bazė
+      SERVER_con1: cyberphish-mysql
+      USER_con1: ${MYSQL_USER}
+      PASSWORD_con1: ${MYSQL_PASSWORD}
+      PORT_con1: 3306
+      ENGINE_con1: mysql@dbgate-plugin-mysql
+    restart: unless-stopped
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+  # ------------------------------------------------------------
+
+
