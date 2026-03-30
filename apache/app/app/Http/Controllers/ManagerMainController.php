@@ -29,7 +29,7 @@ class ManagerMainController extends BaseController
 
     public function change_pass(Request $request){
 
-        if (!(Hash::check($request->get('password'), Auth::user()->password))) {
+        if (!(Hash::check($request->get('password'), Auth::guard('mem')->user()->password))) {
 
             return redirect()->back()->withErrors(__('main.curr_pass_wrong'));
         }
@@ -56,7 +56,7 @@ class ManagerMainController extends BaseController
         }
 
 
-        Members::where('id', Auth::id())->update(['password' => Hash::make($request->get('newpass'))]);
+        Members::where('id', Auth::guard('mem')->id())->update(['password' => Hash::make($request->get('newpass'))]);
 
         return redirect()->back()->withSuccess(__('main.pass_changed'));
 
@@ -76,11 +76,11 @@ class ManagerMainController extends BaseController
         }
 
 
-        $usr = Members::where('username', '=', $request->get('username'))->where('id', '<>', Auth::id())->count();
+        $usr = Members::where('username', '=', $request->get('username'))->where('id', '<>', Auth::guard('mem')->id())->count();
 
         if($usr == 0){
 
-            Members::where(['id'=>Auth::id()])->update(['username'=>$request->get('username')]);
+            Members::where(['id'=>Auth::guard('mem')->id()])->update(['username'=>$request->get('username')]);
 
             return back()->withSuccess(__('main.pass_updated'));
 
@@ -104,7 +104,7 @@ class ManagerMainController extends BaseController
 
         }
 
-        Members::where(['id'=>Auth::id()])->update(['fullname'=>$request->get('fullname')]);
+        Members::where(['id'=>Auth::guard('mem')->id()])->update(['fullname'=>$request->get('fullname')]);
 
         return back()->withSuccess(__('main.updated'));
 
