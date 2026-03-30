@@ -70,7 +70,7 @@ services:
       APP_SALT: ${LARAVEL_APP_SALT}
       APP_DEBUG: "false"
       APP_URL: https://cyberphish.knf.vu.lt
-      APP_URL_ADMIN: https://cyberphish.knf.vu.lt/admin
+      APP_URL_ADMIN: https://cyberphish.knf.vu.lt/admin-panel
 
       # Database
       DB_HOST: cyberphish-mysql
