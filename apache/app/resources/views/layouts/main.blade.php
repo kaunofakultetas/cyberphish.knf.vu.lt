@@ -13,19 +13,18 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="{{ env('APP_URL') }}/m_assets/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
-    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
-	<link href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/2.3.1/css/flag-icon.min.css" rel="stylesheet"/>
-	<link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
-	<link href="https://cdn.jsdelivr.net/npm/featherlight@1.7.14/release/featherlight.min.css" type="text/css" rel="stylesheet" />
-	<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/cookieconsent@3/build/cookieconsent.min.css" />
+    <link href="/static/css/fonts.css" rel="stylesheet">
+	<link rel="stylesheet" href="/static/css/bootstrap-select.min.css">
+	<link href="/static/css/flag-icon.min.css" rel="stylesheet"/>
+	<link href="/static/css/featherlight.min.css" type="text/css" rel="stylesheet" />
+	<link rel="stylesheet" type="text/css" href="/static/css/cookieconsent.min.css" />
     <link href="{{ env('APP_URL') }}/m_assets/css/sb-admin-2.css" rel="stylesheet">
     <link href="{{ env('APP_URL') }}/m_assets/css/custom.css?{{ time() }}" rel="stylesheet">
 
     @if(\Request::is('*/learn/*/*'))
 
     @if(count($embeded_files) > 0)
-		 <script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+    <script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
 			 @foreach($embeded_files as $kk => $vv)
 
                 <script type="text/javascript">
@@ -274,14 +273,14 @@
     <!-- Bootstrap core JavaScript-->
     <script src="{{ env('APP_URL') }}/m_assets/vendor/jquery/jquery.min.js"></script>
     <script src="{{ env('APP_URL') }}/m_assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+	<script src="/static/js/bootstrap-select.min.js"></script>
     <!-- Core plugin JavaScript-->
     <script src="{{ env('APP_URL') }}/m_assets/vendor/jquery-easing/jquery.easing.min.js"></script>
 
     <!-- Custom scripts for all pages-->
     <script src="{{ env('APP_URL') }}/m_assets/js/sb-admin-2.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/featherlight@1.7.14/release/featherlight.min.js" type="text/javascript" charset="utf-8"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.matchHeight/0.7.2/jquery.matchHeight-min.js" integrity="sha512-/bOVV1DV1AQXcypckRwsR9ThoCj7FqTV2/0Bm79bL3YSyLkVideFLE3MIZkq1u5t28ke1c0n31WYCOrO01dsUg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/js/featherlight.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/static/js/jquery.matchHeight-min.js"></script>
     <script src="{{ env('APP_URL') }}/m_assets/js/scripts.js"></script>
 
     @if(\Request::is('cp/se/*/*'))
@@ -305,7 +304,7 @@
     @endif
 
 
-    <script src="https://cdn.jsdelivr.net/npm/cookieconsent@3/build/cookieconsent.min.js" data-cfasync="false"></script>
+    <script src="/static/js/cookieconsent.min.js" data-cfasync="false"></script>
 	<script>
 	window.cookieconsent.initialise({
 	  "palette": {
