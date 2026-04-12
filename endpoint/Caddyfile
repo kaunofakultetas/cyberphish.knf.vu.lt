@@ -15,7 +15,7 @@
             style-src           'self' 'unsafe-inline';
             img-src             'self' data:;
             font-src            'self' data:;
-            connect-src         'self';
+            connect-src         'self' viewlicense.adobe.io;
             frame-ancestors     'self';
             frame-src           'self' documentcloud.adobe.com;
             child-src           'self';
