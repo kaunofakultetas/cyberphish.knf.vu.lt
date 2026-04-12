@@ -35,6 +35,12 @@
 
 
 
+        # Static assets (self-hosted CDN replacements)
+        handle_path /static/* {
+            reverse_proxy cyberphish-static:80
+        }
+
+
         # DBGate endpoint
         redir /dbgate /dbgate/
         handle /dbgate/* {

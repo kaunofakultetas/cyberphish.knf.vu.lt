@@ -96,6 +96,17 @@ services:
     restart: unless-stopped
 
 
+  cyberphish-static:
+    container_name: cyberphish-static
+    image: caddy:2.11-alpine
+    user: 1000:1000
+    read_only: true
+    volumes:
+      - ./static/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./static/files:/srv:ro
+    restart: unless-stopped
+
+
   cyberphish-mysql:
     container_name: cyberphish-mysql
     image: mysql:5.7.42
