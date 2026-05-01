@@ -86,10 +86,14 @@ services:
       NOCAPTCHA_SITEKEY: ${NOCAPTCHA_SITEKEY}
 
       # Mailjet
-      MAILJET_APIKEY: ${MAILJET_APIKEY}
-      MAILJET_APISECRET: ${MAILJET_APISECRET}
+      MAIL_MAILER: smtp
+      MAIL_HOST: in-v3.mailjet.com
+      MAIL_PORT: "587"
+      MAIL_ENCRYPTION: tls
       MAIL_FROM_ADDRESS: noreply@cyberphish.knf.vu.lt
       MAIL_FROM_NAME: "CYBERPHISH"
+      MAIL_USERNAME: ${MAILJET_APIKEY}
+      MAIL_PASSWORD: ${MAILJET_APISECRET}
 
       # Adobe
       ADOBE_EMBED_API: ${ADOBE_EMBED_API}

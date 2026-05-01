@@ -11,13 +11,13 @@
         # SECURITY: Restricts the scripts in the browser from communicating with external sources
         header Content-Security-Policy "
             default-src         'self';
-            script-src          'self' 'unsafe-inline' 'unsafe-eval' documentcloud.adobe.com;
+            script-src          'self' 'unsafe-inline' 'unsafe-eval' documentcloud.adobe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/releases/;
             style-src           'self' 'unsafe-inline';
-            img-src             'self' data:;
+            img-src             'self' data: https://www.google.com/;
             font-src            'self' data:;
-            connect-src         'self' viewlicense.adobe.io;
+            connect-src         'self' viewlicense.adobe.io https://www.google.com/recaptcha/;
             frame-ancestors     'self';
-            frame-src           'self' documentcloud.adobe.com;
+            frame-src           'self' documentcloud.adobe.com  https://www.google.com/recaptcha/;
             child-src           'self';
             form-action         'self';
             base-uri            'self';
