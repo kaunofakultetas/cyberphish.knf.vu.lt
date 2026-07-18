@@ -22,7 +22,7 @@ RUN docker-php-ext-install zip
 
 
 # Apache
-RUN a2enmod rewrite
+RUN a2enmod rewrite remoteip
 
 # Install composer and its dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends unzip && rm -rf /var/lib/apt/lists/*
