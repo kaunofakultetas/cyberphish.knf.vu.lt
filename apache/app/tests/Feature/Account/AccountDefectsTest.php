@@ -18,6 +18,9 @@
 //                          characters, a new one needs 12
 //    fullname-latin1     — Lithuanian letters of the full
 //                          name turn into question marks
+//    ee-strings          — the Estonian user-name form
+//                          talks of the password, and its
+//                          button ends in a stray 2
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -172,6 +175,56 @@ class AccountDefectsTest extends FeatureTestCase
             $this->signInMember($member)->from('/cp/dashboard')
                 ->post('/cp/change-fullname', ['fullname' => 'Ona Petraitytė']);
             $this->assertSame('Ona Petraitytė', Members::find($member->id)->fullname);
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEstonianUserNameFormSpeaksOfTheUserName
+    // -----------------------------------------------------------
+    //
+    // resources/lang/ee/main.php gets three strings of the
+    // dashboard's user-name form wrong: the button,
+    // change_username2, ends in a stray 2, and pass_updated
+    // and pass_unavailable — the answers
+    // ManagerMainController::change_username gives a rename
+    // and a name already taken — say the password was
+    // updated or is unavailable. An Estonian member who
+    // renames is told the password changed. Wanted: a button
+    // without the stray 2, and both answers about the user
+    // name, not the password.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEstonianUserNameFormSpeaksOfTheUserName(): void
+    {
+        $this->world->language('ee');
+        $member = $this->world->member();
+        $other = $this->world->member();
+        $this->signInMember($member)->withSession(['lang' => 'ee'])->from('/cp/dashboard');
+
+        // The first submit button after the user-name form's
+        // action is that form's own
+        $dashboard = $this->get('/cp/dashboard')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#cp/change-username".*?type="submit" value="([^"]*)"#s', $dashboard, $button), 'the dashboard has no user-name button');
+
+        $this->post('/cp/change-username', ['username' => 'Renamed' . $member->id])->assertSessionHas('success');
+        $renamed = session('success');
+        $this->post('/cp/change-username', ['username' => $other->username])->assertSessionHasErrors();
+        $taken = session('errors')->first();
+
+        $this->pinDefect('ee-strings', function () use ($button, $renamed, $taken) {
+            $this->assertNotRegExp('/\d/', $button[1], "the button reads {$button[1]}");
+            foreach (['the rename' => $renamed, 'the taken name' => $taken] as $case => $answer) {
+                $this->assertStringContainsStringIgnoringCase('kasutaja', $answer, "$case answers $answer");
+                $this->assertStringNotContainsStringIgnoringCase('parool', $answer, "$case answers $answer");
+            }
         });
     }
 }

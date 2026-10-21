@@ -105,8 +105,8 @@ class World
     // the seed rows do not have it.
     //
     // Used by:
-    //   - the Feature suite — Admin/, Auth/, Knowledge/,
-    //     Learning/, Simulations/, Site/
+    //   - the Feature suite — Account/, Admin/, Auth/,
+    //     Knowledge/, Learning/, Simulations/, Site/
     //   - coverKnowledgeAttempts (below)
     // -----------------------------------------------------------
 
@@ -137,7 +137,7 @@ class World
     //   - AdminContentTest (Feature/Admin/)
     //   - CourseProgressTest, LearningDefectsTest,
     //     SelfEvaluationTest (Feature/Learning/)
-    //   - PublicPagesTest (Feature/Site/)
+    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
     //   - knowledgeLimits (below)
     // -----------------------------------------------------------
 
@@ -232,7 +232,7 @@ class World
     //
     // Used by:
     //   - AdminContentTest, AdminDefectsTest (Feature/Admin/)
-    //   - PublicPagesTest (Feature/Site/)
+    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function news(int $langId, array $columns = []): int
@@ -380,7 +380,7 @@ class World
     // "options".
     //
     // Used by:
-    //   - AdminLearningTest (Feature/Admin/)
+    //   - AdminLearningTest, AdminDefectsTest (Feature/Admin/)
     //   - CourseProgressTest, LearningDefectsTest,
     //     SelfEvaluationTest (Feature/Learning/)
     // -----------------------------------------------------------
@@ -422,7 +422,7 @@ class World
     // the option ids, in order, under "options".
     //
     // Used by:
-    //   - AdminLearningTest (Feature/Admin/)
+    //   - AdminLearningTest, AdminDefectsTest (Feature/Admin/)
     //   - KnowledgeExamTest, KnowledgeDefectsTest
     //     (Feature/Knowledge/)
     // -----------------------------------------------------------
@@ -514,7 +514,8 @@ class World
     // A simulation category in the language; returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest (Feature/Admin/)
+    //   - AdminSimulationsTest, AdminDefectsTest
+    //     (Feature/Admin/)
     //   - SimulationsTest, SimulationDefectsTest
     //     (Feature/Simulations/)
     // -----------------------------------------------------------
@@ -539,7 +540,8 @@ class World
     // A simulation attribute in the language; returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest (Feature/Admin/)
+    //   - AdminSimulationsTest, AdminDefectsTest
+    //     (Feature/Admin/)
     //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
 
@@ -565,12 +567,13 @@ class World
     // steps are added with scenarioOption. Returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest (Feature/Admin/)
+    //   - AdminSimulationsTest, AdminDefectsTest
+    //     (Feature/Admin/)
     //   - CourseProgressTest, LearningDefectsTest
     //     (Feature/Learning/)
     //   - SimulationsTest, SimulationDefectsTest
     //     (Feature/Simulations/)
-    //   - PublicPagesTest (Feature/Site/)
+    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function scenario(int $langId, array $columns = [], array $categoryIds = [], array $attributeIds = []): int
@@ -658,7 +661,7 @@ class World
     // log keeps it; returns its id.
     //
     // Used by:
-    //   - LoginTest (Feature/Auth/)
+    //   - LoginTest, AuthDefectsTest (Feature/Auth/)
     // -----------------------------------------------------------
 
     public function loginLog(int $userId, string $loggedAt): int
@@ -703,7 +706,7 @@ class World
     // returns its id.
     //
     // Used by:
-    //   - PublicPagesTest (Feature/Site/)
+    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function selfEvalAttempt(int $userId, int $categoryId, int $langId, array $columns = []): int
@@ -769,7 +772,7 @@ class World
     //   - AdminSimulationsTest (Feature/Admin/)
     //   - CourseProgressTest (Feature/Learning/)
     //   - SimulationsTest (Feature/Simulations/)
-    //   - PublicPagesTest (Feature/Site/)
+    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function scenarioAttempt(int $userId, int $scenarioId, int $langId, array $columns = []): int
@@ -800,8 +803,9 @@ class World
     // included, since they use ids up too.
     //
     // Used by:
-    //   - coverKnowledgeAttempts (above), KnowledgeDefectsTest
-    //     (Feature/Knowledge/)
+    //   - coverKnowledgeAttempts (above)
+    //   - KnowledgeDefectsTest (Feature/Knowledge/)
+    //   - AdminDefectsTest (Feature/Admin/)
     // -----------------------------------------------------------
 
     public function nextId(string $table): int

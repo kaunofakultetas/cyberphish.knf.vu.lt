@@ -117,7 +117,7 @@ abstract class TestCase extends LaravelTestCase
     // which Mockery replaces here.
     //
     // Used by:
-    //   - the registration and password-reset tests
+    //   - RegistrationTest, PasswordResetTest, AuthDefectsTest
     //     (Feature/Auth/)
     // -----------------------------------------------------------
 
@@ -218,6 +218,7 @@ abstract class TestCase extends LaravelTestCase
     // Used by:
     //   - AdminLearningTest, AdminSimulationsTest,
     //     AdminDefectsTest (Feature/Admin/)
+    //   - Sheets::simulationSheet (Support/)
     // -----------------------------------------------------------
 
     protected function uploadedFile(string $name, string $content): UploadedFile

@@ -23,11 +23,9 @@
 
 namespace Tests\Feature\Admin;
 
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\FeatureTestCase;
+use Tests\Support\Sheets;
 
 
 
@@ -49,6 +47,9 @@ use Tests\FeatureTestCase;
 
 class AdminSimulationsTest extends FeatureTestCase
 {
+
+    // The simulation spreadsheet of the import
+    use Sheets;
 
     // The English id and the main admin of the test running
     // now
@@ -242,62 +243,6 @@ class AdminSimulationsTest extends FeatureTestCase
         $this->assertFalse(DB::table('bei_scenarios_options')->where('scenario_id', $scenario)->exists());
         $this->assertFalse(DB::table('bei_scenarios_in_category')->where('scenario_id', $scenario)->exists());
         $this->assertFalse(DB::table('bei_users_scenarios')->where('scenario_id', $scenario)->exists());
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // simulationSheet
-    // -----------------------------------------------------------
-    //
-    // A simulation spreadsheet in the project's layout: the
-    // texts, the category "Credential theft" and the attribute
-    // "Urgency" marked Yes, and three steps — checking the
-    // sender (Correct) with reporting it under it
-    // (Semi-correct), and clicking the link (Incorrect).
-    //
-    // Used by:
-    //   - testSpreadsheetBecomesASimulation (above)
-    // -----------------------------------------------------------
-
-    private function simulationSheet(): UploadedFile
-    {
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $cells = [
-            'C19' => 'An urgent invoice arrives',
-            'C20' => 'Spot the fake',
-            'C21' => 'Finance clerk',
-            'C22' => 'Email',
-            'C26' => '1',
-            'C27' => 'Phishing',
-            'C30' => 'invoice',
-            'B34' => 'Yes',
-            'C34' => 'Credential theft',
-            'D34' => 'Yes',
-            'E34' => 'Urgency',
-        ];
-        foreach ($cells as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
-        }
-        $steps = [
-            58 => [1, 'Check the sender', 'Correct', 'Good: the domain is wrong'],
-            59 => [2, 'Report it to IT', 'Semi-correct', 'IT blocks the sender'],
-            60 => [1, 'Click the link', 'Incorrect', 'That installs malware'],
-        ];
-        foreach ($steps as $row => list($level, $situation, $answer, $feedback)) {
-            $sheet->setCellValue("A$row", $level);
-            $sheet->setCellValue("C$row", $situation);
-            $sheet->setCellValue("D$row", $answer);
-            $sheet->setCellValue("E$row", $feedback);
-        }
-
-        $path = tempnam(sys_get_temp_dir(), 'sheet');
-        (new Xlsx($spreadsheet))->save($path);
-        return $this->uploadedFile('simulation.xlsx', file_get_contents($path));
     }
 
 

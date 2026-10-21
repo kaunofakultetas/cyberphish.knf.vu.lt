@@ -21,6 +21,9 @@
 //    simulation-without-category    — a simulation filed
 //                                     under no category is a
 //                                     500
+//    simulation-badge-message       — a badge held for long
+//                                     is announced again on
+//                                     each visit
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -213,6 +216,45 @@ class SimulationDefectsTest extends FeatureTestCase
             $this->signInMember($this->member)->get("/en/simulation/$uncategorised")
                 ->assertOk()
                 ->assertSee('An uncategorised simulation');
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testHeldBadgeIsNotAnnouncedAgain
+    // -----------------------------------------------------------
+    //
+    // Once every simulation of the language is finished,
+    // SimulationsController::simulation_do_stuff calls
+    // save_badge for badge_all_simulations on every end page
+    // and flashes main.new_badge whatever save_badge answered
+    // — false for a badge held already — so each later end
+    // page, a reload or a visit from the history among them,
+    // announces a new badge again. The one simulation of the
+    // language is finished here, and its end page opened
+    // twice. Wanted: only the visit that earned the badge
+    // announces it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHeldBadgeIsNotAnnouncedAgain(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->best);
+        $this->chooseSimulationOption($this->member, $publicId, $this->last);
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")
+            ->assertSee(__('main.new_badge'), false);
+
+        $revisit = $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+
+        $this->pinDefect('simulation-badge-message', function () use ($revisit) {
+            $this->assertStringNotContainsString(__('main.new_badge'), $revisit->getContent(), 'the held badge was announced as new again');
         });
     }
 }

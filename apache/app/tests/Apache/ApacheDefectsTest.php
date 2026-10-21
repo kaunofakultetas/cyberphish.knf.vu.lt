@@ -21,6 +21,8 @@
 //                            leaves HTTPS
 //    captcha-outage-500    — registration is a server error
 //                            while Google is unreachable
+//    captcha-outage-reset  — the reset request is a 500
+//                            while Google is unreachable
 //
 //  Used by:
 //    - PHPUnit — the Apache suite (runTests.sh)
@@ -279,6 +281,48 @@ class ApacheDefectsTest extends ApacheTestCase
         $this->assertFalse(Members::where('email', $email)->exists(), 'the registration went through');
         $this->pinDefect('captcha-outage-500', function () use ($response) {
             $this->assertSame(302, $response->getStatusCode(), 'the registration is a server error');
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResetRequestSurvivesAGoogleOutage
+    // -----------------------------------------------------------
+    //
+    // LoginController::forgotpassword checks the reCAPTCHA
+    // with the rule the sign-up form uses, and
+    // anhskohbo/no-captcha posts the token to Google with no
+    // try/catch: while Google cannot be reached the
+    // connection error escapes the validator, and the
+    // forgot-password form answers with the 500 page — the
+    // reset-request twin of captcha-outage-500. It fails
+    // closed, no reset link goes out, but the member who
+    // asked for one is told nothing. Wanted: the form back
+    // with an error.
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResetRequestSurvivesAGoogleOutage(): void
+    {
+        $member = $this->world->member();
+        $token = $this->http->csrfToken('/forgot-password');
+        $this->assertNotSame('', $token, 'the forgot-password page has no CSRF token');
+
+        $response = $this->http->post('/forgot-password', [
+            '_token'               => $token,
+            'email'                => $member->email,
+            'g-recaptcha-response' => 'a-token-google-never-sees',
+        ]);
+
+        $this->assertSame('', Members::find($member->id)->remember_token, 'a reset link went out');
+        $this->pinDefect('captcha-outage-reset', function () use ($response) {
+            $this->assertSame(302, $response->getStatusCode(), 'the reset request is a server error');
         });
     }
 }

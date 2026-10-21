@@ -12,24 +12,34 @@
 //  so the first two are the serious ones: each lets a
 //  member pass without the knowledge.
 //
-//    knowledge-skipped-answers — a question answered with no
-//                                option drops out of the
-//                                result
-//    knowledge-repeated-option — a correct option posted many
-//                                times counts many times
-//    knowledge-all-skipped     — skipping every question
-//                                divides by zero and the
-//                                test never closes
-//    knowledge-unknown-attempt — an unknown attempt id is a
-//                                500
-//    knowledge-attempt-owner   — any member can open another
-//                                member's attempt
-//    knowledge-attempt-limit   — the three-try limit lives in
-//                                the page only
-//    knowledge-category-lookup — an answer's category is
-//                                looked up by the attempt's
-//                                id: once attempt ids pass the
-//                                question ids, answering fails
+//    knowledge-skipped-answers  — a question answered with no
+//                                 option drops out of the
+//                                 result
+//    knowledge-repeated-option  — a correct option posted
+//                                 many times counts many
+//                                 times
+//    knowledge-all-skipped      — skipping every question
+//                                 divides by zero and the
+//                                 test never closes
+//    knowledge-unknown-attempt  — an unknown attempt id is a
+//                                 500
+//    knowledge-attempt-owner    — any member can open another
+//                                 member's attempt
+//    knowledge-attempt-limit    — the three-try limit lives
+//                                 in the page only
+//    knowledge-category-lookup  — an answer's category is
+//                                 looked up by the attempt's
+//                                 id: once attempt ids pass
+//                                 the question ids, answering
+//                                 fails
+//    knowledge-reclose          — every visit closes a
+//                                 finished attempt again and
+//                                 moves its end date
+//    knowledge-limits-missing   — a language missing from the
+//                                 limits makes every start a
+//                                 500
+//    knowledge-badge-later-pass — a pass on a later try never
+//                                 earns the final-test badge
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -325,6 +335,109 @@ class KnowledgeDefectsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testFinishedAttemptStaysClosed
+    // -----------------------------------------------------------
+    //
+    // KnowledgeTestController::progress closes an attempt
+    // whenever no drawn question is left unanswered, without
+    // looking at finished: every later visit of the progress
+    // page closes it again, moves ended — the date the
+    // certificate prints — to that visit, and works the
+    // result out again from the answer rows as they are by
+    // then. Wanted: a closed attempt keeps its end date and
+    // result.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedAttemptStaysClosed(): void
+    {
+        $publicId = $this->finishWith([[0], [0], [0]]);
+        DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->update(['ended' => '2020-01-01 00:00:00']);
+
+        $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
+
+        $this->pinDefect('knowledge-reclose', function () use ($publicId) {
+            $ended = DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->value('ended');
+            $this->assertSame('2020-01-01 00:00:00', $ended, 'the visit moved the end date');
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageMissingFromTheLimitsStillStarts
+    // -----------------------------------------------------------
+    //
+    // KnowledgeTestController::start takes the limits of the
+    // test's language from settings row 3 without checking
+    // that the language has an entry there. A language whose
+    // first category came after the limits were last saved
+    // has none: its test page offers the start form, and
+    // every start is an undefined index — a 500. Here
+    // Lithuanian gets a category and a question, while the
+    // limits name English only. Wanted: the start answers
+    // with a redirect.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageMissingFromTheLimitsStillStarts(): void
+    {
+        $lt = $this->world->language('lt');
+        $this->world->knowledgeQuestion($this->world->lmCategory($lt), [['Right', true], ['Wrong', false]]);
+        $this->signInMember($this->member)->get('/lt/knowledge_test')->assertOk()->assertSee('/lt/knowledge_start');
+
+        $this->pinDefect('knowledge-limits-missing', function () {
+            $this->signInMember($this->member)->post('/lt/knowledge_start')->assertRedirect();
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPassOnALaterTryEarnsTheBadge
+    // -----------------------------------------------------------
+    //
+    // KnowledgeTestController::progress awards
+    // badge_final_test only when the attempt it closes is the
+    // member's first finished one, counted over every
+    // language, so a member who fails the first try and
+    // passes a later one never earns the badge. Wanted: a
+    // pass on the second try earns badge_final_test.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPassOnALaterTryEarnsTheBadge(): void
+    {
+        $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 40]);
+        $publicId = $this->finishWith([[0], [0], [0]]);
+        $this->assertSame(100, $this->results($publicId));
+
+        $this->pinDefect('knowledge-badge-later-pass', function () {
+            $this->assertTrue(
+                DB::table('bei_users_badges')->where(['user_id' => $this->member->id, 'name' => 'badge_final_test'])->exists(),
+                'the pass on the second try earned no badge'
+            );
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // finishWith
     // -----------------------------------------------------------
     //
@@ -335,6 +448,8 @@ class KnowledgeDefectsTest extends FeatureTestCase
     //
     // Used by:
     //   - the scoring tests of this class
+    //   - testFinishedAttemptStaysClosed,
+    //     testPassOnALaterTryEarnsTheBadge (above)
     // -----------------------------------------------------------
 
     private function finishWith(array $answers): string
@@ -364,6 +479,7 @@ class KnowledgeDefectsTest extends FeatureTestCase
     //
     // Used by:
     //   - the scoring tests of this class
+    //   - testPassOnALaterTryEarnsTheBadge (above)
     // -----------------------------------------------------------
 
     private function results(string $publicId): int
