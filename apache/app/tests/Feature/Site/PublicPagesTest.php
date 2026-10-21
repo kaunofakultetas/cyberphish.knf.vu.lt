@@ -1,0 +1,425 @@
+<?php
+
+// -----------------------------------------------------------
+//  [*] PublicPagesTest — the pages anyone can open
+//
+//  The home page with its about text, the news list and
+//  articles, the information pages, the two public ranking
+//  tables and the language switch — the parts of the site a
+//  visitor sees without an account. The home page's
+//  latest-news section is switched off: welcome.blade.php
+//  keeps it inside a Blade comment, though HomeController
+//  still loads the three latest articles for it.
+//  The language of a page comes from the {lang} part of its
+//  URL when that is one of en, lt, ee, lv and gr, and from
+//  the session otherwise (BaseController).
+//
+//  Used by:
+//    - PHPUnit — the Feature suite (runTests.sh)
+// -----------------------------------------------------------
+
+
+namespace Tests\Feature\Site;
+
+use Tests\FeatureTestCase;
+
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// PublicPagesTest
+// -----------------------------------------------------------
+//
+// Every test is a visitor with no session; English is the
+// seeded language (id 3), Lithuanian is added where a test
+// needs a second one.
+//
+// Used by:
+//   - PHPUnit — the Feature suite (runTests.sh)
+// -----------------------------------------------------------
+
+class PublicPagesTest extends FeatureTestCase
+{
+
+    // The ids of English and Lithuanian for the test running
+    // now
+    private $en;
+    private $lt;
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // setUp
+    // -----------------------------------------------------------
+    //
+    // English and Lithuanian for every test.
+    //
+    // Used by:
+    //   - PHPUnit, before every test
+    // -----------------------------------------------------------
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->en = $this->world->language('en');
+        $this->lt = $this->world->language('lt');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testHomePageOpensOnAFreshInstall
+    // -----------------------------------------------------------
+    //
+    // The home page renders with nothing but the seed rows of
+    // mysql/init.sql — no about text (settings row 1) and no
+    // news.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHomePageOpensOnAFreshInstall(): void
+    {
+        $this->get('/')->assertOk()->assertSee('CYBERPHISH');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testHomePageShowsTheAboutTextOfTheLanguage
+    // -----------------------------------------------------------
+    //
+    // Settings row 1 holds the about text per language id;
+    // the home page shows the one of the session's language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHomePageShowsTheAboutTextOfTheLanguage(): void
+    {
+        $this->world->setting(1, 'about', json_encode([
+            $this->en => ['descr' => 'Training against phishing', 'link' => 'https://cyberphish.knf.vu.lt/en/page/about/1'],
+            $this->lt => ['descr' => 'Mokymai prieš sukčiavimą', 'link' => 'https://cyberphish.knf.vu.lt/lt/page/apie/2'],
+        ]));
+
+        $this->get('/')->assertOk()->assertSee('Training against phishing')->assertDontSee('Mokymai prieš sukčiavimą');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewsListShowsTheNewsOfTheLanguage
+    // -----------------------------------------------------------
+    //
+    // The news list of a language holds that language's
+    // articles only.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsListShowsTheNewsOfTheLanguage(): void
+    {
+        $this->world->news($this->en, ['title' => 'English article']);
+        $this->world->news($this->lt, ['title' => 'Lietuviškas straipsnis']);
+
+        $this->get('/lt/news')->assertOk()->assertSee('Lietuviškas straipsnis')->assertDontSee('English article');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewsListPagesByTwelve
+    // -----------------------------------------------------------
+    //
+    // Twelve articles a page, in the order they were added:
+    // the thirteenth is on page two.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsListPagesByTwelve(): void
+    {
+        for ($i = 1; $i <= 13; $i++) {
+            $this->world->news($this->en, ['title' => sprintf('Article number %02d', $i)]);
+        }
+
+        $this->get('/en/news')->assertSee('Article number 12')->assertDontSee('Article number 13');
+        $this->get('/en/news?page=2')->assertSee('Article number 13')->assertDontSee('Article number 12');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewsArticleOpens
+    // -----------------------------------------------------------
+    //
+    // An article opens by its id, with its title and body.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsArticleOpens(): void
+    {
+        $id = $this->world->news($this->en, ['title' => 'Spotting a fake bank mail', 'content' => '<p>Check the sender.</p>']);
+
+        $this->get("/en/news/spotting-a-fake-bank-mail/$id")
+            ->assertOk()
+            ->assertSee('Spotting a fake bank mail')
+            ->assertSee('Check the sender.');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMissingNewsArticleIsNotFound
+    // -----------------------------------------------------------
+    //
+    // NewsExists answers an unknown or non-numeric id with a
+    // 404.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMissingNewsArticleIsNotFound(): void
+    {
+        $id = $this->world->news($this->en);
+
+        $this->get('/en/news/gone/' . ($id + 1000))->assertNotFound();
+        $this->get('/en/news/gone/abc')->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testInformationPageOpens
+    // -----------------------------------------------------------
+    //
+    // An information page opens by its id; an unknown id is a
+    // 404 (PageExists).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testInformationPageOpens(): void
+    {
+        $id = $this->world->information($this->en, ['title' => 'About the project', 'content' => '<p>Erasmus+ partners.</p>']);
+
+        $this->get("/en/page/about-the-project/$id")->assertOk()->assertSee('Erasmus+ partners.');
+        $this->get('/en/page/gone/' . ($id + 1000))->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSelfEvaluationRankingAddsUpTheBestScores
+    // -----------------------------------------------------------
+    //
+    // The ranking sums each member's best score per category
+    // (view_max_points_per_selfeval_cat) and lists the highest
+    // total first; unfinished attempts do not count.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSelfEvaluationRankingAddsUpTheBestScores(): void
+    {
+        $first = $this->world->lmCategory($this->en);
+        $second = $this->world->lmCategory($this->en);
+        $leader = $this->world->member(['username' => 'TopScorer']);
+        $runnerUp = $this->world->member(['username' => 'SecondBest']);
+        $this->world->selfEvalAttempt($leader->id, $first, $this->en, ['points' => 30]);
+        $this->world->selfEvalAttempt($leader->id, $first, $this->en, ['points' => 10]);
+        $this->world->selfEvalAttempt($leader->id, $second, $this->en, ['points' => 40]);
+        $this->world->selfEvalAttempt($runnerUp->id, $first, $this->en, ['points' => 50]);
+        $this->world->selfEvalAttempt($runnerUp->id, $second, $this->en, ['points' => 90, 'finished' => 0]);
+
+        $this->get('/en/ranks/self-evaluation')
+            ->assertOk()
+            ->assertSeeInOrder(['TopScorer', '70', 'SecondBest', '50']);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSimulationRankingAddsUpTheBestScores
+    // -----------------------------------------------------------
+    //
+    // The same for simulations: each member's best run per
+    // simulation, summed, highest first.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationRankingAddsUpTheBestScores(): void
+    {
+        $first = $this->world->scenario($this->en);
+        $second = $this->world->scenario($this->en);
+        $leader = $this->world->member(['username' => 'SimLeader']);
+        $runnerUp = $this->world->member(['username' => 'SimRunnerUp']);
+        $this->world->scenarioAttempt($leader->id, $first, $this->en, ['points' => 200]);
+        $this->world->scenarioAttempt($leader->id, $second, $this->en, ['points' => 150]);
+        $this->world->scenarioAttempt($runnerUp->id, $first, $this->en, ['points' => 300]);
+
+        $this->get('/en/ranks/simulations')
+            ->assertOk()
+            ->assertSeeInOrder(['SimLeader', '350', 'SimRunnerUp', '300']);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRankingPrintsUserNamesAsText
+    // -----------------------------------------------------------
+    //
+    // Members choose their user names, and the ranking shows
+    // them to everyone: markup in a name is escaped, never
+    // rendered.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRankingPrintsUserNamesAsText(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $member = $this->world->member(['username' => '<b onclick="x()">Bold</b>']);
+        $this->world->selfEvalAttempt($member->id, $category, $this->en, ['points' => 10]);
+
+        $this->get('/en/ranks/self-evaluation')
+            ->assertSee('&lt;b onclick=&quot;x()&quot;&gt;Bold&lt;/b&gt;', false)
+            ->assertDontSee('<b onclick="x()">Bold</b>', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageSwitchStoresTheChoice
+    // -----------------------------------------------------------
+    //
+    // lang/{lang} keeps the language in the session and
+    // returns to the home page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageSwitchStoresTheChoice(): void
+    {
+        $this->get('/lang/lt')->assertRedirect('/')->assertSessionHas('lang', 'lt');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUnknownLanguageIsABadRequest
+    // -----------------------------------------------------------
+    //
+    // A language outside the five the site speaks is a 400 and
+    // leaves the session alone.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUnknownLanguageIsABadRequest(): void
+    {
+        $this->get('/lang/xx')->assertStatus(400);
+
+        $this->assertNotSame('xx', session('lang'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageInTheUrlSetsTheSession
+    // -----------------------------------------------------------
+    //
+    // Opening a page under /lt/ makes Lithuanian the session's
+    // language for the pages that follow.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageInTheUrlSetsTheSession(): void
+    {
+        $this->get('/lt/news')->assertOk()->assertSessionHas('lang', 'lt');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUnknownLanguageInTheUrlFallsBackToTheSession
+    // -----------------------------------------------------------
+    //
+    // An unknown language in the URL is ignored: the page
+    // opens in the session's language — English for a new
+    // visitor.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUnknownLanguageInTheUrlFallsBackToTheSession(): void
+    {
+        $this->get('/xx/news')->assertOk()->assertSessionHas('lang', 'en');
+    }
+}

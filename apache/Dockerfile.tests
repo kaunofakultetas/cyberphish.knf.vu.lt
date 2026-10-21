@@ -1,0 +1,46 @@
+# -----------------------------------------------------------
+#  [*] Apache — regression test image
+#
+#  The production image, built first by runTests.sh under
+#  the cyberphish-apache-check tag, plus what the suite
+#  needs around the app — nothing inside the app changes.
+#  MySQL 5.7.42, the server of the production stack, comes
+#  from the Debian build of the official image (the same
+#  Debian as the PHP image); PHPUnit and Mockery go to
+#  /opt/test-tools, never into the app's vendor, which
+#  stays exactly what ships. The build context is app/:
+#  the suite is kept out of the production image by
+#  .dockerignore and copied in here.
+#
+#  Used by:
+#    - runTests.sh (this folder)
+# -----------------------------------------------------------
+ARG BASE=cyberphish-apache-check
+FROM ${BASE}
+
+USER root
+
+
+# MySQL 5.7.42 server and client, with the libraries they link
+COPY --from=mysql:5.7.42-debian /usr/sbin/mysqld /usr/sbin/mysqld
+COPY --from=mysql:5.7.42-debian /usr/bin/mysql /usr/bin/mysqladmin /usr/bin/
+COPY --from=mysql:5.7.42-debian /usr/share/mysql /usr/share/mysql
+RUN apt-get update &&                                                        \
+    apt-get install -y --no-install-recommends libaio1 libnuma1 libatomic1 && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# PHPUnit and Mockery, at the versions tests/container/composer.lock pins
+COPY tests/container/composer.json tests/container/composer.lock /opt/test-tools/
+RUN COMPOSER_HOME=/tmp/composer composer install --working-dir=/opt/test-tools \
+        --no-interaction --no-progress --prefer-dist &&                         \
+    rm -rf /tmp/composer
+
+
+# The suite
+COPY --chown=1000:1000 phpunit.xml /var/www/html/phpunit.xml
+COPY --chown=1000:1000 tests /var/www/html/tests
+
+
+USER 1000:1000
+ENTRYPOINT ["sh", "/var/www/html/tests/container/run.sh"]
