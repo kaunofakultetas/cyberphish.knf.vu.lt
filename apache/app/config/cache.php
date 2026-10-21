@@ -1,36 +1,38 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/cache.php — the cache stores
+//
+//  Laravel 7's stock cache file, unchanged. CACHE_DRIVER is
+//  not set in docker-compose.yml, so the default store is
+//  file, under storage/framework/cache — a tmpfs in the
+//  cyberphish-apache container, emptied by every restart.
+//  Nothing uses the cache at the moment: the app makes no
+//  Cache call, and the only throttles — the api group's and
+//  VerificationController's — never run, because
+//  routes/api.php holds no route and no route reaches
+//  VerificationController. No other variable of this file
+//  is set either.
+//
+//  Used by:
+//    - Laravel's CacheManager, which nothing calls at the
+//      moment
+// -----------------------------------------------------------
+
+
 use Illuminate\Support\Str;
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Cache Store
-    |--------------------------------------------------------------------------
-    |
-    | This option controls the default cache connection that gets used while
-    | using this caching library. This connection is used when another is
-    | not explicitly specified when executing a given caching function.
-    |
-    | Supported: "apc", "array", "database", "file",
-    |            "memcached", "redis", "dynamodb"
-    |
-    */
-
+    // The store the Cache facade uses, from CACHE_DRIVER —
+    // not set, so file; the in-process tests use array
+    // (phpunit.xml). Laravel supports apc, array, database,
+    // file, memcached, redis and dynamodb
     'default' => env('CACHE_DRIVER', 'file'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cache Stores
-    |--------------------------------------------------------------------------
-    |
-    | Here you may define all of the cache "stores" for your application as
-    | well as their drivers. You may even define multiple stores for the
-    | same cache driver to group types of items stored in your caches.
-    |
-    */
-
+    // One entry per store. database would need a cache table
+    // mysql/init.sql does not create, and redis the phpredis
+    // extension the image does not have
     'stores' => [
 
         'apc' => [
@@ -61,7 +63,6 @@ return [
                 env('MEMCACHED_PASSWORD'),
             ],
             'options' => [
-                // Memcached::OPT_CONNECT_TIMEOUT => 2000,
             ],
             'servers' => [
                 [
@@ -88,17 +89,9 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cache Key Prefix
-    |--------------------------------------------------------------------------
-    |
-    | When utilizing a RAM based store such as APC or Memcached, there might
-    | be other applications utilizing the same cache. So, we'll specify a
-    | value to get prefixed to all our keys so we can avoid collisions.
-    |
-    */
-
+    // The prefix of every cache key, so stores shared with
+    // other apps do not collide: CACHE_PREFIX, or APP_NAME as
+    // a slug plus _cache — cyberphish_cache here
     'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_cache'),
 
 ];

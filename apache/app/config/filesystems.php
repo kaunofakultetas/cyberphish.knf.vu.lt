@@ -1,46 +1,40 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/filesystems.php — the storage disks
+//
+//  The disks the Storage facade writes to. The app does not
+//  use them: the admin controllers move news pictures,
+//  lesson files and simulation imports straight into
+//  storage/app/public and public/upload, and the pages link
+//  the files under /upload. Laravel 7's stock file plus an
+//  azure disk, in the shape matthewbdaly/laravel-azure-storage
+//  reads — its provider comes in through package discovery
+//  (the app's own AzureStorageServiceProvider is never
+//  loaded) — and nothing stores on it. Of the variables
+//  here only APP_URL is set in docker-compose.yml; none of
+//  the FILESYSTEM_, AWS_ or AZURE_STORAGE_ ones is.
+//
+//  Used by:
+//    - Laravel's FilesystemManager, which nothing in the app
+//      calls at the moment
+// -----------------------------------------------------------
+
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Filesystem Disk
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the default filesystem disk that should be used
-    | by the framework. The "local" disk, as well as a variety of cloud
-    | based disks are available to your application. Just store away!
-    |
-    */
-
+    // The disk the Storage facade uses when none is named,
+    // from FILESYSTEM_DRIVER — not set, so local
     'default' => env('FILESYSTEM_DRIVER', 'local'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Cloud Filesystem Disk
-    |--------------------------------------------------------------------------
-    |
-    | Many applications store files both locally and in the cloud. For this
-    | reason, you may specify a default "cloud" driver here. This driver
-    | will be bound as the Cloud disk implementation in the container.
-    |
-    */
-
+    // The disk bound as the cloud disk, from FILESYSTEM_CLOUD
+    // — not set, so s3, which has no credentials here
     'cloud' => env('FILESYSTEM_CLOUD', 's3'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Filesystem Disks
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure as many filesystem "disks" as you wish, and you
-    | may even configure multiple disks of the same driver. Defaults have
-    | been setup for each driver as an example of the required options.
-    |
-    | Supported Drivers: "local", "ftp", "sftp", "s3"
-    |
-    */
-
+    // One entry per disk; Laravel supports the local, ftp,
+    // sftp and s3 drivers. local is storage/app; public is
+    // storage/app/public, linked under APP_URL/storage — a
+    // URL no page uses
     'disks' => [
 
         'local' => [
@@ -64,6 +58,9 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
         ],
+        // An Azure blob container, the driver of
+        // matthewbdaly/laravel-azure-storage; none of the
+        // AZURE_STORAGE_ variables is set
         'azure' => [
             'driver'    => 'azure',
             'name'      => env('AZURE_STORAGE_NAME'),
@@ -75,17 +72,9 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Symbolic Links
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
-    |
-    */
-
+    // The links artisan storage:link would make; nothing
+    // runs it — the Dockerfile links public/upload to
+    // storage/app/public itself
     'links' => [
         public_path('storage') => storage_path('app/public'),
     ],

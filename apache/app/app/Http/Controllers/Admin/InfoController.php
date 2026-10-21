@@ -1,5 +1,21 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] InfoController — the information pages of the panel
+//
+//  Main admins keep the site's information pages here, the
+//  static pages visitors open at {lang}/page/{slug}/{uid}:
+//  a list of 25 to a page, the form that writes a page —
+//  its slug comes from the title — and the delete. Every
+//  route sits behind auth.admin:man and perms: main admins
+//  only.
+//
+//  Used by:
+//    - routes/web_admin.php — the admin-panel/information
+//      routes
+// -----------------------------------------------------------
+
+
 namespace App\Http\Controllers\Admin;
 
 use Carbon\Carbon;
@@ -14,23 +30,91 @@ use App\Models\Information as Information;
 use App\Models\Langs as Langs;
 use Illuminate\Support\Facades\Validator;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// InfoController
+// -----------------------------------------------------------
+//
+// The panel side of bei_information; the public side, the
+// page visitors read, is App\Http\Controllers\InfoController.
+//
+//   index          — the pages, 25 to a page
+//   form           — the new-page and edit form
+//   create, update — the form's two posts
+//   delete         — removes a page
+//
+// Used by:
+//   - routes/web_admin.php — the admin-panel/information
+//     routes
+// -----------------------------------------------------------
+
 class InfoController extends BaseController
 {
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // __construct
+    // -----------------------------------------------------------
+    //
+    // Nothing of its own: BaseController's constructor adds
+    // the auth:man middleware and shares the session's main
+    // and country flags with every view of the panel.
+    //
+    // Used by:
+    //   - Laravel's router, for every route of this controller
+    // -----------------------------------------------------------
+
     public function __construct()
     {
         parent::__construct();
     }
 
+
+
+
+
+
+    // -----------------------------------------------------------
+    // index
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/information
+    //
+    // The list of information pages, newest first, each with
+    // the name of its language, for
+    // admin-panel/information.blade.php. The whole table is
+    // read and cut into pages of 25 in PHP; a page number that
+    // is missing or not numeric means the first page, and an
+    // empty table hands the view an empty array instead of a
+    // paginator.
+    //
+    // Used by:
+    //   - admin-panel/sidebar.blade.php — the Information menu
+    //     entry
+    //   - admin-panel/information_form.blade.php — the
+    //     Information breadcrumb
+    //   - create (below) — its redirect, by the route name
+    //     information
+    // -----------------------------------------------------------
+
     public function index(Request $request)
     {
-
         $langlist = Langs::all()->pluck('name', 'id')->toArray();
 
         if(count(Information::all()->toArray()) > 0){
 
             $arr = Information::select('bei_information.*', DB::raw('bei_lang.`name` AS lang_name'))
             ->leftJoin('bei_lang', 'bei_information.lang_id', '=', 'bei_lang.id')->orderByDesc('id')->get()->toArray();
-
 
         } else {
 
@@ -62,14 +146,33 @@ class InfoController extends BaseController
             $paginator = array();
         }
 
-
-
         return view('admin-panel.information', ['recordlist' => $paginator, 'langlist'=>$langlist]);
-
     }
 
-    public function form(Request $request, $uid=null){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // form
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/information/new
+    // GET /admin-panel/information/edit/{uid?}
+    //
+    // The page form, admin-panel/information_form.blade.php:
+    // empty and posting to information/create without an id;
+    // with one, filled from the page — a query per field —
+    // and posting to information/update.
+    //
+    // Used by:
+    //   - admin-panel/information.blade.php — the Create Info
+    //     Page button and each row's edit icon
+    // -----------------------------------------------------------
+
+    public function form(Request $request, $uid=null)
+    {
         $langlist = Langs::all()->pluck('name', 'id')->toArray();
 
         if($uid == null){
@@ -90,11 +193,47 @@ class InfoController extends BaseController
                 ]);
 
         }
-
     }
 
-    public function create(Request $request){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // create
+    // -----------------------------------------------------------
+    //
+    // POST /admin-panel/information/create
+    //
+    // Saves a new page: the title — required, at most 255
+    // characters — and its slug, the body and the language as
+    // posted. Answers a redirect to the list.
+    //
+    // Known bug (low): the body and the language go in
+    // unvalidated (InfoController.php:243-244). An empty editor
+    // arrives as NULL (ConvertEmptyStringsToNull), and a
+    // single-row INSERT of NULL into the NOT NULL content
+    // column fails, a 500 instead of a saved page or a
+    // message (pinned as empty-body-500); a missing or unknown
+    // language ends the same way. Fix: validate content and
+    // lang_id, or store an empty body as an empty string.
+    //
+    // Known bug (low): the redirect is Laravel's intended one
+    // (InfoController.php:248), which first takes any page an
+    // auth middleware parked in the session — a member page
+    // the admin opened while not signed in as a member — and
+    // sends the admin there instead of to the list. Fix: a
+    // plain redirect to the list.
+    // Pinned as info-create-intended.
+    //
+    // Used by:
+    //   - admin-panel/information_form.blade.php — the form,
+    //     opened without an id
+    // -----------------------------------------------------------
+
+    public function create(Request $request)
+    {
         $validatedData = $request->validate([
             'title' => [ 'required', 'min:1', 'max:255' ],
         ]);
@@ -107,11 +246,34 @@ class InfoController extends BaseController
         $addRecord->save();
 
         return redirect()->intended(route('information'))->withSuccess("Created!");
-
     }
 
-    public function update(Request $request){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // update
+    // -----------------------------------------------------------
+    //
+    // POST /admin-panel/information/update
+    //
+    // Saves the edit form over the page named by uid: the
+    // title and its slug, the body and the language as
+    // posted. Answers a redirect back to the form. An empty
+    // body is stored as an empty string, where create fails:
+    // config/database.php turns MySQL's strict mode off, and
+    // outside it an UPDATE setting a NOT NULL column to NULL
+    // stores the column's default with a warning.
+    //
+    // Used by:
+    //   - admin-panel/information_form.blade.php — the form,
+    //     opened with an id
+    // -----------------------------------------------------------
+
+    public function update(Request $request)
+    {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
             'title' => [ 'required', 'min:1', 'max:255' ],
@@ -124,19 +286,40 @@ class InfoController extends BaseController
             'lang_id'=>$request->get('lang_id')
         ];
 
-
         Information::where(['id' => $validatedData['uid']])->update($update);
 
         return back()->withSuccess("Updated!");
-
     }
 
-    public function delete(Request $request, $uid){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // delete
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/information/delete/{uid}
+    //
+    // Deletes the page and answers a redirect back to the list.
+    //
+    // Known bug (medium): the delete answers a plain GET
+    // (InfoController.php:321), which the CSRF check never
+    // covers, so a link a signed-in admin opens deletes a
+    // page (pinned as admin-get-deletes, for every delete of
+    // the panel). Fix: a POST route, sent with the CSRF token.
+    //
+    // Used by:
+    //   - admin-panel/information.blade.php — each row's
+    //     delete icon, through Confirm_Dialog
+    //     (public/js/admn.js)
+    // -----------------------------------------------------------
+
+    public function delete(Request $request, $uid)
+    {
         Information::destroy($uid);
 
         return back()->withSuccess("Removed!");
     }
-
-
 }

@@ -1,17 +1,22 @@
 <?php
 
-return [
+// -----------------------------------------------------------
+//  [*] en/pagination — the paginator's labels, in English
+//
+//  Laravel's stock pagination file: previous and next label
+//  the arrows around the page numbers that links() renders.
+//  The admin panel's lists always read this file, since the
+//  panel never switches the locale; the public news list
+//  reads it when the site is in English.
+//
+//  Used by:
+//    - Laravel's paginator — links() in news.blade.php and in
+//      the admin lists of members, information pages, a
+//      lesson's files and a member's histories
+// -----------------------------------------------------------
 
-    /*
-    |--------------------------------------------------------------------------
-    | Pagination Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are used by the paginator library to build
-    | the simple pagination links. You are free to change them to anything
-    | you want to customize your views to better match your application.
-    |
-    */
+
+return [
 
     'previous' => '&laquo; Previous',
     'next' => 'Next &raquo;',

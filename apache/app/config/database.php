@@ -1,38 +1,44 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/database.php — the MySQL connection
+//
+//  The app's one database: the MySQL 5.7 server of the
+//  cyberphish-mysql container, whose schema mysql/init.sql
+//  creates on the container's first start. The sqlite,
+//  pgsql and sqlsrv connections and the Redis section are
+//  Laravel's stock entries and go unused.
+//
+//  Changed from Laravel 7's stock file: the database name,
+//  user and password lose their forge defaults, and strict
+//  mode is off (the comment above strict says what that
+//  does).
+//
+//  The cyberphish-apache service in docker-compose.yml sets
+//  DB_HOST (cyberphish-mysql) and DB_DATABASE, DB_USERNAME
+//  and DB_PASSWORD (the MYSQL_ variables the database
+//  container is created with); the app ships no .env file.
+//  It also sets REDIS_HOST to the cyberphish-redis
+//  container, but nothing talks to Redis — no cache,
+//  session or queue uses it, and the image has no phpredis
+//  extension to reach it with.
+//
+//  Used by:
+//    - Laravel's DatabaseManager — every model and every DB
+//      query of the app
+// -----------------------------------------------------------
+
+
 use Illuminate\Support\Str;
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Database Connection Name
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify which of the database connections below you wish
-    | to use as your default connection for all database work. Of course
-    | you may use many connections at once using the Database library.
-    |
-    */
-
+    // The connection models and queries use when they name
+    // none, from DB_CONNECTION — not set, so mysql
     'default' => env('DB_CONNECTION', 'mysql'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Database Connections
-    |--------------------------------------------------------------------------
-    |
-    | Here are each of the database connections setup for your application.
-    | Of course, examples of configuring each database platform that is
-    | supported by Laravel is shown below to make development simple.
-    |
-    |
-    | All database work in Laravel is done through the PHP PDO facilities
-    | so make sure you have the driver for your particular database of
-    | choice installed on your machine before you begin development.
-    |
-    */
-
+    // One entry per database Laravel supports out of the
+    // box; only mysql is used
     'connections' => [
 
         'sqlite' => [
@@ -43,6 +49,9 @@ return [
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],
 
+        // The cyberphish-mysql container on MySQL's port 3306;
+        // database, user and password have no default, so the
+        // environment must name them
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),
@@ -52,10 +61,20 @@ return [
             'username' => env('DB_USERNAME'),
             'password' => env('DB_PASSWORD'),
             'unix_socket' => env('DB_SOCKET', ''),
+            // The connection's character set; MySQL converts to
+            // each column's own on write — latin1 in bei_users,
+            // bei_managers and bei_lm_category
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'prefix_indexes' => true,
+            // Off: the session runs with sql_mode
+            // NO_ENGINE_SUBSTITUTION alone, so MySQL cuts an
+            // over-long value and stores a character the column
+            // cannot hold as a question mark, with a warning
+            // instead of an error — the silence behind the
+            // username-length and fullname-latin1 pins
+            // (tests/Feature/Account)
             'strict' => false,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
@@ -93,39 +112,27 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Migration Repository Table
-    |--------------------------------------------------------------------------
-    |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run in the database.
-    |
-    */
-
+    // The table artisan migrate records its runs in; nothing
+    // migrates, and mysql/init.sql creates no such table
     'migrations' => 'migrations',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Redis Databases
-    |--------------------------------------------------------------------------
-    |
-    | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer body of commands than a typical key-value system
-    | such as APC or Memcached. Laravel makes it easy to dig right in.
-    |
-    */
-
+    // Laravel's Redis connections, unused: nothing talks to
+    // Redis
     'redis' => [
 
+        // The client library, from REDIS_CLIENT — not set, so
+        // phpredis, an extension the image does not have
         'client' => env('REDIS_CLIENT', 'phpredis'),
 
+        // Cluster mode, and the prefix of every key: APP_NAME
+        // as a slug plus _database_
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
             'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
         ],
 
+        // The connection broadcasting and the redis queue
+        // would use; REDIS_HOST is cyberphish-redis
         'default' => [
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),
@@ -134,6 +141,8 @@ return [
             'database' => env('REDIS_DB', '0'),
         ],
 
+        // The connection of the redis cache store, on its own
+        // database
         'cache' => [
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),

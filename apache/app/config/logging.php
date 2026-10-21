@@ -1,39 +1,39 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/logging.php — where the log goes
+//
+//  Laravel 7's stock logging file, unchanged. LOG_CHANNEL
+//  is not set in docker-compose.yml, so everything goes
+//  through the stack channel into the single file
+//  storage/logs/laravel.log, at debug level, never rotated
+//  by Laravel; docker-compose.yml binds that folder to
+//  _LOGS/apache/laravel_logs on the host. The app writes no
+//  log line of its own — what lands there are the errors
+//  the exception handler reports. None of the other
+//  variables here is set either.
+//
+//  Used by:
+//    - Laravel's LogManager — the exception handler
+//      (app/Exceptions/Handler.php) reports every uncaught
+//      error through it
+// -----------------------------------------------------------
+
+
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Log Channel
-    |--------------------------------------------------------------------------
-    |
-    | This option defines the default log channel that gets used when writing
-    | messages to the logs. The name specified in this option should match
-    | one of the channels defined in the "channels" configuration array.
-    |
-    */
-
+    // The channel the log goes to, from LOG_CHANNEL — not
+    // set, so stack, which hands everything to single
     'default' => env('LOG_CHANNEL', 'stack'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Log Channels
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the log channels for your application. Out of
-    | the box, Laravel uses the Monolog PHP logging library. This gives
-    | you a variety of powerful log handlers / formatters to utilize.
-    |
-    | Available Drivers: "single", "daily", "slack", "syslog",
-    |                    "errorlog", "monolog",
-    |                    "custom", "stack"
-    |
-    */
-
+    // One entry per channel; Laravel's drivers are single,
+    // daily, slack, syslog, errorlog, monolog, custom and
+    // stack. emergency is the file Laravel falls back to
+    // when a channel cannot be built
     'channels' => [
         'stack' => [
             'driver' => 'stack',

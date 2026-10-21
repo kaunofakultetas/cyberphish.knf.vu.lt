@@ -1,5 +1,31 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] lt/main — the site's own strings, in Lithuanian
+//
+//  Every text of the member side and its mails in Lithuanian,
+//  by key, the same keys as en/main.php. Lithuanian is also
+//  the fallback_locale (config/app.php): a key another
+//  language's main.php lacks shows in Lithuanian, and a key
+//  no file has shows as the raw key. A few keys appear twice;
+//  PHP keeps the later entry.
+//
+//  Known bug (low): no_questions is defined twice
+//  (main.php:112, 163) and PHP keeps the later, generic text,
+//  so the self-evaluation page, which the first was written
+//  for, never says the category has no questions. Fix: give
+//  the category text its own key and use that key in
+//  self-eval.blade.php.
+//  Pinned as lang-no-questions.
+//
+//  Used by:
+//    - the __('main.…') lookups listed in en/main.php, when
+//      the site is in Lithuanian
+//    - Laravel's translator, for a key the file of the site's
+//      language lacks
+// -----------------------------------------------------------
+
+
 return [
 
     'my_info' => 'Mano informacija',
@@ -59,6 +85,8 @@ return [
     'new_pass_not_match'=>'Naujas slaptažodis nesutampa su pakartotu',
     'pass_too_short'=>'Slaptažodis per trumpas',
     'pass_changed'=>'Slaptažodis pakeistas!',
+    // Despite their keys, these two answer the user name
+    // change (ManagerMainController::change_username)
     'pass_updated'=>'Vartotojo vardas pakeistas!',
     'pass_unavailable'=>'Vartotojo vardas neleidžiamas!',
     'auth_failed'=>'Klaidingas vartotojo vardas ir/ar slaptažodis!',
@@ -106,9 +134,15 @@ return [
     'simulations_ranks'=>'Simuliacijos reitingai',
     'position'=>'Vieta',
     'last_ended'=>'Paskutinis baigėsi',
+    // The two modes of a simulation's start page, keyed in
+    // Lithuanian: po kiekvieno, feedback after each step, and
+    // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'Mokymosi tikslais',
     'simulation_pabaigoje'=>'Žinių tikrinimo tikslais',
+    // my_badges again: PHP keeps this entry
     'my_badges'=>'Mano bedžai',
+    // HTML: the success alert prints it unescaped
+    // (parts/notif.blade.php), so the link works
     'new_badge'=>"Gavote naują bedžą. Patikrinkite <a href=\"/cp/badges\">Mano bedžus</a>",
     'badge_topic'=>'Užbaikite pirmą temą',
     'badge_self_evaluation_test'=>'Užbaikite pirmajį savitikros testą',
@@ -121,8 +155,11 @@ return [
     'knowledge_test'=>'Žinių tikrinimo testas',
     'results'=>'Resultatas',
     'test_finished'=>'Testas atliktas!',
+    // Nothing shows only_3 at the moment
     'only_3'=>'Testą pabandyti atlikti galite tik 3 kartus',
     'not_anymore'=>'Daugiau testo negalite atlikti',
+    // no_questions again: PHP keeps this entry, so the
+    // category text further up never shows
     'no_questions'=>'Klausimų dar nėra',
     'total_tries'=>'Bandymų',
     'you_failed'=>'Jums nepavyko!',

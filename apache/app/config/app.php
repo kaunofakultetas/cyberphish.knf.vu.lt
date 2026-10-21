@@ -1,144 +1,108 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/app.php — the application's core settings
+//
+//  The app's name, environment and debug switch, the URL
+//  artisan builds links from, the time zone and languages,
+//  the encryption key, and the service providers and facade
+//  aliases every request and artisan run boots with.
+//
+//  Changed from Laravel 7's stock file: the name defaults
+//  to CYBERPHISH and the URL has no default; a translation
+//  missing from the visitor's language falls back to
+//  Lithuanian instead of English; and three packages add
+//  their providers and aliases — anhskohbo/no-captcha
+//  (NoCaptcha), laravelcollective/html (Form, Html) and
+//  barryvdh/laravel-dompdf (PDF).
+//
+//  The values come from the environment the
+//  cyberphish-apache service gets in docker-compose.yml —
+//  the app ships no .env file: APP_NAME (CYBERPHISH),
+//  APP_DEBUG ("false"), APP_URL and APP_KEY. APP_ENV is not
+//  set, so the app runs as production. The app also reads
+//  APP_URL itself with env(), and with it APP_URL_ADMIN,
+//  APP_SALT and ADOBE_EMBED_API, which no config file
+//  names: seven admin controllers, two mails, the LMContent
+//  model and 57 Blade views.
+//
+//  Used by:
+//    - Laravel at boot, on every request and artisan run —
+//      the providers, aliases, time zone, languages, key
+//      and debug switch
+//    - the page title of the layouts — layouts/main, login
+//      and register, admin-panel/layouts/main and login
+//      (resources/views)
+//    - ConfigTest (tests/Platform) — the debug switch and
+//      the key
+// -----------------------------------------------------------
+
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Name
-    |--------------------------------------------------------------------------
-    |
-    | This value is the name of your application. This value is used when the
-    | framework needs to place the application's name in a notification or
-    | any other location as required by the application or its packages.
-    |
-    */
-
+    // The name the layouts put in the page title, from
+    // APP_NAME; the same variable names the session cookie
+    // (config/session.php)
     'name' => env('APP_NAME', 'CYBERPHISH'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Environment
-    |--------------------------------------------------------------------------
-    |
-    | This value determines the "environment" your application is currently
-    | running in. This may determine how you prefer to configure various
-    | services the application utilizes. Set this in your ".env" file.
-    |
-    */
-
+    // The environment's name, from APP_ENV — not set in
+    // production, so production; the in-process tests switch
+    // it to testing (phpunit.xml)
     'env' => env('APP_ENV', 'production'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Debug Mode
-    |--------------------------------------------------------------------------
-    |
-    | When your application is in debug mode, detailed error messages with
-    | stack traces will be shown on every error that occurs within your
-    | application. If disabled, a simple generic error page is shown.
-    |
-    */
-
+    // Debug mode shows the code and stack trace of every
+    // error; off unless APP_DEBUG turns it on, and
+    // docker-compose.yml sets "false". ConfigTest
+    // (tests/Platform) checks this line's exact text
     'debug' => (bool) env('APP_DEBUG', false),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application URL
-    |--------------------------------------------------------------------------
-    |
-    | This URL is used by the console to properly generate URLs when using
-    | the Artisan command line tool. You should set this to the root of
-    | your application so that it is used when running Artisan tasks.
-    |
-    */
-
+    // The site's root URL, from APP_URL, which has no default;
+    // artisan builds its links from it, a web request from
+    // the request itself
     'url' => env('APP_URL'),
 
+    // The host asset() links point at, from ASSET_URL — not
+    // set, so the request's own
     'asset_url' => env('ASSET_URL', null),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Timezone
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. We have gone
-    | ahead and set this to a sensible default for you out of the box.
-    |
-    */
-
+    // PHP's time zone, set by Laravel at boot: every date PHP
+    // makes is UTC, whatever /etc/localtime the container
+    // mounts
     'timezone' => 'UTC',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Locale Configuration
-    |--------------------------------------------------------------------------
-    |
-    | The application locale determines the default locale that will be used
-    | by the translation service provider. You are free to set this value
-    | to any of the locales which will be supported by the application.
-    |
-    */
-
+    // The language a request starts in; the controllers then
+    // switch to the {lang} of the URL or the language kept in
+    // the session — en, lt, ee, lv or gr
     'locale' => 'en',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Application Fallback Locale
-    |--------------------------------------------------------------------------
-    |
-    | The fallback locale determines the locale to use when the current one
-    | is not available. You may change the value to correspond to any of
-    | the language folders that are provided through your application.
-    |
-    */
-
+    // Where a translation missing from the current language
+    // is taken from — Lithuanian here, where Laravel ships
+    // English
     'fallback_locale' => 'lt',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Faker Locale
-    |--------------------------------------------------------------------------
-    |
-    | This locale will be used by the Faker PHP library when generating fake
-    | data for your database seeds. For example, this will be used to get
-    | localized telephone numbers, street address information and more.
-    |
-    */
-
+    // The locale of Faker, for factories and seeders; the
+    // image does not install Faker, and nothing seeds
     'faker_locale' => 'en_US',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Encryption Key
-    |--------------------------------------------------------------------------
-    |
-    | This key is used by the Illuminate encrypter service and should be set
-    | to a random, 32 character string, otherwise these encrypted strings
-    | will not be safe. Please do this before deploying an application!
-    |
-    */
-
+    // The key the encrypter works with — every cookie, the
+    // session's among them, is encrypted with it, so a new
+    // key signs everyone out. APP_KEY, filled from
+    // LARAVEL_APP_KEY by docker-compose.yml
     'key' => env('APP_KEY'),
 
+    // The encrypter's cipher; AES-256-CBC needs a 32-byte key
     'cipher' => 'AES-256-CBC',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Autoloaded Service Providers
-    |--------------------------------------------------------------------------
-    |
-    | The service providers listed here will be automatically loaded on the
-    | request to your application. Feel free to add your own services to
-    | this array to grant expanded functionality to your applications.
-    |
-    */
-
+    // The service providers every request and artisan run
+    // registers. Package discovery registers the providers
+    // the installed packages declare as well, so the three
+    // package providers here come twice — harmless, Laravel
+    // registers a provider once
     'providers' => [
 
-        /*
-         * Laravel Framework Service Providers...
-         */
+        // Laravel's own providers, and at the end the one of
+        // anhskohbo/no-captcha: the captcha validation rule
+        // and the reCAPTCHA widget
         Illuminate\Auth\AuthServiceProvider::class,
         Illuminate\Broadcasting\BroadcastServiceProvider::class,
         Illuminate\Bus\BusServiceProvider::class,
@@ -162,35 +126,27 @@ return [
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\View\ViewServiceProvider::class,
         Anhskohbo\NoCaptcha\NoCaptchaServiceProvider::class,
-        /*
-         * Package Service Providers...
-         */
 
-        /*
-         * Application Service Providers...
-         */
+        // The app's own providers. With the broadcast one
+        // switched off, nothing loads routes/channels.php;
+        // AzureStorageServiceProvider is not listed, so it
+        // never runs — matthewbdaly/laravel-azure-storage
+        // registers the azure disk driver instead
         App\Providers\AppServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
-        // App\Providers\BroadcastServiceProvider::class,
+        // App\Providers\BroadcastServiceProvider is switched off
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
 
+        // laravelcollective/html (Form, Html) and
+        // barryvdh/laravel-dompdf (PDF, the certificate)
         Collective\Html\HtmlServiceProvider::class,
         Barryvdh\DomPDF\ServiceProvider::class,
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Class Aliases
-    |--------------------------------------------------------------------------
-    |
-    | This array of class aliases will be registered when this application
-    | is started. However, feel free to register as many as you wish as
-    | the aliases are "lazy" loaded so they don't hinder performance.
-    |
-    */
-
+    // The facade aliases — short class names the controllers
+    // and Blade views use without an import
     'aliases' => [
 
         'App' => Illuminate\Support\Facades\App::class,
@@ -230,6 +186,7 @@ return [
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
 
+        // The facades of the three packages
         'Form' => Collective\Html\FormFacade::class,
         'Html' => Collective\Html\HtmlFacade::class,
         'NoCaptcha' => Anhskohbo\NoCaptcha\Facades\NoCaptcha::class,

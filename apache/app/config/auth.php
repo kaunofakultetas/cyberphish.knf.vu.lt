@@ -1,40 +1,45 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/auth.php — the two sign-in guards
+//
+//  Who can sign in, and from which table. Laravel's stock
+//  web and api guards over an Eloquent User model are
+//  replaced by two session guards on the database
+//  provider: man for the managers of the admin panel
+//  (bei_managers) and mem for the members (bei_users).
+//  With the database provider a signed-in user is a
+//  GenericUser holding the table row, never a Managers or
+//  Members model. The stock passwords section and
+//  password_timeout are gone too. No environment variable
+//  feeds this file.
+//
+//  Used by:
+//    - Laravel's AuthManager — the Auth facade in the
+//      controllers and views, the logins of LoginController
+//      and AdminLoginController, and the auth, auth.admin
+//      and guest middleware (auth:mem on the member pages,
+//      auth.admin:man on the admin panel)
+// -----------------------------------------------------------
+
+
 return [
-    
-    /*
-     |--------------------------------------------------------------------------
-     | Authentication Defaults
-     |--------------------------------------------------------------------------
-     |
-     | This option controls the default authentication "guard" and password
-     | reset options for your application. You may change these defaults
-     | as required, but they're a perfect start for most applications.
-     |
-     */
-    
+
+    // man is the default guard, so a bare Auth call — the
+    // admin panel's code — means the managers, while the
+    // member side names the mem guard. The managers password
+    // broker is defined nowhere, as the passwords section is
+    // gone; only Laravel's own reset controllers would ask
+    // for it, and no route reaches them — the app resets
+    // passwords its own way (LoginController)
     'defaults' => [
         'guard' => 'man',
         'passwords' => 'managers',
     ],
-    
-    /*
-     |--------------------------------------------------------------------------
-     | Authentication Guards
-     |--------------------------------------------------------------------------
-     |
-     | Next, you may define every authentication guard for your application.
-     | Of course, a great default configuration has been defined for you
-     | here which uses session storage and the Eloquent user provider.
-     |
-     | All authentication drivers have a user provider. This defines how the
-     | users are actually retrieved out of your database or other storage
-     | mechanisms used by this application to persist your user's data.
-     |
-     | Supported: "session", "token"
-     |
-     */
-    
+
+    // Both guards keep the signed-in user's id in the
+    // session: man for the managers, mem for the members.
+    // Laravel supports the session and token drivers
     'guards' => [
         'man' => [
             'driver' => 'session',
@@ -45,7 +50,10 @@ return [
             'provider' => 'members',
         ]
     ],
-    
+
+    // Both providers query their table directly, with no
+    // model, and check passwords with the hasher
+    // (config/hashing.php)
     'providers' => [
         'managers' => [
             'driver' => 'database',
@@ -56,7 +64,5 @@ return [
             'table' => 'bei_users',
         ]
     ],
-    
-    
-    
+
 ];

@@ -1,5 +1,26 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] lv/main — the site's own strings, in Latvian
+//
+//  Every text of the member side and its mails in Latvian, by
+//  key, the same keys as en/main.php. A few keys appear
+//  twice; PHP keeps the later entry.
+//
+//  Known bug (low): no_questions is defined twice
+//  (main.php:108, 158) and PHP keeps the later, generic text,
+//  so the self-evaluation page, which the first was written
+//  for, never says the category has no questions. Fix: give
+//  the category text its own key and use that key in
+//  self-eval.blade.php.
+//  Pinned as lang-no-questions.
+//
+//  Used by:
+//    - the __('main.…') lookups listed in en/main.php, when
+//      the site is in Latvian
+// -----------------------------------------------------------
+
+
 return [
 
     'my_info' => 'Mana informācija ',
@@ -60,6 +81,8 @@ return [
     'new_pass_not_match'=>'Jaunās paroles nesakrīt',
     'pass_too_short'=>'Parole ir pārāk īsa',
     'pass_changed'=>'Parole mainīta',
+    // Despite their keys, these two answer the user name
+    // change (ManagerMainController::change_username)
     'pass_updated'=>'Lietotājvārds atjaunināts!',
     'pass_unavailable'=>'Lietotājvārds nav pieejams!',
     'auth_failed'=>'Nepareizs e-pasts un/vai parole!',
@@ -107,9 +130,14 @@ return [
     'simulations_ranks'=>'Simulācijas rangi',
     'position'=>'Pozīcija',
     'last_ended'=>'Pēdējo reizi beidzās',
+    // The two modes of a simulation's start page, keyed in
+    // Lithuanian: po kiekvieno, feedback after each step, and
+    // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'Mācību nolūkos',
     'simulation_pabaigoje'=>'Zināšanu pārbaudes nolūkiem',
     'my_badges'=>'Manas nozīmītes',
+    // HTML: the success alert prints it unescaped
+    // (parts/notif.blade.php), so the link works
     'new_badge'=>"Jūs saņēmāt jaunu emblēmu. Pārbaudiet <a href=\"/cp/badges\">Manas emblēmas</a>",
     'badge_topic'=>'Pabeigt pirmo tēmu',
     'badge_self_evaluation_test'=>'Aizpildiet pirmo pašnovērtējuma testu',
@@ -122,8 +150,11 @@ return [
     'knowledge_test'=>'Zināšanu pārbaude',
     'results'=>'Rezultāts',
     'test_finished'=>'Tests ir pabeigts!',
+    // Nothing shows only_3 at the moment
     'only_3'=>'Jūs atļāvāt izmēģināt šo testu tikai 3 reizes',
     'not_anymore'=>'Jūs to vairs nevarat izdarīt',
+    // no_questions again: PHP keeps this entry, so the
+    // category text further up never shows
     'no_questions'=>'Nav jautājumu',
     'total_tries'=>'Testēšana',
     'you_failed'=>'Tev neizdevās!',

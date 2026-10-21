@@ -1,17 +1,51 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] VerifyCsrfToken — the CSRF check of the web routes
+//
+//  Laravel's cross-site request forgery check: a request
+//  that changes something must carry the token of its own
+//  session, so another site cannot post a form in the name
+//  of a signed-in visitor.
+//
+//  Used by:
+//    - Kernel::$middlewareGroups (app/Http/Kernel.php) — the
+//      web group
+// -----------------------------------------------------------
+
+
 namespace App\Http\Middleware;
 
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as Middleware;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// VerifyCsrfToken
+// -----------------------------------------------------------
+//
+// Checks every POST, PUT, PATCH and DELETE for the
+// session's token — the form's _token field, or an
+// X-CSRF-TOKEN or X-XSRF-TOKEN header — and answers a
+// missing or wrong one with 419. GET, HEAD and OPTIONS
+// pass unchecked, which is why the panel's deletes and
+// status changes, all GET routes, can be set off by a link
+// (pinned as admin-get-deletes).
+//
+// Used by:
+//   - Kernel::$middlewareGroups — the web group, on every
+//     route of routes/web_user.php and routes/web_admin.php
+// -----------------------------------------------------------
+
 class VerifyCsrfToken extends Middleware
 {
-    /**
-     * The URIs that should be excluded from CSRF verification.
-     *
-     * @var array
-     */
+
+    // The URIs left unchecked — none
     protected $except = [
-        //
     ];
 }

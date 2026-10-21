@@ -1,17 +1,34 @@
 <?php
 
-return [
+// -----------------------------------------------------------
+//  [*] lt/validation — the validator's messages, untranslated
+//
+//  Laravel's stock validation file, left untranslated: the
+//  same English messages as en/validation.php, so the member
+//  forms show the validator's messages in English when the
+//  site is in Lithuanian. One message per rule, the size
+//  rules with one per kind of value; :attribute stands for
+//  the field's name, the other placeholders for the rule's
+//  arguments.
+//
+//  Known bug (low): nothing here covers the captcha rule
+//  (anhskohbo/no-captcha) of the sign-up and reset request
+//  forms, and attributes (validation.php:148) names no field,
+//  so a failed check reads validation.captcha and an unticked
+//  box names the field g-recaptcha-response. Fix: add a
+//  captcha line, and a name for g-recaptcha-response under
+//  attributes.
+//  Pinned as captcha-message.
+//
+//  Used by:
+//    - Laravel's validator — the validate calls of
+//      Auth\LoginController (sign-in, reset request) and
+//      Auth\RegisterController (sign-up), when the site is in
+//      Lithuanian
+// -----------------------------------------------------------
 
-    /*
-    |--------------------------------------------------------------------------
-    | Validation Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines contain the default error messages used by
-    | the validator class. Some of these rules have multiple versions such
-    | as the size rules. Feel free to tweak each of these messages here.
-    |
-    */
+
+return [
 
     'accepted' => 'The :attribute must be accepted.',
     'active_url' => 'The :attribute is not a valid URL.',
@@ -118,34 +135,16 @@ return [
     'url' => 'The :attribute format is invalid.',
     'uuid' => 'The :attribute must be a valid UUID.',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Custom Validation Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify custom validation messages for attributes using the
-    | convention "attribute.rule" to name the lines. This makes it quick to
-    | specify a specific custom language line for a given attribute rule.
-    |
-    */
-
+    // Messages for one rule of one field, by field then rule;
+    // the only entry is Laravel's placeholder
     'custom' => [
         'attribute-name' => [
             'rule-name' => 'custom-message',
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Custom Validation Attributes
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are used to swap our attribute placeholder
-    | with something more reader friendly such as "E-Mail Address" instead
-    | of "email". This simply helps us make our message more expressive.
-    |
-    */
-
+    // The names :attribute shows in place of a field's own;
+    // none are set
     'attributes' => [],
 
 ];

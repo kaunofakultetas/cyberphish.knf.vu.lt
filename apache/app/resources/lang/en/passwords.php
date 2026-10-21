@@ -1,17 +1,21 @@
 <?php
 
-return [
+// -----------------------------------------------------------
+//  [*] en/passwords — Laravel's reset messages, in English
+//
+//  Laravel's stock password-reset file: what the password
+//  broker answers to a reset request and to a reset. The site
+//  never uses the broker: ForgotPasswordController and
+//  ResetPasswordController, which would, have no route, and
+//  the site's own reset in LoginController answers with
+//  main.php's strings.
+//
+//  Used by:
+//    - nothing at the moment — no route reaches the broker
+// -----------------------------------------------------------
 
-    /*
-    |--------------------------------------------------------------------------
-    | Password Reset Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are the default lines which match reasons
-    | that are given by the password broker for a password update attempt
-    | has failed, such as for an invalid token or invalid new password.
-    |
-    */
+
+return [
 
     'reset' => 'Your password has been reset!',
     'sent' => 'We have emailed your password reset link!',

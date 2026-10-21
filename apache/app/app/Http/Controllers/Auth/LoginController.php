@@ -1,5 +1,22 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] LoginController — members signing in and out
+//
+//  The member side of signing in: the login form and its
+//  POST, signing out, and the forgotten password — the form
+//  that mails a reset link, and the link itself, which
+//  mails a new random password. Members sign in on the mem
+//  guard, whose database provider reads bei_users. Every
+//  action but logout is for visitors only: guest:mem sends
+//  a signed-in member to the home page.
+//
+//  Used by:
+//    - routes/web_user.php — the login, logout,
+//      forgot-password and reset routes
+// -----------------------------------------------------------
+
+
 namespace App\Http\Controllers\Auth;
 
 use Session;
@@ -21,17 +38,64 @@ use Illuminate\Support\Facades\Validator;
 use Route;
 use Carbon\Carbon;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// LoginController
+// -----------------------------------------------------------
+//
+// Built on BaseController, whose middleware sets the
+// language and shares the member's data with every view.
+// AuthenticatesUsers is mixed in, but showLoginForm, login
+// and logout replace the trait's own — and with its login
+// goes its throttling.
+//
+//   showLoginForm, login, logout — signing in and out
+//   ForgotPasswordForm,
+//   forgotpassword               — asking for a reset link
+//   reset_pass                   — the link: a new password
+//
+// Used by:
+//   - routes/web_user.php — the routes in the actions'
+//     banners
+// -----------------------------------------------------------
+
 class LoginController extends BaseController
 {
 
+    // Laravel's login trait; only its helpers are left, the
+    // methods below replace its actions
     use AuthenticatesUsers;
 
-    /**
-     * Where to redirect users after login.
-     *
-     * @var string
-     */
+    // Where the trait's own login would send a member after
+    // signing in; nothing reads it, login names the dashboard
+    // itself
     protected $redirectTo = "/cp/dashboard";
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // __construct
+    // -----------------------------------------------------------
+    //
+    // BaseController's middleware first, then guest:mem on
+    // every action but logout, which sends a signed-in member
+    // to the home page. The bare guest line checks nothing:
+    // RedirectIfAuthenticated acts only when it is given the
+    // man or the mem guard.
+    //
+    // Used by:
+    //   - Laravel's router, before any action of this
+    //     controller
+    // -----------------------------------------------------------
 
     public function __construct()
     {
@@ -40,14 +104,83 @@ class LoginController extends BaseController
         $this->middleware('guest:mem')->except('logout');
     }
 
+
+
+
+
+
+    // -----------------------------------------------------------
+    // showLoginForm
+    // -----------------------------------------------------------
+    //
+    // GET /login
+    //
+    // The login form, auth/login.blade.php. The route is named
+    // login, so this is also where the Authenticate middleware
+    // sends a visitor who opens a member page.
+    //
+    // Used by:
+    //   - layouts/main.blade.php — the sign-in entry of the
+    //     menu, for visitors
+    //   - auth/register.blade.php and
+    //     auth/forgot-password.blade.php — their "already have
+    //     an account" links
+    //   - Authenticate (middleware) — a visitor on a member page
+    //   - login, reset_pass (below), RegisterController::verify
+    //     — their redirects back to the form
+    // -----------------------------------------------------------
+
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
+
+
+
+
+
+    // -----------------------------------------------------------
+    // login
+    // -----------------------------------------------------------
+    //
+    // POST /login
+    //
+    // Signs a member in on the mem guard. The form needs an
+    // email and a password of 12 to 50 characters; the guard
+    // then looks for an active account (status 1) with that
+    // email and checks the password against its hash, so a
+    // wrong password, an unknown address and an account not
+    // yet verified all get the same auth_failed refusal. On
+    // success it records the visit — last_login, last_ip
+    // (SettingsController::getUserIP), a bei_users_loginlog
+    // row, badge_login_10 after ten days in a row — empties
+    // remember_token, and sends the member to the page that
+    // asked for a sign-in, or to the dashboard.
+    //
+    // Known bug (medium): nothing limits the guesses. This
+    // method replaces the trait's login and leaves out its
+    // ThrottlesLogins calls, so the guard checks every
+    // password posted (LoginController.php:189), and the form
+    // has no reCAPTCHA either; pinned as login-throttle. Fix:
+    // count the failures per email and address and refuse for
+    // a while after too many, as the trait's login does.
+    //
+    // Known bug (low): the refusal goes through intended()
+    // (LoginController.php:202), so a visitor whom a member
+    // page sent to the form is sent back to that page, which
+    // bounces them to the form again — and the flashed error
+    // is spent on the bounce: the form comes back without a
+    // word. Fix: answer the refusal with a plain redirect to
+    // the login form.
+    // Pinned as login-error-lost.
+    //
+    // Used by:
+    //   - auth/login.blade.php — the login form posts here
+    // -----------------------------------------------------------
+
     public function login(Request $request)
     {
-
         $this->validate($request, [
             'email'   => 'required|email',
             'password' => 'required|min:12|max:50'
@@ -55,20 +188,42 @@ class LoginController extends BaseController
 
         if (Auth::guard('mem')->attempt(['email' => $request->email, 'password' => $request->password, 'status'=>1])) {
 
+            // Emptying remember_token cancels a pending password
+            // reset: forgotpassword keeps the reset token there
             Members::where(['id' => Auth::guard('mem')->id()])->update(['last_login' => Carbon::now(), 'last_ip' => SettingsController::getUserIP(), 'remember_token'=>'']);
 
             LoginLog::save_login(Auth::guard('mem')->id());
             LoginLog::if_login_10(Auth::guard('mem')->id());
-
-         //   MemberLogs::add_login_log(Auth::guard('mem')->id());
 
             return redirect()->intended(route('dashboard'));
 
         }
 
         return redirect()->intended(route('login'))->withErrors([__('main.auth_failed')]);
-
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // logout
+    // -----------------------------------------------------------
+    //
+    // GET /cp/logout
+    //
+    // Signs the member out of the mem guard and goes to the
+    // home page. Unlike the trait's logout it leaves the
+    // session alive, so the language choice survives — and so
+    // does a manager signed in on the same browser. On the way
+    // out the guard also replaces a non-empty remember_token
+    // (see forgotpassword).
+    //
+    // Used by:
+    //   - layouts/main.blade.php — the logout entry of the
+    //     member menu
+    // -----------------------------------------------------------
 
     public function logout()
     {
@@ -76,14 +231,74 @@ class LoginController extends BaseController
         return redirect('/');
     }
 
-    public function ForgotPasswordForm(){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // ForgotPasswordForm
+    // -----------------------------------------------------------
+    //
+    // GET /forgot-password
+    //
+    // The forgotten-password form,
+    // auth/forgot-password.blade.php: an email and the
+    // reCAPTCHA.
+    //
+    // Used by:
+    //   - auth/login.blade.php and auth/register.blade.php —
+    //     their "forgot password" links
+    // -----------------------------------------------------------
+
+    public function ForgotPasswordForm()
+    {
         return view('auth.forgot-password');
-
     }
 
-    public function forgotpassword(Request $request){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // forgotpassword
+    // -----------------------------------------------------------
+    //
+    // POST /forgot-password
+    //
+    // Mails a password-reset link. The form needs an email and
+    // a solved reCAPTCHA. When exactly one member has that
+    // email, a 50-character token from random_string goes out
+    // in a SendRemindLink mail and is then stored in the
+    // member's remember_token. Every address gets the same
+    // forgot_pass_msg answer, mail or no mail, so the form
+    // does not tell who has an account.
+    //
+    // Known bug (low): the reCAPTCHA rule
+    // (LoginController.php:304) has anhskohbo/no-captcha ask
+    // Google with no error handling, so while Google cannot be
+    // reached the form answers with the 500 page instead of an
+    // error — the same failure captcha-outage-500 pins on the
+    // registration form. Fix: catch the connection error and
+    // send the form back with a message.
+    // Pinned as captcha-outage-reset.
+    //
+    // Known bug (low): remember_token is the column Laravel's
+    // session guard keeps for remember-me, and the guard's
+    // logout replaces a non-empty one with a random string.
+    // A member still signed in elsewhere who signs out there
+    // after asking for a link (LoginController.php:313) kills
+    // the link before it is opened. Fix: keep the reset token
+    // in a column of its own.
+    // Pinned as reset-link-logout.
+    //
+    // Used by:
+    //   - auth/forgot-password.blade.php — the form posts here
+    // -----------------------------------------------------------
+
+    public function forgotpassword(Request $request)
+    {
         $this->validate($request, [
             'email'   => 'required|email',
             'g-recaptcha-response' => 'required|captcha',
@@ -100,11 +315,37 @@ class LoginController extends BaseController
         }
 
         return back()->withSuccess(__('main.forgot_pass_msg'));
-
     }
 
-    public function reset_pass($reset_token){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // reset_pass
+    // -----------------------------------------------------------
+    //
+    // GET /reset/{reset_token}
+    //
+    // The link of the reset mail. ValidateReset
+    // (validate.reset) lets it through only when exactly one
+    // member holds that non-empty token, and answers 404
+    // otherwise. A new 12-character password from
+    // random_string goes to the member in a SendNewPass mail
+    // and replaces the password hash, the token is used up,
+    // and the login form shows new_pass_emailed — through
+    // intended(), the same detour as login's refusal. Opening
+    // the link is all it takes, there is no form. A signed-in
+    // member is sent home by guest:mem and the token stays.
+    //
+    // Used by:
+    //   - SendRemindLink — the link in the password-reset mail
+    //     (emails/userpassreset.blade.php)
+    // -----------------------------------------------------------
+
+    public function reset_pass($reset_token)
+    {
         $new_pass = SettingsController::random_string(12);
 
         $user_email = Members::select('email')->where('remember_token', '=', $reset_token)->get()->pluck('email')->first();
@@ -114,7 +355,5 @@ class LoginController extends BaseController
         Members::where('remember_token', '=', $reset_token)->update(['password'=>Hash::make($new_pass), 'remember_token'=>'']);
 
         return redirect()->intended(route('login'))->withSuccess(__('main.new_pass_emailed'));
-
     }
-
 }

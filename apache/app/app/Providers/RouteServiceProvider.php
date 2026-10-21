@@ -1,23 +1,110 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] RouteServiceProvider — loads the route files
+//
+//  Tells Laravel where the routes are: routes/web_user.php
+//  and routes/web_admin.php under the web middleware group
+//  with no prefix, routes/api.php under the api group with
+//  the /api prefix. The order it loads them in decides
+//  which route answers a URL that two of them match.
+//
+//  Used by:
+//    - config/app.php — the providers list
+// -----------------------------------------------------------
+
+
 namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Route;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// RouteServiceProvider
+// -----------------------------------------------------------
+//
+// Laravel's route provider with the app's three files.
+//
+//   boot              — Laravel's, unchanged
+//   map               — the three files, in order
+//   mapWebUserRoutes  — routes/web_user.php
+//   mapWebAdminRoutes — routes/web_admin.php
+//   mapApiRoutes      — routes/api.php
+//
+// Used by:
+//   - config/app.php — the providers list
+//   - Auth\VerificationController, ResetPasswordController,
+//     ConfirmPasswordController — read HOME; no route
+//     reaches them
+// -----------------------------------------------------------
+
 class RouteServiceProvider extends ServiceProvider
 {
 
+    // The namespace the controller names of the route files
+    // are resolved in
     protected $namespace = 'App\Http\Controllers';
 
+    // Where Laravel's auth scaffolding sends a signed-in
+    // user: the home page
     public const HOME = '/';
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // boot
+    // -----------------------------------------------------------
+    //
+    // Laravel's own boot, which loads the routes through map;
+    // nothing added.
+    //
+    // Used by:
+    //   - Laravel, once every provider is registered
+    // -----------------------------------------------------------
 
     public function boot()
     {
-        //
-
         parent::boot();
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // map
+    // -----------------------------------------------------------
+    //
+    // Loads the three route files in this order: api.php,
+    // web_user.php, web_admin.php. The order counts, since
+    // Laravel answers a request with the first route that
+    // matches it.
+    //
+    // Known bug (medium): web_user.php is loaded before
+    // web_admin.php (RouteServiceProvider.php:113), and its
+    // {lang} takes any value, so {lang}/news answers
+    // admin-panel/news and {lang}/news/{slug}/{uid} answers
+    // the panel's edit, delete and remove-picture links with
+    // the public article — no admin can delete an article
+    // from the panel; pinned as admin-news-shadowed. Fix:
+    // load web_admin.php first, or limit {lang} to the five
+    // languages.
+    //
+    // Used by:
+    //   - Laravel's RouteServiceProvider::boot, while the app
+    //     boots — the image never caches its routes
+    // -----------------------------------------------------------
 
     public function map()
     {
@@ -26,8 +113,24 @@ class RouteServiceProvider extends ServiceProvider
         $this->mapWebUserRoutes();
 
         $this->mapWebAdminRoutes();
-
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // mapWebUserRoutes
+    // -----------------------------------------------------------
+    //
+    // Loads routes/web_user.php — the public pages and the
+    // member side — under the web group with no prefix, its
+    // controller names resolved in the namespace above.
+    //
+    // Used by:
+    //   - map (above)
+    // -----------------------------------------------------------
 
     protected function mapWebUserRoutes()
     {
@@ -36,12 +139,45 @@ class RouteServiceProvider extends ServiceProvider
             ->group(base_path('routes/web_user.php'));
     }
 
+
+
+
+
+
+    // -----------------------------------------------------------
+    // mapWebAdminRoutes
+    // -----------------------------------------------------------
+    //
+    // Loads routes/web_admin.php — the admin panel — under
+    // the web group with no prefix of its own: its paths
+    // spell out admin-panel themselves.
+    //
+    // Used by:
+    //   - map (above)
+    // -----------------------------------------------------------
+
     protected function mapWebAdminRoutes()
     {
         Route::middleware('web')
         ->namespace($this->namespace)
         ->group(base_path('routes/web_admin.php'));
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // mapApiRoutes
+    // -----------------------------------------------------------
+    //
+    // Loads routes/api.php under the api group, every path
+    // prefixed with api; the file declares no routes.
+    //
+    // Used by:
+    //   - map (above)
+    // -----------------------------------------------------------
 
     protected function mapApiRoutes()
     {

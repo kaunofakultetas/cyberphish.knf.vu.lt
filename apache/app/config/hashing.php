@@ -1,48 +1,38 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/hashing.php — how passwords are hashed
+//
+//  Laravel 7's stock hashing file, unchanged: bcrypt at a
+//  cost of 10, since BCRYPT_ROUNDS is not set in
+//  docker-compose.yml (the in-process tests lower it to 4
+//  through phpunit.xml). A stored hash carries its own
+//  algorithm and cost, so a change here applies to new
+//  hashes only and existing passwords keep working.
+//
+//  Used by:
+//    - Laravel's HashManager — the password check of both
+//      logins (the guards of config/auth.php), and Hash in
+//      RegisterController, LoginController,
+//      ManagerMainController and the admin panel's
+//      ManagerMainController and ManagersController
+// -----------------------------------------------------------
+
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Hash Driver
-    |--------------------------------------------------------------------------
-    |
-    | This option controls the default hash driver that will be used to hash
-    | passwords for your application. By default, the bcrypt algorithm is
-    | used; however, you remain free to modify this option if you wish.
-    |
-    | Supported: "bcrypt", "argon", "argon2id"
-    |
-    */
-
+    // The algorithm of new hashes; Laravel supports bcrypt,
+    // argon and argon2id
     'driver' => 'bcrypt',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Bcrypt Options
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the configuration options that should be used when
-    | passwords are hashed using the Bcrypt algorithm. This will allow you
-    | to control the amount of time it takes to hash the given password.
-    |
-    */
-
+    // The bcrypt cost, from BCRYPT_ROUNDS — not set, so 10;
+    // each step up doubles the time a hash takes
     'bcrypt' => [
         'rounds' => env('BCRYPT_ROUNDS', 10),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Argon Options
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the configuration options that should be used when
-    | passwords are hashed using the Argon algorithm. These will allow you
-    | to control the amount of time it takes to hash the given password.
-    |
-    */
-
+    // The Argon settings — memory in kibibytes — used only
+    // if the driver were argon
     'argon' => [
         'memory' => 1024,
         'threads' => 2,

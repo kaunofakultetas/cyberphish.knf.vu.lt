@@ -1,41 +1,154 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] KnowledgeTest — the questions of the knowledge test
+//
+//  One bei_knowledge_test row per question of the final
+//  knowledge test, filed under a learning-material category
+//  (LMCategory), which ties it to a language. An attempt
+//  draws, per category, as many random questions as
+//  settings row 3 says; passing it unlocks the certificate.
+//  The options live in KnowledgeOption.
+//
+//  Used by:
+//    - KnowledgeTestController (Http/Controllers/)
+//    - Admin\KnowledgeController, Admin\ManagerMainController
+//      (Http/Controllers/Admin/)
+// -----------------------------------------------------------
+
+
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// KnowledgeTest
+// -----------------------------------------------------------
+//
+// Columns: cat_id (bei_lm_category) and question, the text.
+//
+//   getQuestion    — a question's text
+//   getDecryptedId — a question's id from the hash its page
+//                    posts
+//   getCatId       — a question's category
+//
+// Used by:
+//   - KnowledgeTestController — index (the number of a
+//     language's questions), start (an attempt's draw),
+//     progress, progress_save
+//   - Admin\KnowledgeController — index, import_questions,
+//     question_edit, question_update, question_delete
+//   - Admin\ManagerMainController::knowledge_report — a
+//     member's attempt, question by question
+// -----------------------------------------------------------
+
 class KnowledgeTest extends Model
 {
+
+    // The table, which has no created_at / updated_at
+    // columns; rememberTokenName belongs to the account
+    // models, a plain model never reads it
     protected $table = "bei_knowledge_test";
     public $timestamps = false;
     protected $rememberTokenName = false;
 
+    // Empty: nothing mass-assigns this model
     protected $fillable = [
     ];
 
+    // Empty: toArray hands out every column
     protected $hidden = [
     ];
 
+    // Empty: every column comes back uncast
     protected $casts = [
     ];
 
-    public static function getQuestion($id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // getQuestion
+    // -----------------------------------------------------------
+    //
+    // The text of the question with that id, or null when
+    // there is no such question.
+    //
+    // Used by:
+    //   - KnowledgeTestController::progress — the next
+    //     question of an attempt
+    // -----------------------------------------------------------
+
+    public static function getQuestion($id)
+    {
         return KnowledgeTest::where(['id'=>$id])->get()->pluck('question')->first();
-
     }
 
-    public static function getDecryptedId($hashed_id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // getDecryptedId
+    // -----------------------------------------------------------
+    //
+    // The id of the question a hash stands for, or null. The
+    // question page posts the MD5 of the MD5 of the id
+    // (knowledge_progress.blade.php builds it) and MySQL
+    // hashes every row of the table to find the match. With
+    // no salt, the hash hides the id from no one who cares
+    // to compute it.
+    //
+    // Used by:
+    //   - KnowledgeTestController::progress_save — the
+    //     question an answer belongs to
+    // -----------------------------------------------------------
+
+    public static function getDecryptedId($hashed_id)
+    {
         return KnowledgeTest::whereraw("MD5(MD5(id))=?", [$hashed_id])->get()->pluck('id')->first();
-
     }
 
-    public static function getCatId($id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // getCatId
+    // -----------------------------------------------------------
+    //
+    // The category of the QUESTION with that id, or null
+    // when there is no such question.
+    //
+    // Known bug (high): KnowledgeTestController::progress_save
+    // calls it with the ATTEMPT's id, not the question's. An
+    // answer is filed under the category of whichever
+    // question shares the attempt's number, and when no
+    // question does — certain once the attempt ids pass the
+    // highest question id — the insert fails on the NOT NULL
+    // cat_id and the knowledge test breaks for every member
+    // (pinned as knowledge-category-lookup). This method is
+    // right as it is. Fix: pass the question's id there.
+    //
+    // Used by:
+    //   - KnowledgeTestController::progress_save — the cat_id
+    //     of every saved answer
+    // -----------------------------------------------------------
+
+    public static function getCatId($id)
+    {
         return KnowledgeTest::where(['id'=>$id])->get()->pluck('cat_id')->first();
-
     }
-
 }

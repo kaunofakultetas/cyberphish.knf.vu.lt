@@ -1,17 +1,19 @@
 <?php
 
-return [
+// -----------------------------------------------------------
+//  [*] lv/pagination — the paginator's labels, in Latvian
+//
+//  Laravel's stock pagination file, translated into Latvian:
+//  previous and next label the arrows around the page numbers
+//  that links() renders.
+//
+//  Used by:
+//    - Laravel's paginator — links() in news.blade.php, when
+//      the site is in Latvian
+// -----------------------------------------------------------
 
-    /*
-    |--------------------------------------------------------------------------
-    | Pagination Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are used by the paginator library to build
-    | the simple pagination links. You are free to change them to anything
-    | you want to customize your views to better match your application.
-    |
-    */
+
+return [
 
     'previous' => '&laquo; Iepriekšējais ',
     'next' => 'Nākamais &raquo;',

@@ -1,5 +1,52 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] en/main — the site's own strings, in English
+//
+//  Every text of the member side and its mails in English, by
+//  key: menus and page titles, form labels and buttons, the
+//  flash messages, the mails' subjects and bodies, the
+//  badges' descriptions. The other four languages hold the
+//  same keys in their own main.php. The admin panel never
+//  switches the locale, so the few main keys its controllers
+//  use come from this file too. A few keys appear twice; PHP
+//  keeps the later entry.
+//
+//  Known bug (low): no_questions is defined twice
+//  (main.php:134, 184) and PHP keeps the later, generic text,
+//  so the self-evaluation page, which the first was written
+//  for, never says the category has no questions. Fix: give
+//  the category text its own key and use that key in
+//  self-eval.blade.php.
+//  Pinned as lang-no-questions.
+//
+//  Known bug (low): Admin\ManagerMainController::change_pass
+//  asks for msg_current_pass_wrong, msg_current_new_same,
+//  msg_new_pass_dont_match, msg_pass_too_short and
+//  msg_pass_changed, which no main.php defines, so the
+//  panel's password form answers with those raw keys. Fix:
+//  use the member side's curr_pass_wrong, curr_new_same,
+//  new_pass_not_match, pass_too_short and pass_changed, which
+//  say the same.
+//  Pinned as admin-pass-messages.
+//
+//  Used by:
+//    - the views under resources/views — the layouts, the
+//      sign-in forms, the course pages and the mails'
+//      bodies — through __('main.…')
+//    - the controllers, middleware and models that flash a
+//      message or build a text — Auth\LoginController,
+//      Auth\RegisterController, ManagerMainController,
+//      LMController, SimulationsController,
+//      KnowledgeTestController, BaseController, FinishedSe
+//      and LoginLog
+//    - the mailables, for their subjects — SendVerification,
+//      SendRemindLink, SendNewPass and SimulationsResults
+//    - the Feature suite — compares flash messages with the
+//      same keys
+// -----------------------------------------------------------
+
+
 return [
 
     'my_info' => 'My Information',
@@ -60,6 +107,8 @@ return [
     'new_pass_not_match'=>'New passwords do not match',
     'pass_too_short'=>'Password is too short',
     'pass_changed'=>'Password changed',
+    // Despite their keys, these two answer the user name
+    // change (ManagerMainController::change_username)
     'pass_updated'=>'Username updated!',
     'pass_unavailable'=>'Username is unavailable!',
     'auth_failed'=>'Wrong email and/or password!',
@@ -107,9 +156,14 @@ return [
     'simulations_ranks'=>'Simulations Ranks',
     'position'=>'Position',
     'last_ended'=>'Last ended',
+    // The two modes of a simulation's start page, keyed in
+    // Lithuanian: po kiekvieno, feedback after each step, and
+    // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'For learning purposes',
     'simulation_pabaigoje'=>'For knowledge testing purposes',
     'my_badges'=>'My Badges',
+    // HTML: the success alert prints it unescaped
+    // (parts/notif.blade.php), so the link works
     'new_badge'=>"You received new badge. Check <a href=\"/cp/badges\">My Badges</a>",
     'badge_topic'=>'Complete first topic',
     'badge_self_evaluation_test'=>'Complete first self evaluation test',
@@ -122,8 +176,11 @@ return [
     'knowledge_test'=>'Knowledge Test',
     'results'=>'Result',
     'test_finished'=>'Test is finished!',
+    // Nothing shows only_3 at the moment
     'only_3'=>'You are only allowed a maximum of three attempts for this test.',
     'not_anymore'=>'You cannot do it anymore',
+    // no_questions again: PHP keeps this entry, so the
+    // category text further up never shows
     'no_questions'=>'No questions',
     'total_tries'=>'Total number of attempts so far',
     'you_failed'=>'You failed!',

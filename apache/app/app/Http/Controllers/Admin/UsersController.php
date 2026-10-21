@@ -1,5 +1,20 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] UsersController — the members page of the panel
+//
+//  admin-panel/users lists every member account, whatever
+//  its country, 25 a page, with a status switch and a
+//  delete icon on each row. Its routes carry auth.admin:man
+//  and perms, so only main admins reach them; a country
+//  manager gets a 404. Both row actions answer a plain GET.
+//
+//  Used by:
+//    - routes/web_admin.php — admin-panel/users and the
+//      user/delete and user/status routes
+// -----------------------------------------------------------
+
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -10,12 +25,80 @@ use App\Models\Members as Members;
 use App\Models\LMUsers as LMUsers;
 use Illuminate\Support\Facades\Validator;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// UsersController
+// -----------------------------------------------------------
+//
+// The list and its two row actions, which both redirect
+// back to the list.
+//
+//   index         — the paged list of members
+//   delete        — removes an account
+//   change_status — switches an account on or off
+//
+// Used by:
+//   - routes/web_admin.php
+// -----------------------------------------------------------
+
 class UsersController extends BaseController
 {
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // __construct
+    // -----------------------------------------------------------
+    //
+    // Only runs the admin BaseController's constructor: the
+    // man-guard check and the session flags shared with the
+    // views.
+    //
+    // Used by:
+    //   - Laravel, when it dispatches a route of this
+    //     controller
+    // -----------------------------------------------------------
+
     public function __construct()
     {
         parent::__construct();
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // index
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/users
+    //
+    // Every member account in table order, whatever its
+    // country, 25 a page. The whole of bei_users is loaded —
+    // twice, once only to count it — and the page is cut out
+    // of it by hand for a LengthAwarePaginator; a missing or
+    // non-numeric page parameter means page 1. With no
+    // members at all the view gets an empty array instead of
+    // the paginator. Main admins only (auth.admin:man,
+    // perms). Answers with admin-panel/users.blade.php.
+    //
+    // Used by:
+    //   - admin-panel/sidebar.blade.php — the Users entry of
+    //     the menu, shown to main admins
+    //   - admin-panel/users.blade.php — its page links
+    //   - delete, change_status (below) — they redirect here
+    // -----------------------------------------------------------
 
     public function index(Request $request)
     {
@@ -53,20 +136,47 @@ class UsersController extends BaseController
             $paginator = array();
         }
 
-
         return view('admin-panel.users', ['userlist' => $paginator]);
-
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // delete
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/user/delete/{user_id}
+    //
+    // Removes the member's completed lessons (bei_lm_users)
+    // and then the account, when an account has that id, and
+    // redirects to the members page with "User deleted!" —
+    // also when none had it. The member's other rows (logins,
+    // badges, test attempts, simulation runs) stay behind.
+    // Main admins only (auth.admin:man, perms).
+    //
+    // Known bug (medium): the account goes on a plain GET
+    // (UsersController.php:182), and a GET carries no CSRF
+    // token, so a link a signed-in admin opens from a mail
+    // deletes the member; pinned as admin-get-deletes. Fix: a
+    // POST route, posted from a form that carries the token.
+    //
+    // Used by:
+    //   - admin-panel/users.blade.php — the delete icon of
+    //     each row, through Confirm_Dialog (public/js/admn.js)
+    // -----------------------------------------------------------
 
     public function delete($user_id)
     {
-
+        // Built and never asked to validate anything, so the id
+        // goes unchecked
         $validator = Validator::make(['user_id'=>$user_id], [
             'user_id' => 'integer|required'
         ]);
 
         if(Members::where(array('id' => $user_id))->count() > 0) {
-
 
             LMUsers::where(['user_id'=>$user_id])->delete();
             Members::destroy($user_id);
@@ -74,11 +184,40 @@ class UsersController extends BaseController
         }
 
         return redirect()->intended(route('users'))->withSuccess("User deleted!");
-
     }
 
-    public function change_status($status_id, $user_id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // change_status
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/user/status/{status_id}/{user_id}
+    //
+    // Writes {status_id} from the URL, unchecked, into the
+    // member's status and redirects to the members page; an
+    // unknown member id gets "User do not exist!" as an error
+    // instead. Only status 1 signs in (LoginController::
+    // login): the list links 2 to switch an active member off
+    // and 1 to switch an inactive one back on. Main admins
+    // only (auth.admin:man, perms).
+    //
+    // Known bug (medium): the status changes on a plain GET
+    // (UsersController.php:225), so a link a signed-in admin
+    // opens switches the member off — the switching-off half
+    // of admin-get-deletes. Fix: a POST route, posted from a
+    // form that carries the CSRF token.
+    //
+    // Used by:
+    //   - admin-panel/users.blade.php — the Active / Not
+    //     active badge of each row
+    // -----------------------------------------------------------
+
+    public function change_status($status_id, $user_id)
+    {
         if (Members::where(array('id' => $user_id))->count() > 0) {
 
             $update = array('status'=> $status_id);
@@ -90,9 +229,5 @@ class UsersController extends BaseController
         }
 
         return redirect()->intended(route('users'))->withErrors("User do not exist!");
-
-
     }
-
-
 }

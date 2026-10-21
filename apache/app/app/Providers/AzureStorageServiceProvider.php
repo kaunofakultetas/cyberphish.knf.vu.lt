@@ -1,8 +1,25 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] AzureStorageServiceProvider — an azure disk, unused
+//
+//  Would teach Laravel's Storage an azure driver: a
+//  Flysystem filesystem on a blob container of an Azure
+//  storage account, from the name, key and container the
+//  disk's settings hold. It is dead code: config/app.php
+//  does not list it. The azure disk of
+//  config/filesystems.php gets its driver from
+//  matthewbdaly/laravel-azure-storage instead, whose own
+//  provider of the same name package discovery loads — and
+//  no code uses that disk; the default disk is local.
+//
+//  Used by:
+//    - nothing at the moment — not in the providers list of
+//      config/app.php
+// -----------------------------------------------------------
+
 
 namespace App\Providers;
-
 
 use Storage;
 
@@ -15,26 +32,53 @@ use League\Flysystem\Azure\AzureAdapter;
 use WindowsAzure\Common\ServicesBuilder;
 
 
-class AzureStorageServiceProvider extends ServiceProvider
 
+
+
+
+
+
+// -----------------------------------------------------------
+// AzureStorageServiceProvider
+// -----------------------------------------------------------
+//
+// Registers the azure driver at boot and binds nothing.
+// Even registered, it could not run as written: the
+// AzureAdapter it builds on comes from the package
+// league/flysystem-azure, which composer.lock does not
+// hold — the lock has league/flysystem-azure-blob-storage,
+// a different adapter.
+//
+// Used by:
+//   - nothing at the moment — not in config/app.php
+// -----------------------------------------------------------
+
+class AzureStorageServiceProvider extends ServiceProvider
 {
 
-    /**
 
-     * Perform post-registration booting of services.
 
-     *
 
-     * @return void
 
-     */
+
+    // -----------------------------------------------------------
+    // boot
+    // -----------------------------------------------------------
+    //
+    // Registers the azure driver with Storage: the account's
+    // connection string from the disk's name and key, a blob
+    // service from the ServicesBuilder of
+    // microsoft/windowsazure, and a filesystem on the disk's
+    // container.
+    //
+    // Used by:
+    //   - nothing at the moment — the provider is never
+    //     registered
+    // -----------------------------------------------------------
 
     public function boot()
-
     {
-
         Storage::extend('azure', function($app, $config) {
-
             $endpoint = sprintf(
 
                 'DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s',
@@ -45,32 +89,30 @@ class AzureStorageServiceProvider extends ServiceProvider
 
             );
 
-
             $blobRestProxy = ServicesBuilder::getInstance()->createBlobService($endpoint);
 
             return new Filesystem(new AzureAdapter($blobRestProxy, $config['container']));
-
         });
-
     }
 
 
-    /**
 
-     * Register bindings in the container.
 
-     *
 
-     * @return void
 
-     */
+    // -----------------------------------------------------------
+    // register
+    // -----------------------------------------------------------
+    //
+    // Binds nothing into the container; the driver is
+    // registered at boot.
+    //
+    // Used by:
+    //   - nothing at the moment — the provider is never
+    //     registered
+    // -----------------------------------------------------------
 
     public function register()
-
     {
-
-        //
-
     }
-
 }

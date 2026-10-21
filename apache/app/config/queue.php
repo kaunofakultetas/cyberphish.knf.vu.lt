@@ -1,33 +1,33 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] config/queue.php — the job queues
+//
+//  Laravel 7's stock queue file, unchanged. Nothing is
+//  queued: the four mailables are sent with send() and none
+//  implements ShouldQueue, and the app dispatches no job.
+//  QUEUE_CONNECTION is not set in docker-compose.yml, so the
+//  sync connection would run a job at once anyway; no queue
+//  worker runs, and the failed_jobs table of the failed
+//  section does not exist (mysql/init.sql). None of the
+//  other variables here is set either.
+//
+//  Used by:
+//    - Laravel's QueueManager, which nothing calls at the
+//      moment
+// -----------------------------------------------------------
+
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Queue Connection Name
-    |--------------------------------------------------------------------------
-    |
-    | Laravel's queue API supports an assortment of back-ends via a single
-    | API, giving you convenient access to each back-end using the same
-    | syntax for every one. Here you may define a default connection.
-    |
-    */
-
+    // The connection jobs go to, from QUEUE_CONNECTION — not
+    // set, so sync, which runs a job right away inside the
+    // request that dispatched it
     'default' => env('QUEUE_CONNECTION', 'sync'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Queue Connections
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the connection information for each server that
-    | is used by your application. A default configuration has been added
-    | for each back-end shipped with Laravel. You are free to add more.
-    |
-    | Drivers: "sync", "database", "beanstalkd", "sqs", "redis", "null"
-    |
-    */
-
+    // One entry per back end; Laravel's drivers are sync,
+    // database, beanstalkd, sqs, redis and null. database
+    // would need a jobs table mysql/init.sql does not create
     'connections' => [
 
         'sync' => [
@@ -69,17 +69,8 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Failed Queue Jobs
-    |--------------------------------------------------------------------------
-    |
-    | These options configure the behavior of failed queue job logging so you
-    | can control which database and table are used to store the jobs that
-    | have failed. You may change them to any database / table you wish.
-    |
-    */
-
+    // Where a queue worker records the jobs that failed: the
+    // failed_jobs table, which mysql/init.sql does not create
     'failed' => [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database'),
         'database' => env('DB_CONNECTION', 'mysql'),

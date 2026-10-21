@@ -1,19 +1,21 @@
-<?php
-
-return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Pagination Language Lines
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are used by the paginator library to build
-    | the simple pagination links. You are free to change them to anything
-    | you want to customize your views to better match your application.
-    |
-    */
-
-    'previous' => 'Eelmine',
-    'next' => 'Edasi',
-
-];
+<?php
+
+// -----------------------------------------------------------
+//  [*] ee/pagination — the paginator's labels, in Estonian
+//
+//  Laravel's stock pagination file, translated into Estonian
+//  (ee is the site's code for it): previous and next label
+//  the arrows around the page numbers that links() renders.
+//
+//  Used by:
+//    - Laravel's paginator — links() in news.blade.php, when
+//      the site is in Estonian
+// -----------------------------------------------------------
+
+
+return [
+
+    'previous' => 'Eelmine',
+    'next' => 'Edasi',
+
+];

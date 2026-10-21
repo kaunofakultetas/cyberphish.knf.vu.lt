@@ -1,5 +1,27 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] gr/main — the site's own strings, in Greek
+//
+//  Every text of the member side and its mails in Greek (gr
+//  is the site's code for it), by key, the same keys as
+//  en/main.php. A few keys appear twice; PHP keeps the later
+//  entry.
+//
+//  Known bug (low): no_questions is defined twice
+//  (main.php:111, 161) and PHP keeps the later, generic text,
+//  so the self-evaluation page, which the first was written
+//  for, never says the category has no questions. Fix: give
+//  the category text its own key and use that key in
+//  self-eval.blade.php.
+//  Pinned as lang-no-questions.
+//
+//  Used by:
+//    - the __('main.…') lookups listed in en/main.php, when
+//      the site is in Greek
+// -----------------------------------------------------------
+
+
 return [
 
     'my_info' => 'Η πληροφορία μου',
@@ -40,6 +62,8 @@ return [
     'create_acc'=>'Δημιουργία λογαριασμού!',
     'agree_terms'=>'Συμφωνώ με τους Όρους και τις Προϋποθέσεις',
     'already_acc_login'=>'Έχετε ήδη λογαριασμό? Συνδεθείτε!',
+    // register again: PHP keeps this entry, the sign-up
+    // button's text
     'register'=>'Κανω ΕΓΓΡΑΦΗ',
     'forgot_password_descr'=>'Το καταλαβαίνουμε, συμβαίνουν πράγματα. Απλώς πληκτρολογήστε τη διεύθυνση email σας παρακάτω και θα σας στείλουμε έναν σύνδεσμο για να επαναφέρετε τον κωδικό πρόσβασής σας!',
     'verify_email'=>'Επιβεβαιώστε τη διεύθυνση ηλεκτρονικού ταχυδρομείου σας',
@@ -60,6 +84,8 @@ return [
     'new_pass_not_match'=>'Οι νέοι κωδικοί πρόσβασης δεν ταιριάζουν',
     'pass_too_short'=>'Ο κωδικός πρόσβασης είναι πολύ σύντομος',
     'pass_changed'=>'Ο κωδικός άλλαξε',
+    // Despite their keys, these two answer the user name
+    // change (ManagerMainController::change_username)
     'pass_updated'=>'Το όνομα χρήστη ενημερώθηκε!',
     'pass_unavailable'=>'Το όνομα χρήστη δεν είναι διαθέσιμο!',
     'auth_failed'=>'Λάθος email ή/και κωδικός πρόσβασης!',
@@ -107,9 +133,14 @@ return [
     'simulations_ranks'=>'Κατάταξη προσομοιώσεων',
     'position'=>'Θέση',
     'last_ended'=>'Τελευταίο τέλος',
+    // The two modes of a simulation's start page, keyed in
+    // Lithuanian: po kiekvieno, feedback after each step, and
+    // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'Για μαθησιακούς σκοπούς',
     'simulation_pabaigoje'=>'Για σκοπούς ελέγχου γνώσεων',
     'my_badges'=>'Τα σήματα μου',
+    // HTML: the success alert prints it unescaped
+    // (parts/notif.blade.php), so the link works
     'new_badge'=>"Λάβατε νέο σήμα. Επιλέξτε <a href=\"/cp/badges\">Τα σήματα μου</a>",
     'badge_topic'=>'Συμπλήρωσε το πρώτο θέμα',
     'badge_self_evaluation_test'=>'Ολοκληρώστε το πρώτο τεστ αυτοαξιολόγησης',
@@ -122,8 +153,11 @@ return [
     'knowledge_test'=>'Τεστ Γνώσεων',
     'results'=>'Αποτέλεσμα',
     'test_finished'=>'Το τεστ ολοκληρώθηκε!',
+    // Nothing shows only_3 at the moment
     'only_3'=>'Επιτρέψατε να δοκιμάσετε αυτό το τεστ μόνο 3 φορές',
     'not_anymore'=>'Δεν μπορείς να το κάνεις άλλο',
+    // no_questions again: PHP keeps this entry, so the
+    // category text further up never shows
     'no_questions'=>'Καμία ερώτηση',
     'total_tries'=>'Δοκιμές',
     'you_failed'=>'Απέτυχες!',

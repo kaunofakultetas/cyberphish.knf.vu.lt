@@ -1,5 +1,22 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] SimulationsController — members' phishing simulations
+//
+//  The phishing simulations as members play them, every
+//  route behind auth:mem: the categories of the language,
+//  the simulations of a category with the member's last
+//  score, a simulation's start page, and a run — a walk down
+//  the simulation's tree of choices, one level per step,
+//  until a choice leads nowhere. The end of a run scores
+//  it, mails the result and may earn the all-simulations
+//  badge; the member's history lists the runs.
+//
+//  Used by:
+//    - routes/web_user.php — the member simulation routes
+// -----------------------------------------------------------
+
+
 namespace App\Http\Controllers;
 
 use Mail;
@@ -24,20 +41,119 @@ use App\Models\ScenariosOptions;
 use App\Models\ScenariosUsers;
 use App\Models\ScenariosUsersOptions;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// SimulationsController
+// -----------------------------------------------------------
+//
+// A BaseController, so every action runs behind the
+// middleware that sets the locale — from the URL's {lang}
+// when it names one of the five languages, else from the
+// session — and shares the member's data with the views. A
+// simulation is a bei_scenarios row whose choices form a
+// tree in bei_scenarios_options: level 1 choices hang under
+// parent 0, every deeper one under the choice that leads to
+// it, and each carries its option_type and points. A run is
+// a bei_users_scenarios row the browser knows by its public
+// id; every choice made in it is a
+// bei_users_scenarios_options row.
+//
+//   index                          — unused
+//   categories, simulations_list,
+//   simulation_start               — choosing a simulation
+//   simulation_progress            — a new run
+//   gen_test_id                    — a fresh public id
+//   simulation_do_stuff,
+//   simulation_do_stuff_save       — one step of a run
+//   simulation_total_points        — the score of a run
+//   history                        — every run of the member
+//   check_if_all_simulations_finished
+//                                  — the badge condition
+//
+// Used by:
+//   - routes/web_user.php — the routes of its actions
+// -----------------------------------------------------------
+
 class SimulationsController extends BaseController
 {
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // __construct
+    // -----------------------------------------------------------
+    //
+    // BaseController's constructor and nothing more: it
+    // registers the middleware that sets the locale and shares
+    // the lesson menu, the progress, the badges and the
+    // questionnaire link with every view.
+    //
+    // Used by:
+    //   - Laravel — the router builds the controller for every
+    //     request to one of its routes
+    // -----------------------------------------------------------
+
     public function __construct()
     {
         parent::__construct();
     }
 
-    public function index(Request $request, $lang){
 
 
+
+
+
+    // -----------------------------------------------------------
+    // index
+    // -----------------------------------------------------------
+    //
+    // An empty action. No route names
+    // SimulationsController@index — the admin panel's
+    // simulation list belongs to Admin\SimulationsController.
+    //
+    // Used by:
+    //   - no route reaches it and nothing calls it at the
+    //     moment
+    // -----------------------------------------------------------
+
+    public function index(Request $request, $lang)
+    {
     }
 
-    public function categories(){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // categories
+    // -----------------------------------------------------------
+    //
+    // GET /{lang}/simulations
+    //
+    // The simulation categories of the session's language,
+    // newest first, behind auth:mem. Answers
+    // simulations_categories.blade.php.
+    //
+    // Used by:
+    //   - layouts/main.blade.php — the learning-material menu
+    //   - parts/lm_left_sidebar.blade.php — the simulations
+    //     button of the learning sidebar
+    //   - simulation_do_stuff.blade.php — the other-simulations
+    //     button of a run's end page
+    // -----------------------------------------------------------
+
+    public function categories()
+    {
         if(count(ScenariosCategory::where(['lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray()) > 0){
 
             $arr = ScenariosCategory::where(['lang_id'=>Langs::getLangId(Session::get('lang'))])->orderByDesc('id')->get()->toArray();
@@ -51,8 +167,32 @@ class SimulationsController extends BaseController
         return view('simulations_categories', ['recordlist'=>$arr]);
     }
 
-    public function simulations_list(Request $request, $lang, $name, $uid){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // simulations_list
+    // -----------------------------------------------------------
+    //
+    // GET /{lang}/simulations/{name}/{uid}
+    //
+    // The simulations filed under category uid in the
+    // session's language, behind auth:mem and r_exists:sim_cat
+    // (a 404 for an unknown category). Each comes with the
+    // member's latest finished run of it in that language
+    // under history, empty when there is none. The name in
+    // the URL is never read. Answers
+    // simulations_list.blade.php with the category's name.
+    //
+    // Used by:
+    //   - simulations_categories.blade.php — the category
+    //     buttons
+    // -----------------------------------------------------------
+
+    public function simulations_list(Request $request, $lang, $name, $uid)
+    {
         $cat_simulations = ScenariosInCategory::selectraw('bei_scenarios.*')
         ->where(['bei_scenarios_in_category.cat_id'=>$uid, 'bei_scenarios_in_category.lang_id'=>Langs::getLangId(Session::get('lang'))])
         ->leftJoin('bei_scenarios', 'bei_scenarios.id', 'bei_scenarios_in_category.scenario_id')
@@ -79,13 +219,55 @@ class SimulationsController extends BaseController
         ]);
     }
 
-    public function simulation_start(Request $request, $lang, $uid){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // simulation_start
+    // -----------------------------------------------------------
+    //
+    // GET /{lang}/simulation/{uid}
+    //
+    // The start page of a simulation, behind auth:mem and
+    // r_exists:sim_id (a 404 for an unknown simulation): its
+    // columns become the view's variables, next to the names
+    // of its categories and attributes by id, and the page's
+    // form starts a run in one of two modes. Answers
+    // simulation_start.blade.php.
+    //
+    // Known bug (low): the simulation is looked up in the
+    // session's language only (SimulationsController.php:264),
+    // while R_Exists checks just that the id exists, so a
+    // simulation of another language calls toArray on
+    // nothing — a 500 instead of a 404; pinned as
+    // simulation-other-language. Fix: a 404 when the lookup
+    // finds nothing.
+    //
+    // Known bug (low): categories is set only inside its loop
+    // (SimulationsController.php:272), so a simulation filed
+    // under no category hands the view no $categories, which
+    // simulation_start.blade.php counts without the isset it
+    // gives the attributes — a 500; pinned as
+    // simulation-without-category. Fix: start categories as
+    // an empty list.
+    //
+    // Used by:
+    //   - simulations_list.blade.php — each simulation's link
+    //   - simulation_do_stuff.blade.php — the do-it-again
+    //     button of a run's end page
+    // -----------------------------------------------------------
+
+    public function simulation_start(Request $request, $lang, $uid)
+    {
         $scenario = Scenarios::where(['id'=>$uid, 'lang_id'=>Langs::getLangId(Session::get('lang'))]) ->get()->first()->toArray();
 
         $categories = ScenariosInCategory::where(['scenario_id'=>$scenario['id'], 'lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
         $attributes = ScenariosInAttributes::where(['scenario_id'=>$scenario['id'], 'lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
 
+        // categories and attributes exist only when the
+        // simulation has some — the second Known bug above
         foreach($categories as $k => $v){
             $scenario['categories'][$v['cat_id']] = ScenariosCategory::where(['id'=>$v['cat_id']])->get()->pluck('name')->first();
         }
@@ -97,8 +279,35 @@ class SimulationsController extends BaseController
         return view('simulation_start', $scenario);
     }
 
-    public function simulation_progress(Request $request, $lang, $uid){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // simulation_progress
+    // -----------------------------------------------------------
+    //
+    // POST /{lang}/simulation_progress/{uid}
+    //
+    // Starts a run of the simulation, behind auth:mem and
+    // r_exists:sim_id: a bei_users_scenarios row for the
+    // member in the URL's language, open, started now, with
+    // no points, under a fresh public id; then a redirect to
+    // its first step. The mode chosen on the start page — 1
+    // "for learning purposes", the feedback after every
+    // choice, or 2 "for knowledge testing purposes", the
+    // feedback listed at the end — is kept only in the
+    // session, under simulation_type_ and the public id, so a
+    // run resumed in another session shows no feedback at
+    // all.
+    //
+    // Used by:
+    //   - simulation_start.blade.php — the start form
+    // -----------------------------------------------------------
+
+    public function simulation_progress(Request $request, $lang, $uid)
+    {
         $public_id = SimulationsController::gen_test_id();
 
         $add = new ScenariosUsers;
@@ -114,11 +323,35 @@ class SimulationsController extends BaseController
         Session::put('simulation_type_'.$public_id, $request->get('simulation_type'));
 
         return redirect('/'.$lang.'/simulation/progress/'.$public_id);
-
     }
 
-    private static function gen_test_id(){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // gen_test_id
+    // -----------------------------------------------------------
+    //
+    // A fresh public id for a run: 16 random letters and
+    // digits from SettingsController::random_string, checked
+    // against the ids bei_users_scenarios already holds.
+    //
+    // Known bug (low): the retry
+    // (SimulationsController.php:363) calls
+    // ScenariosUsers::gen_test_id, a method that model does
+    // not have, so the one id that collides fails the request
+    // with a BadMethodCallException instead of drawing again —
+    // dead code in practice. Fix: call
+    // SimulationsController::gen_test_id.
+    //
+    // Used by:
+    //   - simulation_progress (above)
+    // -----------------------------------------------------------
+
+    private static function gen_test_id()
+    {
         $p_id = SettingsController::random_string();
 
         $num = ScenariosUsers::where(['public_id'=>$p_id])->count();
@@ -126,13 +359,64 @@ class SimulationsController extends BaseController
         if($num == 0){
             return $p_id;
         } elseif($num > 0){
+            // the model has no gen_test_id — the Known bug above
             return ScenariosUsers::gen_test_id();
         }
-
     }
 
-    public function simulation_do_stuff(Request $request, $lang, $public_id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // simulation_do_stuff
+    // -----------------------------------------------------------
+    //
+    // GET /{lang}/simulation/progress/{public_id}
+    //
+    // One step of a run, behind auth:mem and
+    // r_exists:sim_public_id (a 404 unless the run is the
+    // member's). The member's latest choice decides the step:
+    // before the first one the level 1 choices, afterwards
+    // the choices under the latest one, a level deeper. When
+    // there are none the run is over: it is closed with its
+    // points if still open, the SimulationsResults mail takes
+    // the points to the member, badge_all_simulations follows
+    // once every simulation of the language is finished, and
+    // in mode 2 the page lists the feedback of every choice.
+    // Answers simulation_do_stuff.blade.php with the choices,
+    // the run's ids, whether it is finished and the points so
+    // far; the mode 1 feedback of the last choice reaches the
+    // page through the session.
+    //
+    // Known bug (low): the mail
+    // (SimulationsController.php:466) goes out every time the
+    // end page is shown, though only the first visit closes
+    // the run, so a reload or a visit from the history mails
+    // the result again; pinned as
+    // simulation-results-mail-repeat. Fix: mail only when the
+    // update closed the run.
+    //
+    // Known bug (low): main.new_badge is flashed
+    // (SimulationsController.php:473) on every end page once
+    // all simulations are finished, whatever save_badge
+    // answered, so a badge held for long is announced again
+    // on each visit. Fix: flash only when save_badge saved
+    // the badge.
+    // Pinned as simulation-badge-message.
+    //
+    // Used by:
+    //   - simulation_progress (above), simulation_do_stuff_save
+    //     (below) — their redirects
+    //   - simulations_history.blade.php — the link of each run
+    // -----------------------------------------------------------
+
+    public function simulation_do_stuff(Request $request, $lang, $public_id)
+    {
+        // STEP 1: the run so far — whether it holds a choice
+        // yet, and its simulation
+        // ==================================================
         $if_any = ScenariosUsersOptions::where(['user_scenario_public_id'=>$public_id])->count();
 
         $scenario_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('scenario_id')->first();
@@ -141,6 +425,11 @@ class SimulationsController extends BaseController
 
         $feedback_list = [];
 
+
+        // STEP 2: the choices of this step — the level 1
+        // choices before the first choice, afterwards the ones
+        // under the latest choice, one level deeper
+        // ====================================================
         if($if_any == 0){
 
             $options = ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>0, 'level'=>1])->get()->toArray();
@@ -160,15 +449,20 @@ class SimulationsController extends BaseController
             $options = ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>$parent_option_id, 'level'=>$new_level])->get()->toArray();
 
             if(count($options)==0){
+                // STEP 3: no choice left, the run is over — close
+                // it with its points while it is still open, mail
+                // the result, and award badge_all_simulations once
+                // every simulation of the language is finished
+                // ================================================
                 $finished=1;
 
                 ScenariosUsers::where([
                         'public_id'=>$public_id,
                         'user_id'=>Auth::guard('mem')->id(),
                         'finished'=>0])->update(['ended'=>date("Y-m-d H:i:s"),
-                        'finished'=>1,
-                        'points'=>SimulationsController::simulation_total_points($public_id)]);
-                        
+                            'finished'=>1,
+                            'points'=>SimulationsController::simulation_total_points($public_id)]);
+
                 Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
                 ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
 
@@ -181,7 +475,9 @@ class SimulationsController extends BaseController
                 }
 
 
-
+                // STEP 4: mode 2 lists every choice that has
+                // feedback on the end page
+                // ==========================================
                 if(Session::get('simulation_type_'.$public_id) == 2){
 
                     $feedback_list = ScenariosUsersOptions::selectraw('bei_users_scenarios_options.*, bei_scenarios_options.feedback, bei_scenarios_options.situation')
@@ -192,28 +488,61 @@ class SimulationsController extends BaseController
                     ->toArray();
 
                 } else {
-
-
-
+                    // mode 1 showed each choice's feedback on the way
                 }
 
             }
 
         }
 
-
         return view('simulation_do_stuff', [
-                        'options'=>$options,
-                        'public_id'=>$public_id,
-                        'scenario_id'=>$scenario_id,
-                        'finished'=>$finished,
-                        'points'=>SimulationsController::simulation_total_points($public_id),
-                        'feedback_list'=>$feedback_list
+            'options'=>$options,
+            'public_id'=>$public_id,
+            'scenario_id'=>$scenario_id,
+            'finished'=>$finished,
+            'points'=>SimulationsController::simulation_total_points($public_id),
+            'feedback_list'=>$feedback_list
         ]);
     }
 
-    public function simulation_do_stuff_save(Request $request, $lang, $public_id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // simulation_do_stuff_save
+    // -----------------------------------------------------------
+    //
+    // POST /{lang}/simulation/progress/{public_id}
+    //
+    // Records the choice posted as a for the current step of
+    // the run, behind auth:mem and r_exists:sim_public_id: a
+    // bei_users_scenarios_options row with the option's type
+    // and points. In mode 1 the option's feedback goes into
+    // the session for the next step to show; in any other
+    // mode the session's feedback is emptied. Redirects to
+    // the run's next step.
+    //
+    // Known bug (medium): the choice is stored as posted
+    // (SimulationsController.php:563), never checked against
+    // the choices the current step offers — any option id of
+    // any simulation, as often as it comes — so repeating the
+    // best choice before the last one lifts a run far past
+    // its best path, and the public ranking shows it; pinned
+    // as simulation-foreign-option. Fix: accept only a choice
+    // the current step offers.
+    //
+    // Used by:
+    //   - simulation_do_stuff.blade.php — the choice form,
+    //     posted back to its own URL
+    // -----------------------------------------------------------
+
+    public function simulation_do_stuff_save(Request $request, $lang, $public_id)
+    {
+        // STEP 1: the posted choice, the run it goes to, and
+        // the option's type, points and feedback
+        // ==================================================
         $option_id = $request->get('a');
 
         $user_scenario_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('id')->first();
@@ -223,40 +552,82 @@ class SimulationsController extends BaseController
         $points = ScenariosOptions::where(['id'=>$option_id])->get()->pluck('points')->first();
         $feedback = ScenariosOptions::where(['id'=>$option_id])->get()->pluck('feedback')->first();
 
-                $add = new ScenariosUsersOptions;
-                $add->user_id = Auth::guard('mem')->id();
-                $add->user_scenario_id = $user_scenario_id;
-                $add->user_scenario_public_id = $public_id;
-                $add->scenario_id = $scenario_id;
-                $add->option_id = $option_id;
-                $add->option_type = $option_type;
-                $add->points = $points;
-                $add->save();
 
-                if(Session::get('simulation_type_'.$public_id) == 1){
+        // STEP 2: record the choice as posted
+        // ===================================
+        $add = new ScenariosUsersOptions;
+        $add->user_id = Auth::guard('mem')->id();
+        $add->user_scenario_id = $user_scenario_id;
+        $add->user_scenario_public_id = $public_id;
+        $add->scenario_id = $scenario_id;
+        $add->option_id = $option_id;
+        $add->option_type = $option_type;
+        $add->points = $points;
+        $add->save();
 
-                    Session::put('feedback_'.$public_id, $feedback);
 
-                } else {
+        // STEP 3: mode 1 shows this choice's feedback at the
+        // next step; any other mode empties it
+        // ==================================================
+        if(Session::get('simulation_type_'.$public_id) == 1){
 
-                    Session::put('feedback_'.$public_id, '');
-                }
+            Session::put('feedback_'.$public_id, $feedback);
 
+        } else {
+
+            Session::put('feedback_'.$public_id, '');
+        }
 
         return redirect('/'.$lang.'/simulation/progress/'.$public_id);
     }
 
-    public static function simulation_total_points($public_id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // simulation_total_points
+    // -----------------------------------------------------------
+    //
+    // The points of a run so far: the sum over the member's
+    // choices in it, null before the first choice.
+    //
+    // Used by:
+    //   - simulation_do_stuff (above)
+    // -----------------------------------------------------------
+
+    public static function simulation_total_points($public_id)
+    {
         $sum = ScenariosUsersOptions::selectraw("SUM(points) as total_points")->where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->get()->pluck('total_points')->first();
 
         return $sum;
-
     }
 
-    public function history(){
 
 
+
+
+
+    // -----------------------------------------------------------
+    // history
+    // -----------------------------------------------------------
+    //
+    // GET /cp/simulations-history
+    //
+    // Every run of the member in the session's language,
+    // finished or not, behind auth:mem: its simulation's
+    // columns with the run's public id, points, start, end
+    // and state. Answers simulations_history.blade.php, which
+    // links each run to its step page.
+    //
+    // Used by:
+    //   - parts/left-user-links.blade.php — the member's side
+    //     links
+    // -----------------------------------------------------------
+
+    public function history()
+    {
         $my_simulations = ScenariosUsers::selectraw("bei_scenarios.*, bei_users_scenarios.public_id, bei_users_scenarios.points, bei_users_scenarios.started, bei_users_scenarios.ended,  bei_users_scenarios.finished")->
         leftJoin('bei_scenarios', 'bei_scenarios.id', 'bei_users_scenarios.scenario_id')->
         where(['bei_users_scenarios.user_id'=>Auth::guard('mem')->id(), 'bei_users_scenarios.lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
@@ -264,42 +635,43 @@ class SimulationsController extends BaseController
         return view('simulations_history', ['my_simulations'=>$my_simulations]);
     }
 
-    public static function check_if_all_simulations_finished($lang_id){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // check_if_all_simulations_finished
+    // -----------------------------------------------------------
+    //
+    // One entry per simulation of the language: 1 when the
+    // member has finished a run of it, else 0 — so every
+    // simulation is done when no 0 is left. A language
+    // without simulations gives an empty list, which reads as
+    // done.
+    //
+    // Used by:
+    //   - simulation_do_stuff (above)
+    // -----------------------------------------------------------
+
+    public static function check_if_all_simulations_finished($lang_id)
+    {
         $get_scenarios = Scenarios::where(['lang_id'=>$lang_id])->get()->toArray();
 
         $return = [];
 
         foreach($get_scenarios as $k => $v){
 
-                $solved = ScenariosUsers::where(['user_id'=>Auth::guard('mem')->id(), 'scenario_id'=>$v['id'], 'finished'=>1])->count();
+            $solved = ScenariosUsers::where(['user_id'=>Auth::guard('mem')->id(), 'scenario_id'=>$v['id'], 'finished'=>1])->count();
 
-                if($solved > 0){
-                    $return[] = 1;
-                } else {
-                    $return[] = 0;
-                }
+            if($solved > 0){
+                $return[] = 1;
+            } else {
+                $return[] = 0;
+            }
 
         }
 
         return $return;
-
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }

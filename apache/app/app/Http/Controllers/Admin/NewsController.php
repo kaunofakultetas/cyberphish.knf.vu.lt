@@ -1,5 +1,34 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] NewsController — the news articles of the admin panel
+//
+//  Main admins publish the site's news here: the articles
+//  listed by language, the form that writes one, and the
+//  deletes. An article's slug comes from its title and its
+//  author is the signed-in manager; its picture is moved to
+//  storage/app/public/feat under a random 40-character name
+//  and served as /upload/feat/… through the public/upload
+//  link the Dockerfile makes. Production mounts
+//  storage/app/public read-only (docker-compose.yml), so
+//  there a picture can be neither stored nor removed — the
+//  move or the unlink fails, a 500. Every route sits behind
+//  auth.admin:man and perms: main admins only.
+//
+//  Four of the URLs never reach this class.
+//  RouteServiceProvider loads routes/web_user.php first,
+//  and its {lang}/news and {lang}/news/{slug}/{uid} routes
+//  take admin-panel for a language: the list, the edit form
+//  of an article, the delete and the remove-picture links
+//  all land on the public pages (pinned as
+//  admin-news-shadowed). The new-article form and the two
+//  posts get through.
+//
+//  Used by:
+//    - routes/web_admin.php — the admin-panel/news routes
+// -----------------------------------------------------------
+
+
 namespace App\Http\Controllers\Admin;
 
 use Carbon\Carbon;
@@ -15,16 +44,88 @@ use App\Models\Langs as Langs;
 use App\Models\News as News;
 use Illuminate\Support\Facades\Validator;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// NewsController
+// -----------------------------------------------------------
+//
+// The panel side of bei_news. The public side, the
+// {lang}/news pages, is App\Http\Controllers\NewsController,
+// the class whose routes answer four of the URLs meant for
+// this one.
+//
+//   index          — the articles, one tab per language
+//   form           — the new-article and edit form
+//   create, update — the form's two posts
+//   delete         — removes an article
+//   delete_picture — removes an article's picture
+//
+// Used by:
+//   - routes/web_admin.php — the admin-panel/news routes
+// -----------------------------------------------------------
+
 class NewsController extends BaseController
 {
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // __construct
+    // -----------------------------------------------------------
+    //
+    // Nothing of its own: BaseController's constructor adds
+    // the auth:man middleware and shares the session's main
+    // and country flags with every view of the panel.
+    //
+    // Used by:
+    //   - Laravel's router, for every route of this controller
+    // -----------------------------------------------------------
+
     public function __construct()
     {
         parent::__construct();
     }
 
+
+
+
+
+
+    // -----------------------------------------------------------
+    // index
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/news
+    //
+    // The news list: every article, newest first, grouped by
+    // language id for admin-panel/news.blade.php, which shows
+    // one tab per language with an edit and a delete link on
+    // each row.
+    //
+    // Known bug (medium): this URL never reaches the action.
+    // The public {lang}/news route, registered first, takes
+    // admin-panel for a language and answers with the public
+    // news list, to visitors too (pinned as
+    // admin-news-shadowed). Fix: limit {lang} to the five site
+    // locales, or load routes/web_admin.php first.
+    //
+    // Used by:
+    //   - admin-panel/sidebar.blade.php — the News menu entry
+    //   - admin-panel/news_form.blade.php — the News breadcrumb
+    //   - create (below) — its redirect, by the route name news
+    // -----------------------------------------------------------
+
     public function index(Request $request)
     {
-
         $langlist = Langs::all()->pluck('name', 'id')->toArray();
 
         if(count(News::all()->toArray()) > 0){
@@ -42,13 +143,43 @@ class NewsController extends BaseController
 
         }
 
-
         return view('admin-panel.news', ['recordlist' => $arr, 'langlist'=>$langlist]);
-
     }
 
-    public function form(Request $request, $uid=null){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // form
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/news/new
+    // GET /admin-panel/news/edit/{uid?}
+    //
+    // The article form, admin-panel/news_form.blade.php:
+    // empty and posting to news/create without an id; with
+    // one, filled from the article — a query per field — and
+    // posting to news/update. While the article has a picture
+    // the form shows it with a remove link instead of the
+    // upload field.
+    //
+    // Known bug (medium): only the id-less URLs get here. With
+    // an id, the edit URL matches the public
+    // {lang}/news/{slug}/{uid} route, registered first, and
+    // the public article answers (pinned as
+    // admin-news-shadowed), so no existing article can be
+    // opened for editing. Fix: as for index (above).
+    //
+    // Used by:
+    //   - admin-panel/news.blade.php — the Create News Article
+    //     button and each row's edit icon, on the list that
+    //     index never gets to show
+    // -----------------------------------------------------------
+
+    public function form(Request $request, $uid=null)
+    {
         $langlist = Langs::all()->pluck('name', 'id')->toArray();
 
         if($uid == null){
@@ -69,11 +200,50 @@ class NewsController extends BaseController
                 ]);
 
         }
-
     }
 
-    public function create(Request $request){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // create
+    // -----------------------------------------------------------
+    //
+    // POST /admin-panel/news/create
+    //
+    // Saves a new article: the title — required, at most 255
+    // characters — and its slug, the body and the language as
+    // posted, the picture when one comes (jpeg, png, jpg, gif
+    // or svg, at most 2048 KB), the time, and the signed-in
+    // manager as its author. Answers a redirect to the news
+    // route on the article's language tab: both route files
+    // name a route news, the later admin one wins, and its URL
+    // is answered by the public news list (see index above).
+    //
+    // Known bug (low): the body and the language go in
+    // unvalidated (NewsController.php:254-255). An empty editor
+    // arrives as NULL (ConvertEmptyStringsToNull), and a
+    // single-row INSERT of NULL into the NOT NULL content
+    // column fails, a 500 instead of a saved article or a
+    // message (pinned as empty-body-500); a missing or unknown
+    // language ends the same way. Fix: validate content and
+    // lang_id, or store an empty body as an empty string.
+    //
+    // Known bug (low): the picture may be an SVG
+    // (NewsController.php:249), which can carry script, and
+    // the site serves it from its own origin — an admin-only
+    // weakness, pinned as news-svg-picture. Fix: drop svg
+    // from the allowed types.
+    //
+    // Used by:
+    //   - admin-panel/news_form.blade.php — the form, opened
+    //     without an id
+    // -----------------------------------------------------------
+
+    public function create(Request $request)
+    {
         $validatedData = $request->validate([
             'title' => [ 'required', 'min:1', 'max:255' ],
             'feat' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
@@ -98,11 +268,39 @@ class NewsController extends BaseController
         $addRecord->save();
 
         return Redirect::to(route('news') . "#a".$request->get('lang_id'))->withSuccess("Created!");
-
     }
 
-    public function update(Request $request){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // update
+    // -----------------------------------------------------------
+    //
+    // POST /admin-panel/news/update
+    //
+    // Saves the edit form over the article named by uid: the
+    // title and its slug, the body and the language as posted,
+    // and the picture when one comes; answers a redirect back
+    // to the form. An empty body is stored as an empty string
+    // here rather than failing as in create:
+    // config/database.php turns MySQL's strict mode off, and
+    // outside it an UPDATE that sets a NOT NULL column to NULL
+    // stores the column's default with a warning.
+    //
+    // The route itself is not shadowed, but the form that
+    // posts here opens only at the shadowed edit URL (see form
+    // above), so no admin reaches it from the panel today.
+    //
+    // Used by:
+    //   - admin-panel/news_form.blade.php — the form, opened
+    //     with an id
+    // -----------------------------------------------------------
+
+    public function update(Request $request)
+    {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
             'title' => [ 'required', 'min:1', 'max:255' ],
@@ -116,7 +314,6 @@ class NewsController extends BaseController
             'alias'=>Str::slug($validatedData['title']),
         ];
 
-
         if ($request->hasFile('feat')) {
 
             $imageName = Str::random(40).'.'.$request->feat->extension();
@@ -125,16 +322,46 @@ class NewsController extends BaseController
 
         }
 
-
-
         News::where(['id' => $validatedData['uid']])->update($update);
 
         return back()->withSuccess("Updated!");
-
     }
 
-    public function delete(Request $request, $uid){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // delete
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/news/delete/{uid}
+    //
+    // Deletes the article and answers a redirect to the page
+    // before, on the article's language tab. Its picture file
+    // stays in storage/app/public/feat.
+    //
+    // Known bug (medium): this URL never reaches the action.
+    // The public {lang}/news/{slug}/{uid} route, registered
+    // first, answers it with the public article (pinned as
+    // admin-news-shadowed), so no article can be deleted from
+    // the panel. Fix: as for index (above).
+    //
+    // Known bug (medium): the delete answers a plain GET
+    // (NewsController.php:367), which the CSRF check never
+    // covers — once the route is reachable, a link opened by
+    // a signed-in admin deletes an article (pinned as
+    // admin-get-deletes, for every delete of the panel). Fix:
+    // a POST route, sent with the CSRF token.
+    //
+    // Used by:
+    //   - admin-panel/news.blade.php — each row's delete icon,
+    //     through Confirm_Dialog (public/js/admn.js)
+    // -----------------------------------------------------------
+
+    public function delete(Request $request, $uid)
+    {
         $lang_id = News::where(['id'=>$uid])->pluck('lang_id')->first();
 
         News::destroy($uid);
@@ -142,8 +369,45 @@ class NewsController extends BaseController
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
     }
 
-    public function delete_picture($uid){
 
+
+
+
+
+    // -----------------------------------------------------------
+    // delete_picture
+    // -----------------------------------------------------------
+    //
+    // GET /admin-panel/news/delete_picture/{uid}
+    //
+    // Unlinks the article's picture from storage/app/public
+    // and empties feat_img, so the form offers an upload
+    // again; answers a redirect back to the form.
+    //
+    // Known bug (medium): this URL never reaches the action.
+    // The public {lang}/news/{slug}/{uid} route, registered
+    // first, answers it with the public article (pinned as
+    // admin-news-shadowed). Fix: as for index (above).
+    //
+    // Known bug (medium): a change on a plain GET
+    // (NewsController.php:414), outside the CSRF check (pinned
+    // as admin-get-deletes). Fix: a POST route, sent with the
+    // CSRF token.
+    //
+    // Known bug (low): for an article without a picture, or
+    // an unknown id, the path is the folder itself
+    // (NewsController.php:411); file_exists accepts a folder,
+    // and the warning of the unlink becomes a 500. Fix: check
+    // feat_img first, and use is_file.
+    //
+    // Used by:
+    //   - admin-panel/news_form.blade.php — the remove icon
+    //     under the picture, through Confirm_Dialog
+    //     (public/js/admn.js)
+    // -----------------------------------------------------------
+
+    public function delete_picture($uid)
+    {
         $picture = storage_path('app/public').'/'.News::where(['id'=>$uid])->pluck('feat_img')->first();
 
         if(file_exists($picture)){
@@ -154,6 +418,4 @@ class NewsController extends BaseController
 
         return back()->withSuccess("Removed!");
     }
-
-
 }

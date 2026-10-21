@@ -1,54 +1,41 @@
 <?php
 
-/**
- * Laravel - A PHP Framework For Web Artisans
- *
- * @package  Laravel
- * @author   Taylor Otwell <taylor@laravel.com>
- */
+// -----------------------------------------------------------
+//  [*] public/index.php — the front controller
+//
+//  Every web request that names no file under public/ ends
+//  here: Apache's DocumentRoot is public/, and
+//  public/.htaccess rewrites every other path to this
+//  script. It loads Composer's autoloader, builds the app
+//  (bootstrap/app.php), hands the request to the HTTP
+//  kernel — the global middleware, the routes, the
+//  controllers — sends the response back, then lets the
+//  kernel finish its after-response work. Laravel 7's
+//  stock file, unchanged.
+//
+//  Used by:
+//    - Apache — every request public/.htaccess rewrites,
+//      and /index.php asked for by name
+//    - FrontControllerTest (tests/Apache) — the home page
+//      both ways, over HTTP
+// -----------------------------------------------------------
 
+
+// The moment the request started; nothing in the app reads
+// it
 define('LARAVEL_START', microtime(true));
 
-/*
-|--------------------------------------------------------------------------
-| Register The Auto Loader
-|--------------------------------------------------------------------------
-|
-| Composer provides a convenient, automatically generated class loader for
-| our application. We just need to utilize it! We'll simply require it
-| into the script here so that we don't have to worry about manual
-| loading any of our classes later on. It feels great to relax.
-|
-*/
-
+// Composer's class loader, for the app's classes and the
+// vendor packages
 require __DIR__.'/../vendor/autoload.php';
 
-/*
-|--------------------------------------------------------------------------
-| Turn On The Lights
-|--------------------------------------------------------------------------
-|
-| We need to illuminate PHP development, so let us turn on the lights.
-| This bootstraps the framework and gets it ready for use, then it
-| will load up this application so that we can run it and send
-| the responses back to the browser and delight our users.
-|
-*/
-
+// The application, as bootstrap/app.php builds it
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
-/*
-|--------------------------------------------------------------------------
-| Run The Application
-|--------------------------------------------------------------------------
-|
-| Once we have the application, we can handle the incoming request
-| through the kernel, and send the associated response back to
-| the client's browser allowing them to enjoy the creative
-| and wonderful application we have prepared for them.
-|
-*/
-
+// The request, captured from PHP's globals, goes through
+// the HTTP kernel; the response goes back to the browser,
+// and terminate runs what waits for the response to be
+// sent
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
 $response = $kernel->handle(

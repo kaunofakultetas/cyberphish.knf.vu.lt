@@ -1,5 +1,29 @@
 <?php
 
+// -----------------------------------------------------------
+//  [*] BaseController — the shared setup of every member page
+//
+//  The parent of the controllers on the member side of the
+//  site; the admin panel has its own, Admin\BaseController.
+//  Its constructor registers one middleware that runs
+//  before each of their actions, for members and visitors
+//  alike: it picks the page's language and hands every view
+//  what the layout and the sidebars read — the member's
+//  e-mail, course progress, finished lessons, country,
+//  badges and questionnaire link, and the learning-material
+//  menu of the language.
+//
+//  Used by:
+//    - BadgesController, CertController, HomeController,
+//      InfoController, KnowledgeTestController,
+//      LMController, ManagerMainController, NewsController,
+//      RanksController, SimulationsController — they
+//      extend it
+//    - Auth\LoginController, Auth\RegisterController — they
+//      import it and extend it
+// -----------------------------------------------------------
+
+
 namespace App\Http\Controllers;
 
 use Session;
@@ -15,12 +39,74 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\App;
 use View;
 
+
+
+
+
+
+
+
+// -----------------------------------------------------------
+// BaseController
+// -----------------------------------------------------------
+//
+// Laravel runs a controller's own middleware after the
+// route's, so behind auth:mem the member is signed in by
+// the time this one runs; on the public pages it runs for
+// visitors too, who get empty values.
+//
+//   __construct — registers the middleware
+//
+// Used by:
+//   - the controllers named in the header — their
+//     constructors call parent::__construct first
+// -----------------------------------------------------------
+
 class BaseController extends Controller
 {
-    public function __construct() {
 
+
+
+
+
+
+    // -----------------------------------------------------------
+    // __construct
+    // -----------------------------------------------------------
+    //
+    // Registers the middleware, a closure, for every action
+    // of the controller. First the locale: the route's {lang}
+    // when it is one of the five site languages, remembered
+    // in the session; otherwise the session's language, or
+    // English when there is none — an unknown {lang} still
+    // reaches the action as it is. Then, for a signed-in
+    // member, the e-mail, the finished lessons, the course
+    // progress (the bei_user_course_progress function), the
+    // country and three badges of the session language, and
+    // the award of badge_finished_course once
+    // badge_all_presentations and badge_all_simulations are
+    // both held. All of it, with the learning-material menu
+    // and the questionnaire link of the member's country, is
+    // shared with every view.
+    //
+    // Known bug (low): the questionnaire link is looked up on
+    // every page (BaseController.php:178), but
+    // LMController::pc_questionare_link knows countries 0 to
+    // 5 only while registration accepts any integer, so a
+    // member with any other country gets a 500 on every
+    // page. Pinned as country-out-of-range. Fix: an empty
+    // link for a country pc_questionare_link does not know.
+    //
+    // Used by:
+    //   - the constructors of the controllers named in the
+    //     header, first thing
+    // -----------------------------------------------------------
+
+    public function __construct()
+    {
         $this->middleware(function ($request, $next) {
-
+            // The locale: the route's {lang} when it is a site
+            // language, else the session's, else English
             if ($request->route('lang') !== null && in_array($request->route('lang'), ['en', 'lt', 'ee', 'lv', 'gr'])) {
 
                 App::setLocale($request->route('lang'));
@@ -41,7 +127,8 @@ class BaseController extends Controller
                 }
             }
 
-
+            // The signed-in member's data; visitors get empty
+            // values in the else branch
             if(Auth::guard('mem')->check()){
                 $user_email = Members::select('email')->where(['id'=>Auth::guard('mem')->id()])->get()->pluck('email')->first();
                 $user_id = Auth::guard('mem')->id();
@@ -49,6 +136,10 @@ class BaseController extends Controller
                 $course = LMUsers::course_progress(Auth::guard('mem')->id(), Langs::getLangId(Session::get('lang')));
                 $country_id = Members::select('country')->where(['id'=>Auth::guard('mem')->id()])->get()->pluck('country')->first();
 
+                // Read before the award below, so the
+                // questionnaire link that badge_finished_course
+                // unlocks (parts/notif.blade.php) shows from the
+                // next page on
                 $badge_all_presentations = Badges::get_badge('badge_all_presentations');
                 $badge_all_simulations = Badges::get_badge('badge_all_simulations');
                 $badge_finished_course = Badges::get_badge('badge_finished_course');
@@ -60,7 +151,7 @@ class BaseController extends Controller
                     if($bx == true){
                         $request->session()->now('success', __('main.new_badge'));
                     } else {
-
+                        // Already held — nothing to announce
                     }
 
                 }
@@ -76,6 +167,8 @@ class BaseController extends Controller
                 $badge_finished_course = false;
             }
 
+            // What the layout, the sidebars and
+            // parts/notif.blade.php read on every page
             View::share('user_email', $user_email);
             View::share('category_content_list', LMController::category_content_list());
             View::share('user_progress', $user_progress);
@@ -88,23 +181,7 @@ class BaseController extends Controller
             View::share('badge_finished_course', $badge_finished_course);
             View::share('lang', Session::get('lang'));
 
-
-           // if(Session::get('lang') === null){
-
-            //    App::setLocale('en');
-           //     Session::put('lang', 'en');
-
-           // } else {
-
-           //     if (! in_array(Session::get('lang'), ['en', 'lt'])) {
-          //          abort(400);
-          //      }
-
-          //      App::setLocale(Session::get('lang'));
-          //  }
-
             return $next($request);
         });
-
     }
 }
