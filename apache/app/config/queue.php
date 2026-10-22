@@ -3,14 +3,15 @@
 // -----------------------------------------------------------
 //  [*] config/queue.php — the job queues
 //
-//  Laravel 7's stock queue file, unchanged. Nothing is
-//  queued: the four mailables are sent with send() and none
-//  implements ShouldQueue, and the app dispatches no job.
-//  QUEUE_CONNECTION is not set in docker-compose.yml, so the
-//  sync connection would run a job at once anyway; no queue
-//  worker runs, and the failed_jobs table of the failed
-//  section does not exist (mysql/init.sql). None of the
-//  other variables here is set either.
+//  Laravel 7's stock queue file, which Laravel 13 reads
+//  unchanged. Nothing is queued: the four mailables are
+//  sent with send() and none implements ShouldQueue, and
+//  the app dispatches no job. QUEUE_CONNECTION is not set
+//  in docker-compose.yml, so the sync connection would run
+//  a job at once anyway; no queue worker runs, and the
+//  failed_jobs table of the failed section does not exist
+//  (mysql/init.sql). None of the other variables here is
+//  set either.
 //
 //  Used by:
 //    - Laravel's QueueManager, which nothing calls at the

@@ -206,7 +206,7 @@ class SimulationsController extends BaseController
     //
     // Known bug (medium): nothing runs in a transaction, and
     // two mistakes of the sheet surface only after the
-    // simulation row is saved (SimulationsController.php:290):
+    // simulation row is saved (SimulationsController.php:292):
     // a category or attribute marked Yes whose name no row
     // has saves a null id into a NOT NULL column, and a first
     // step deeper than level 1 reads an undefined $option_id.
@@ -250,13 +250,15 @@ class SimulationsController extends BaseController
 
         $worksheet = $spreadsheet->getActiveSheet();
 
-        $descr = $worksheet->getCellByColumnAndRow(3, 19)->getCalculatedValue();
-        $goal = $worksheet->getCellByColumnAndRow(3, 20)->getCalculatedValue();
-        $actors = $worksheet->getCellByColumnAndRow(3, 21)->getCalculatedValue();
-        $source = $worksheet->getCellByColumnAndRow(3, 22)->getCalculatedValue();
-        $choose_type = $worksheet->getCellByColumnAndRow(3, 26)->getCalculatedValue();
-        $attack_type = $worksheet->getCellByColumnAndRow(3, 27)->getCalculatedValue();
-        $main_image = $worksheet->getCellByColumnAndRow(3, 30)->getCalculatedValue();
+        // Column 3 is C: getCell takes [column, row] since
+        // PhpSpreadsheet 2 removed getCellByColumnAndRow
+        $descr = $worksheet->getCell([3, 19])->getCalculatedValue();
+        $goal = $worksheet->getCell([3, 20])->getCalculatedValue();
+        $actors = $worksheet->getCell([3, 21])->getCalculatedValue();
+        $source = $worksheet->getCell([3, 22])->getCalculatedValue();
+        $choose_type = $worksheet->getCell([3, 26])->getCalculatedValue();
+        $attack_type = $worksheet->getCell([3, 27])->getCalculatedValue();
+        $main_image = $worksheet->getCell([3, 30])->getCalculatedValue();
 
         // The last TRUE keys every row by its sheet row and
         // every cell by its column letter: the helpers pair a
@@ -536,7 +538,7 @@ class SimulationsController extends BaseController
     // (auth.admin:man, perms).
     //
     // Known bug (medium): the category goes on a plain GET
-    // (SimulationsController.php:562), so a link a signed-in
+    // (SimulationsController.php:564), so a link a signed-in
     // admin opens deletes it; pinned as admin-get-deletes.
     // Fix: a POST route, posted from a form that carries the
     // CSRF token.
@@ -740,7 +742,7 @@ class SimulationsController extends BaseController
     // admins only (auth.admin:man, perms).
     //
     // Known bug (medium): the attribute goes on a plain GET
-    // (SimulationsController.php:766), so a link a signed-in
+    // (SimulationsController.php:768), so a link a signed-in
     // admin opens deletes it; pinned as admin-get-deletes.
     // Fix: a POST route, posted from a form that carries the
     // CSRF token.
@@ -936,7 +938,7 @@ class SimulationsController extends BaseController
     // admins only (auth.admin:man, perms).
     //
     // Known bug (medium): all of it goes on a plain GET
-    // (SimulationsController.php:959), so a link a signed-in
+    // (SimulationsController.php:961), so a link a signed-in
     // admin opens deletes the simulation and the members'
     // runs; pinned as admin-get-deletes. Fix: a POST route,
     // posted from a form that carries the CSRF token.
@@ -1013,7 +1015,7 @@ class SimulationsController extends BaseController
     // Answers back with "Updated!".
     //
     // Known bug (low): the description is saved only when the
-    // form posted steps (SimulationsController.php:1037), so
+    // form posted steps (SimulationsController.php:1039), so
     // for a simulation without steps the edit is dropped
     // while the page still says "Updated!". Fix: save the
     // description outside that check.

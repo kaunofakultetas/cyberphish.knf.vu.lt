@@ -194,7 +194,7 @@ class AdminLearningTest extends FeatureTestCase
         ])->assertSessionHas('success');
 
         $file = DB::table('bei_lm_content_files')->where('content_id', $lesson)->first();
-        $this->assertRegExp('#^lm/[A-Za-z0-9]{40}\.pdf$#', $file->file_name);
+        $this->assertMatchesRegularExpression('#^lm/[A-Za-z0-9]{40}\.pdf$#', $file->file_name);
         $this->assertFileExists(public_path('upload/' . $file->file_name));
     }
 

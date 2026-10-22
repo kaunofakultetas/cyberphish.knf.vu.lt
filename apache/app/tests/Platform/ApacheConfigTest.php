@@ -66,7 +66,7 @@ class ApacheConfigTest extends TestCase
     {
         $this->assertSame("Listen 8080\n", file_get_contents('/etc/apache2/ports.conf'));
         $this->assertFileExists('/etc/apache2/sites-enabled/000-default.conf');
-        $this->assertRegExp('#^\s*DocumentRoot /var/www/html/public/?\s*$#m', $this->vhost());
+        $this->assertMatchesRegularExpression('#^\s*DocumentRoot /var/www/html/public/?\s*$#m', $this->vhost());
     }
 
 
@@ -91,9 +91,9 @@ class ApacheConfigTest extends TestCase
     {
         $this->assertTrue((bool) preg_match('#<Directory /var/www/html/public/upload\s*>(.*?)</Directory>#s', $this->vhost(), $block));
 
-        $this->assertRegExp('#php_admin_value engine Off#', $block[1]);
-        $this->assertRegExp('#RemoveHandler \.php \.phtml \.phar#', $block[1]);
-        $this->assertRegExp('#<FilesMatch "\\\\\.ph\(p\[3457s\]\?\|t\|tml\|ar\)\$">\s*Require all denied#', $block[1]);
+        $this->assertMatchesRegularExpression('#php_admin_value engine Off#', $block[1]);
+        $this->assertMatchesRegularExpression('#RemoveHandler \.php \.phtml \.phar#', $block[1]);
+        $this->assertMatchesRegularExpression('#<FilesMatch "\\\\\.ph\(p\[3457s\]\?\|t\|tml\|ar\)\$">\s*Require all denied#', $block[1]);
     }
 
 
@@ -113,7 +113,7 @@ class ApacheConfigTest extends TestCase
 
     public function testFolderListingsAreOff(): void
     {
-        $this->assertRegExp('#<Directory /var/www/html\s*>\s*Options -Indexes#', $this->vhost());
+        $this->assertMatchesRegularExpression('#<Directory /var/www/html\s*>\s*Options -Indexes#', $this->vhost());
     }
 
 
@@ -137,7 +137,7 @@ class ApacheConfigTest extends TestCase
     {
         $this->assertFileExists('/etc/apache2/mods-enabled/rewrite.load');
         $this->assertFileExists('/etc/apache2/mods-enabled/remoteip.load');
-        $this->assertRegExp('#^RemoteIPHeader X-Forwarded-For$#m', $this->vhost());
+        $this->assertMatchesRegularExpression('#^RemoteIPHeader X-Forwarded-For$#m', $this->vhost());
     }
 
 

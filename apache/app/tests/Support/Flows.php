@@ -72,7 +72,7 @@ trait Flows
             ->get("/en/self-evaluation-test/$categoryId")
             ->assertRedirect()
             ->headers->get('Location');
-        $this->assertRegExp("#/cp/se/[A-Za-z0-9]+/$categoryId\$#", $location);
+        $this->assertMatchesRegularExpression("#/cp/se/[A-Za-z0-9]+/$categoryId\$#", $location);
         return explode('/', parse_url($location, PHP_URL_PATH))[3];
     }
 
@@ -125,7 +125,7 @@ trait Flows
             ->post("/en/simulation_progress/$scenarioId", ['simulation_type' => $type])
             ->assertRedirect()
             ->headers->get('Location');
-        $this->assertRegExp('#/en/simulation/progress/[A-Za-z0-9]+$#', $location);
+        $this->assertMatchesRegularExpression('#/en/simulation/progress/[A-Za-z0-9]+$#', $location);
         return basename(parse_url($location, PHP_URL_PATH));
     }
 
@@ -173,7 +173,7 @@ trait Flows
             ->post('/en/knowledge_start')
             ->assertRedirect()
             ->headers->get('Location');
-        $this->assertRegExp('#/en/knowledge_test/progress/[A-Za-z0-9]+$#', $location);
+        $this->assertMatchesRegularExpression('#/en/knowledge_test/progress/[A-Za-z0-9]+$#', $location);
         return basename(parse_url($location, PHP_URL_PATH));
     }
 

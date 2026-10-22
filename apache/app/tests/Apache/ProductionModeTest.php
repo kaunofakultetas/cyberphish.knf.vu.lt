@@ -74,7 +74,7 @@ class ProductionModeTest extends ApacheTestCase
         $this->assertStringContainsString('Server Error', $body);
         $leaks = [
             '/var/www/html',
-            'Undefined offset',
+            'Undefined array key',
             'Stack trace',
             'Whoops',
             'ignition',
@@ -113,7 +113,7 @@ class ProductionModeTest extends ApacheTestCase
 
         clearstatcache();
         $written = (string) file_get_contents(self::LOG, false, null, $offset);
-        $this->assertRegExp('/production\.ERROR: Undefined offset: 9/', $written);
+        $this->assertMatchesRegularExpression('/production\.ERROR: Undefined array key 9/', $written);
     }
 
 

@@ -47,13 +47,14 @@ class Kernel extends HttpKernel
 {
 
     // The global stack, run in this order on every request.
-    // HandleCors acts only on the api/* paths of
-    // config/cors.php, which hold no routes; Cors stamps its
-    // headers on every response.
+    // HandleCors — Laravel's own since the fruitcake package
+    // went into the framework — acts only on the api/* paths
+    // of config/cors.php, which hold no routes; Cors stamps
+    // its headers on every response.
     protected $middleware = [
         // TrustHosts is switched off: any Host header is answered
         \App\Http\Middleware\TrustProxies::class,
-        \Fruitcake\Cors\HandleCors::class,
+        \Illuminate\Http\Middleware\HandleCors::class,
         \App\Http\Middleware\CheckForMaintenanceMode::class,
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \App\Http\Middleware\Cors::class,

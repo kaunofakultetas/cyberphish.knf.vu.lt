@@ -11,9 +11,9 @@
 //  keeps the dashboard and the member reports. The dialog
 //  routes return the forms the panel's pages open in a
 //  modal. One route hands over an action array with a
-//  before csrf entry, a Laravel 4 filter that Laravel 7
-//  ignores: the web group's VerifyCsrfToken checks every
-//  POST anyway.
+//  before csrf entry, a Laravel 4 filter that Laravel 13
+//  ignores, as Laravel 7 did: the web group's
+//  VerifyCsrfToken checks every POST anyway.
 //
 //  Open to visitors — signing in and out:
 //

@@ -13,8 +13,6 @@
 //                            exact version
 //    server-banner         — the Server header and Apache's
 //                            own pages name Apache's version
-//    session-cookie-secure — the session cookie has no
-//                            Secure flag
 //    client-ip-header      — a client picks the address the
 //                            app records for it
 //    trailing-slash-http   — the trailing-slash redirect
@@ -32,6 +30,7 @@
 namespace Tests\Apache;
 
 use App\Models\Members;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\ApacheTestCase;
 use Tests\Support\World;
 
@@ -71,8 +70,8 @@ class ApacheDefectsTest extends ApacheTestCase
     // php.ini-production leaves expose_php on and the
     // Dockerfile builds php.ini from it as it is, so every
     // response of the app carries X-Powered-By with PHP's
-    // exact version — 7.2.24, out of support since 2020 —
-    // and the endpoint's Caddyfile does not remove it.
+    // exact version, 8.4.27, and the endpoint's Caddyfile
+    // does not remove it.
     // Wanted: no X-Powered-By header.
     //
     // Used by:
@@ -99,7 +98,7 @@ class ApacheDefectsTest extends ApacheTestCase
     //
     // Debian's security.conf, which the image keeps, sets
     // ServerTokens OS and ServerSignature On: the Server
-    // header names Apache 2.4.38 on Debian, and the pages
+    // header names Apache 2.4.69 on Debian, and the pages
     // Apache writes itself — the 403 of a hidden file — sign
     // off with the same banner. Wanted: neither names a
     // version.
@@ -114,42 +113,8 @@ class ApacheDefectsTest extends ApacheTestCase
         $refusal = (string) $this->http->get('/.htaccess')->getBody();
 
         $this->pinDefect('server-banner', function () use ($server, $refusal) {
-            $this->assertNotRegExp('/\d/', $server, "Server: $server");
+            $this->assertDoesNotMatchRegularExpression('/\d/', $server, "Server: $server");
             $this->assertStringNotContainsString('Apache/2', $refusal, 'Apache signs its error page');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testSessionCookieIsSecure
-    // -----------------------------------------------------------
-    //
-    // config/session.php takes the Secure flag from
-    // SESSION_SECURE_COOKIE, which docker-compose.yml does not
-    // set — and run.sh mirrors it — so the session cookie goes
-    // out without the flag although the site is served over
-    // HTTPS only. A browser then sends it along with any
-    // plain-HTTP request to the host; the endpoint's
-    // Strict-Transport-Security header prevents that only in
-    // browsers that have already seen it. Wanted: the Secure
-    // flag.
-    //
-    // Used by:
-    //   - PHPUnit — the Apache suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testSessionCookieIsSecure(): void
-    {
-        $this->http->get('/login');
-        $cookie = $this->http->cookie(self::SESSION_COOKIE);
-        $this->assertNotNull($cookie, 'the login page set no session cookie');
-
-        $this->pinDefect('session-cookie-secure', function () use ($cookie) {
-            $this->assertTrue($cookie->getSecure(), 'the session cookie is not Secure');
         });
     }
 
@@ -175,7 +140,7 @@ class ApacheDefectsTest extends ApacheTestCase
     //   - PHPUnit — the Apache suite (runTests.sh)
     // -----------------------------------------------------------
 
-    /** @dataProvider addressHeaders */
+    #[DataProvider('addressHeaders')]
     public function testRecordedAddressIsTheOneApacheSaw(string $header): void
     {
         $member = $this->world->member();
@@ -202,7 +167,7 @@ class ApacheDefectsTest extends ApacheTestCase
     //   - testRecordedAddressIsTheOneApacheSaw (above)
     // -----------------------------------------------------------
 
-    public function addressHeaders(): array
+    public static function addressHeaders(): array
     {
         return [
             'Client-IP'        => ['Client-IP'],

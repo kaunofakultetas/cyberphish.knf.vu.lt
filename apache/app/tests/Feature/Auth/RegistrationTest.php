@@ -24,6 +24,7 @@ use App\Mail\SendVerification;
 use App\Models\Members;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 
 
@@ -104,7 +105,7 @@ class RegistrationTest extends FeatureTestCase
         $this->assertNotNull($member);
         $this->assertSame(0, $member->status);
         $this->assertSame(1, $member->country);
-        $this->assertRegExp('/^User\d+$/', $member->username);
+        $this->assertMatchesRegularExpression('/^User\d+$/', $member->username);
         $this->assertSame(50, strlen($member->verify_token));
         $this->assertTrue(Hash::check(self::PASSWORD, $member->password));
     }
@@ -269,7 +270,7 @@ class RegistrationTest extends FeatureTestCase
     //   - PHPUnit — the Feature suite (runTests.sh)
     // -----------------------------------------------------------
 
-    /** @dataProvider incompleteForms */
+    #[DataProvider('incompleteForms')]
     public function testIncompleteFormIsRefused(array $fields, string $field): void
     {
         $this->solveCaptcha();
@@ -299,7 +300,7 @@ class RegistrationTest extends FeatureTestCase
     //   - testIncompleteFormIsRefused (above)
     // -----------------------------------------------------------
 
-    public function incompleteForms(): array
+    public static function incompleteForms(): array
     {
         return [
             'no email'             => [['email' => ''], 'email'],

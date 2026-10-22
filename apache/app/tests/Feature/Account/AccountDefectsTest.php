@@ -18,6 +18,9 @@
 //                          characters, a new one needs 12
 //    fullname-latin1     — Lithuanian letters of the full
 //                          name turn into question marks
+//    fullname-length     — a full name over 20 characters
+//                          is refused, though the form
+//                          takes 100
 //    ee-strings          — the Estonian user-name form
 //                          talks of the password, and its
 //                          button ends in a stray 2
@@ -184,6 +187,38 @@ class AccountDefectsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testFullNameOverTwentyCharactersIsStored
+    // -----------------------------------------------------------
+    //
+    // change_fullname refuses a full name over 20 characters
+    // with a bare "Error!", while the form takes up to 100 and
+    // the certificate has room for about 43
+    // (CertController::download): a member whose real name is
+    // longer cannot have the certificate in it, and many real
+    // names are. Wanted: a 22-character name is stored.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFullNameOverTwentyCharactersIsStored(): void
+    {
+        $member = $this->world->member();
+
+        $this->pinDefect('fullname-length', function () use ($member) {
+            $response = $this->signInMember($member)->from('/cp/dashboard')
+                ->post('/cp/change-fullname', ['fullname' => 'Aleksandras Petrauskas']);
+            $this->assertSame('Aleksandras Petrauskas', Members::find($member->id)->fullname, 'the 22-character full name was refused');
+            $response->assertSessionHas('success');
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testEstonianUserNameFormSpeaksOfTheUserName
     // -----------------------------------------------------------
     //
@@ -220,7 +255,7 @@ class AccountDefectsTest extends FeatureTestCase
         $taken = session('errors')->first();
 
         $this->pinDefect('ee-strings', function () use ($button, $renamed, $taken) {
-            $this->assertNotRegExp('/\d/', $button[1], "the button reads {$button[1]}");
+            $this->assertDoesNotMatchRegularExpression('/\d/', $button[1], "the button reads {$button[1]}");
             foreach (['the rename' => $renamed, 'the taken name' => $taken] as $case => $answer) {
                 $this->assertStringContainsStringIgnoringCase('kasutaja', $answer, "$case answers $answer");
                 $this->assertStringNotContainsStringIgnoringCase('parool', $answer, "$case answers $answer");

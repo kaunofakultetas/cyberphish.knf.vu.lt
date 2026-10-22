@@ -3,28 +3,28 @@
 // -----------------------------------------------------------
 //  [*] config/session.php — the session and its cookie
 //
-//  Laravel 7's stock session file, unchanged. None of its
-//  variables is set in docker-compose.yml, so production
-//  runs on the defaults: file sessions under
-//  storage/framework/sessions — a tmpfs in the
-//  cyberphish-apache container, so a restart signs every
-//  member and manager out — that expire after 120 idle
-//  minutes, behind a cookie named cyberphish_session
+//  Laravel 7's stock session file, which Laravel 13 reads
+//  unchanged. None of its variables is set in
+//  docker-compose.yml, so production runs on the defaults:
+//  file sessions under storage/framework/sessions — a tmpfs
+//  in the cyberphish-apache container, so a restart signs
+//  every member and manager out — that expire after 120
+//  idle minutes, behind a cookie named cyberphish_session
 //  (APP_NAME as a slug) which scripts cannot read and other
 //  sites' forms do not carry (HttpOnly, SameSite lax). The
 //  in-process tests switch the driver to array
 //  (phpunit.xml).
 //
-//  Known bug (low): the cookie's Secure flag comes from
-//  SESSION_SECURE_COOKIE (session.php:97), which the
-//  cyberphish-apache service does not set, so the cookie
-//  goes out without it although the site is served over
-//  HTTPS only, and a browser would send it along with any
-//  plain-HTTP request to the host; the endpoint's
-//  Strict-Transport-Security header prevents that only in
-//  browsers that have already seen it. Pinned as
-//  session-cookie-secure. Fix: set SESSION_SECURE_COOKIE to
-//  true in docker-compose.yml.
+//  The cookie's Secure flag comes from SESSION_SECURE_COOKIE
+//  (session.php:97), which the cyberphish-apache service
+//  does not set. Laravel 7 then sent the cookie without
+//  the flag (pinned as session-cookie-secure); Laravel 13
+//  leaves it to the request, and behind the endpoint every
+//  request arrives as HTTPS (X-Forwarded-Proto, believed by
+//  TrustProxies), so the cookie goes out Secure — the
+//  upgrade released the pin. Setting SESSION_SECURE_COOKIE
+//  to true would keep the flag on however a request
+//  arrives.
 //
 //  Used by:
 //    - Laravel's SessionManager — the StartSession
@@ -92,8 +92,8 @@ return [
     'domain' => env('SESSION_DOMAIN', null),
 
     // The cookie's Secure flag, from SESSION_SECURE_COOKIE —
-    // not set in production, so the cookie goes out without
-    // it (the known bug in the header)
+    // not set in production, so Laravel 13 marks the cookie
+    // Secure on HTTPS requests (see the header)
     'secure' => env('SESSION_SECURE_COOKIE'),
 
     // HttpOnly: scripts in the page cannot read the cookie

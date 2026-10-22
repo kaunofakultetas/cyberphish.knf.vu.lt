@@ -22,6 +22,7 @@ namespace Tests\Feature\Admin;
 
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as Router;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 
 
@@ -181,7 +182,7 @@ class AdminAccessTest extends FeatureTestCase
     //   - PHPUnit — the Feature suite (runTests.sh)
     // -----------------------------------------------------------
 
-    /** @dataProvider panelPages */
+    #[DataProvider('panelPages')]
     public function testMainAdminOpensThePanelPages(string $page): void
     {
         $this->signInManager($this->world->manager())->get($page)->assertOk();
@@ -202,7 +203,7 @@ class AdminAccessTest extends FeatureTestCase
     //   - testMainAdminOpensThePanelPages (above)
     // -----------------------------------------------------------
 
-    public function panelPages(): array
+    public static function panelPages(): array
     {
         $pages = [
             '/admin-panel/dashboard',

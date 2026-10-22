@@ -8,9 +8,10 @@
 //  password and the repetition before it stores a new hash,
 //  cp/change-username keeps names unique between members,
 //  cp/change-fullname takes the name printed on the
-//  certificate (6 to 20 characters). Visitors are sent to
-//  the login form. The defects of these forms are pinned in
-//  AccountDefectsTest.
+//  certificate (at least 6 characters). Visitors are sent
+//  to the login form. The defects of these forms are pinned
+//  in AccountDefectsTest — the full name's limit of 20
+//  characters among them.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -22,6 +23,7 @@ namespace Tests\Feature\Account;
 use App\Models\Members;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
 
@@ -137,7 +139,7 @@ class AccountSettingsTest extends FeatureTestCase
     //   - PHPUnit — the Feature suite (runTests.sh)
     // -----------------------------------------------------------
 
-    /** @dataProvider refusedPasswordChanges */
+    #[DataProvider('refusedPasswordChanges')]
     public function testPasswordChangeIsRefused(string $current, string $new, string $repeated, string $message): void
     {
         $this->changePassword($current, $new, $repeated)->assertSessionHasErrors();
@@ -162,7 +164,7 @@ class AccountSettingsTest extends FeatureTestCase
     //   - testPasswordChangeIsRefused (above)
     // -----------------------------------------------------------
 
-    public function refusedPasswordChanges(): array
+    public static function refusedPasswordChanges(): array
     {
         return [
             'wrong current password' => ['Not-The-Password-1', self::NEW_PASSWORD, self::NEW_PASSWORD, 'main.curr_pass_wrong'],
@@ -274,10 +276,10 @@ class AccountSettingsTest extends FeatureTestCase
     // testFullNameIsStored
     // -----------------------------------------------------------
     //
-    // A full name of 6 to 20 characters is stored for the
-    // certificate — here one latin1 can hold, since the
-    // column's letters are pinned as a defect
-    // (AccountDefectsTest).
+    // A full name is stored for the certificate — here one
+    // latin1 can hold, of at most 20 characters, since the
+    // column's letters and the limit of 20 are pinned as
+    // defects (AccountDefectsTest).
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -300,8 +302,9 @@ class AccountSettingsTest extends FeatureTestCase
     // testFullNameOutsideItsLengthIsRefused
     // -----------------------------------------------------------
     //
-    // Under 6 or over 20 characters fails validation and the
-    // stored name stays empty.
+    // Under 6 characters, or over the form's 100, fails
+    // validation and the stored name stays empty. The
+    // server's limit of 20 is pinned as fullname-length.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -309,7 +312,7 @@ class AccountSettingsTest extends FeatureTestCase
 
     public function testFullNameOutsideItsLengthIsRefused(): void
     {
-        foreach (['Ona P', str_repeat('x', 21)] as $fullName) {
+        foreach (['Ona P', str_repeat('x', 101)] as $fullName) {
             $this->submit('/cp/change-fullname', ['fullname' => $fullName])->assertSessionHasErrors();
         }
 

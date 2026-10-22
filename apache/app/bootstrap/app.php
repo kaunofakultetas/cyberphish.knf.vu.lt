@@ -10,7 +10,7 @@
 //  interfaces, and returns it to the script that required
 //  it. It only builds: handling a request or running a
 //  command is the caller's job. Laravel 7's stock file,
-//  unchanged.
+//  unchanged; Laravel 13 still boots from it.
 //
 //  Used by:
 //    - public/index.php — every web request

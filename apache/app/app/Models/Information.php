@@ -62,14 +62,14 @@ class Information extends Model
     protected $hidden = [
     ];
 
-    // How the columns read back through the model. 'alias'
-    // names no cast type: Laravel 7 leaves that column uncast
-    // (it is text anyway), later Laravel versions throw on it
+    // How the columns read back through the model. alias
+    // goes uncast, as it always did: its entry named the cast
+    // type 'alias', which no cast is — Laravel 7 ignored it,
+    // Laravel 13 throws on it — so the migration dropped it
     protected $casts = [
         'id'=>'integer',
         'title'=>'string',
         'content'=>'string',
-        'lang_id'=>'integer',
-        'alias'=>'alias'
+        'lang_id'=>'integer'
     ];
 }

@@ -13,8 +13,8 @@
 //  other value keeps the session's language, so {lang}
 //  matches every segment. Five routes hand over an action
 //  array with a before csrf entry, a Laravel 4 filter that
-//  Laravel 7 ignores: the web group's VerifyCsrfToken checks
-//  every POST anyway.
+//  Laravel 13 ignores, as Laravel 7 did: the web group's
+//  VerifyCsrfToken checks every POST anyway.
 //
 //  Open to visitors — the home page, signing up and in, the
 //  links the mails carry, the language switch:
@@ -132,15 +132,20 @@ Route::post('cp/change-fullname', array('before' => 'csrf', 'uses' => 'ManagerMa
 //
 // Known bug (medium): {lang} takes any value and this file
 // loads before web_admin.php, so {lang}/news
-// (web_user.php:143) answers admin-panel/news, and
-// {lang}/news/{slug}/{uid} (web_user.php:145) answers the
+// (web_user.php:148) answers admin-panel/news, and
+// {lang}/news/{slug}/{uid} (web_user.php:150) answers the
 // panel's news edit, delete and delete_picture links: the
 // panel shows the public list and articles, and no admin
 // can edit or delete an article there; pinned as
 // admin-news-shadowed. Fix: constrain {lang} on these two
 // routes to two letters, which keeps the fallback for an
 // unknown language.
-Route::get('{lang}/news', 'NewsController@index')->name('news');
+// The public list has no route name: news names the
+// panel's list (web_admin.php), as it did under Laravel 7,
+// where a name's later route won — Laravel 13 keeps the
+// first, which would turn Admin\NewsController's redirect
+// after a new article into a 500.
+Route::get('{lang}/news', 'NewsController@index');
 
 Route::get('{lang}/news/{slug}/{uid}', 'NewsController@content')->middleware(['news.exists']);
 
@@ -210,8 +215,8 @@ Route::get('cp/badges', 'BadgesController@index')->middleware(['auth:mem']);
 // and the attempt's questions and answers.
 //
 // Known bug (medium): unlike the self-evaluation and the
-// simulation run, the attempt's routes (web_user.php:225,
-// 227) check neither that the attempt exists nor that it is
+// simulation run, the attempt's routes (web_user.php:230,
+// 232) check neither that the attempt exists nor that it is
 // the member's: an unknown public id is a 500, and a member
 // who has another member's public id sees and answers that
 // attempt; pinned as knowledge-unknown-attempt and

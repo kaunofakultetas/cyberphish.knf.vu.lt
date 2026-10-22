@@ -6,12 +6,13 @@
   with every test inside a rolled-back transaction, and Apache talks to
   the real Apache over HTTP. The server values switch the in-process app
   to its testing setup; Apache keeps the production environment run.sh
-  gives it. Verbose output lists every pinned known defect after a run.
+  gives it. displayDetailsOnIncompleteTests lists every pinned known defect
+  after a run.
 -->
 <phpunit bootstrap="tests/bootstrap.php"
          colors="true"
-         verbose="true"
-         cacheResult="false"
+         displayDetailsOnIncompleteTests="true"
+         recordTestRunHistory="false"
          beStrictAboutOutputDuringTests="true"
 >
     <testsuites>

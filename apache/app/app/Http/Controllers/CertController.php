@@ -90,7 +90,18 @@ class CertController extends BaseController
     // first one stored — and it moves whenever that attempt's
     // result page is opened again (see
     // KnowledgeTestController::progress). It is written with
-    // English month names whatever the language.
+    // English month names whatever the language. The name has
+    // room for about 43 characters; a longer one would wrap
+    // over the text of the background image.
+    // change_fullname stops at 20 today (pinned as
+    // fullname-length), so a fix that allows more than 43
+    // has to make long names fit.
+    //
+    // Known bug (medium): the name is drawn in Parisienne,
+    // which has no Greek letters, so a Greek member's name
+    // cannot print even once fullname-latin1 is fixed. Pinned
+    // as certificate-greek-name. Fix: draw such names in a
+    // font that has Greek letters (dompdf ships DejaVu Sans).
     //
     // Used by:
     //   - parts/change_fullname.blade.php — the download

@@ -3,10 +3,10 @@
 // -----------------------------------------------------------
 //  [*] config/services.php — third-party service keys
 //
-//  Laravel 7's stock services file, unchanged: the
-//  credentials of the mailgun, postmark and ses mail
-//  transports, the place packages look for such keys. None
-//  is used — mail goes through the smtp mailer
+//  Laravel 7's stock services file, which Laravel 13 reads
+//  unchanged: the credentials of the mailgun, postmark and
+//  ses mail transports, the place packages look for such
+//  keys. None is used — mail goes through the smtp mailer
 //  (config/mail.php) — and none of the variables is set in
 //  docker-compose.yml.
 //

@@ -160,7 +160,7 @@ class SelfEvaluationTest extends FeatureTestCase
 
         $html = $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertOk()->getContent();
 
-        $this->assertRegExp('/Self-evaluation question \d+/', $html);
+        $this->assertMatchesRegularExpression('/Self-evaluation question \d+/', $html);
     }
 
 

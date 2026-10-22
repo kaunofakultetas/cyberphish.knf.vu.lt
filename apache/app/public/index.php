@@ -10,8 +10,8 @@
 //  (bootstrap/app.php), hands the request to the HTTP
 //  kernel — the global middleware, the routes, the
 //  controllers — sends the response back, then lets the
-//  kernel finish its after-response work. Laravel 7's
-//  stock file, unchanged.
+//  kernel finish its after-response work. Laravel 7's stock
+//  file, unchanged; Laravel 13 still runs it.
 //
 //  Used by:
 //    - Apache — every request public/.htaccess rewrites,

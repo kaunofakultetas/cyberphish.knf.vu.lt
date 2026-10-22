@@ -1,10 +1,10 @@
 # Apache app regression tests
 
-The PHPUnit suite of the CYBERPHISH app (Laravel 7.15 on PHP 7.2.24). It
+The PHPUnit suite of the CYBERPHISH app (Laravel 13.38 on PHP 8.4.27). It
 runs in one throwaway container with no network, built from the
 production image. Inside that container it starts MySQL 5.7.42 with the
 schema from `mysql/init.sql` and Apache serving the app the way
-production does, then runs PHPUnit 8.5.
+production does, then runs PHPUnit 13.4.
 
 ## Running
 
@@ -87,11 +87,13 @@ Three files outside `tests/` belong to the suite:
     reproduces". That failure is the cue to drop the pin and move the
     test into its home file.
 - **House style.** Banners follow the house-comments skill and its PHP
-  7.2 reference, with PHP 7.2 syntax only. From the repository root,
-  this gate must print `-- 0 violation(s)`:
+  8.4 reference. The suite is PHP 8.4 code since the upgrade; apart from
+  the four `#[DataProvider]` attributes PHPUnit 13 requires, it still
+  uses only PHP 7.2 syntax. From the repository root, this gate must
+  print `-- 0 violation(s)`:
 
   ```sh
-  python3 -B .claude/skills/house-comments/scripts/house_check_php72.py --new apache/app/tests
+  python3 -B .claude/skills/house-comments/scripts/house_check_php84.py --new apache/app/tests
   ```
 
 ## Pinned defects
@@ -117,6 +119,7 @@ Three files outside `tests/` belong to the suite:
 | `username-length` | `Feature/Account/AccountDefectsTest` | A user name longer than its column is cut without a word |
 | `password-policy` | `Feature/Account/AccountDefectsTest` | A changed password may be 6 characters; a new one needs 12 |
 | `fullname-latin1` | `Feature/Account/AccountDefectsTest` | Lithuanian letters of the full name turn into question marks |
+| `fullname-length` | `Feature/Account/AccountDefectsTest` | A full name over 20 characters is refused with a bare "Error!", though the form takes 100 |
 | `ee-strings` | `Feature/Account/AccountDefectsTest` | The Estonian user-name button ends in a stray "2", and a rename is answered with password messages |
 | `selfeval-foreign-options` | `Feature/Learning/LearningDefectsTest` | A self-evaluation scores any option ids posted, as often as posted |
 | `course-progress-selfeval` | `Feature/Learning/LearningDefectsTest` | Progress counts finished self-evaluations against the number of questions |
@@ -144,6 +147,7 @@ Three files outside `tests/` belong to the suite:
 | `knowledge-reclose` | `Feature/Knowledge/KnowledgeDefectsTest` | Every visit closes a finished attempt again, moving the certificate's date and working the result out again |
 | `knowledge-limits-missing` | `Feature/Knowledge/KnowledgeDefectsTest` | A language missing from the knowledge-test limits makes every start a 500 |
 | `knowledge-badge-later-pass` | `Feature/Knowledge/KnowledgeDefectsTest` | A pass on a later try never earns the final-test badge |
+| `certificate-greek-name` | `Feature/Knowledge/KnowledgeDefectsTest` | The certificate's name font has no Greek letters, so a Greek member's name cannot print |
 | `manager-country-scope` | `Feature/Admin/AdminDefectsTest` | A country manager can read any member's history and reports |
 | `admin-get-deletes` | `Feature/Admin/AdminDefectsTest` | Deleting and switching off answer a plain GET, so a link can do it |
 | `admin-login-throttle` | `Feature/Admin/AdminDefectsTest` | The admin login takes any number of password guesses |
@@ -170,13 +174,11 @@ Three files outside `tests/` belong to the suite:
 | `knowledge-report-unknown` | `Feature/Admin/AdminDefectsTest` | The panel's knowledge report for an unknown attempt is a 500 |
 | `manager-country-update` | `Feature/Admin/AdminDefectsTest` | Editing a manager drops the country the dialog asks for |
 | `manager-update-main` | `Feature/Admin/AdminDefectsTest` | The manager dialog's update rewrites a main admin's address and password |
-| `news-svg-picture` | `Feature/Admin/AdminDefectsTest` | An SVG news picture is accepted and served from the site's own origin |
 | `simulation-update-descr` | `Feature/Admin/AdminDefectsTest` | Editing a simulation without steps drops the new description, though the page says "Updated!" |
 | `simulations-pdf-categories` | `Feature/Admin/AdminDefectsTest` | Every scenario of the simulations printout shows its language's last scenario's categories |
 | `import-cross-language` | `Feature/Admin/AdminDefectsTest` | The simulation import matches category and attribute names across languages |
 | `expose-php` | `Apache/ApacheDefectsTest` | Every response names PHP's exact version |
 | `server-banner` | `Apache/ApacheDefectsTest` | The Server header and Apache's own error pages name Apache's version |
-| `session-cookie-secure` | `Apache/ApacheDefectsTest` | The session cookie has no Secure flag |
 | `client-ip-header` | `Apache/ApacheDefectsTest` | A `Client-IP` or `CF-Connecting-IP` header picks the address the app records |
 | `trailing-slash-http` | `Apache/ApacheDefectsTest` | The trailing-slash redirect sends HTTPS visitors to `http://` |
 | `captcha-outage-500` | `Apache/ApacheDefectsTest` | Registration is a 500 while Google is unreachable |
@@ -184,6 +186,16 @@ Three files outside `tests/` belong to the suite:
 
 Each test's banner explains its defect: the cause, the impact, and the
 behaviour wanted instead.
+
+The move to Laravel 13 released two pins, through the framework's own
+changes rather than any fix in the app. They are now ordinary tests in
+their home files:
+
+- `news-svg-picture` → `AdminContentTest::testSvgNewsPictureIsRefused`.
+  Laravel 13's `image` rule refuses SVG unless it is given `allow_svg`.
+- `session-cookie-secure` → `SessionTest::testSessionCookieIsSecure`.
+  With `SESSION_SECURE_COOKIE` unset, Laravel 13 marks the cookie Secure
+  on HTTPS requests, and behind the endpoint every request is HTTPS.
 
 ## Found but not pinned
 
@@ -254,12 +266,19 @@ Things the suite learned the hard way:
   `fullname-latin1` is the exception.
 - **MySQL rounding.** The course-progress function rounds a double, and
   MySQL rounds half to even: 12.5 % shows as 12.
-- **Laravel 7.15 and PHPUnit 8.5 API gaps.**
-  - `forgetGuards()` does not exist yet: log the guard out instead.
-  - Use `assertFileNotExists`, not `assertFileDoesNotExist`, and
-    `assertRegExp`.
-  - PHPUnit 8.5 is the last line that runs on PHP 7.2. Composer refuses
-    releases with a known security advisory, so the lock holds 8.5.56.
+- **PHPUnit 13 and Laravel 13.**
+  - A data provider is a `public static` method named by a
+    `#[DataProvider]` attribute: PHPUnit 12 dropped docblock
+    annotations.
+  - PHPUnit 13's `TestCase` has a final `attempt()` method, so no
+    helper may use that name (`KnowledgeExamTest` has `attemptRow`).
+  - Assertions use the PHPUnit 9+ names: `assertMatchesRegularExpression`,
+    `assertFileDoesNotExist`, `assertDirectoryDoesNotExist`.
+  - PHP 8 words a missing key as "Undefined array key", where PHP 7 said
+    "Undefined offset".
+  - Laravel encrypts a cookie's value behind a prefix bound to the
+    cookie's name; `SessionTest::sessionId` checks and strips it with
+    `CookieValuePrefix::validate`.
 - **The locale outlives a request.** Within one test the app keeps the
   locale the previous request set, while production starts every
   request at the configured `en`. A test that checks a translated text
@@ -271,5 +290,4 @@ Things the suite learned the hard way:
   rows the app wrote for the World's members.
 - **Session cookies.** Apache's cookies are kept by hand, not in
   Guzzle's jar. The jar would hold back a Secure cookie over plain
-  HTTP, so the session would break on the day `session-cookie-secure`
-  is fixed.
+  HTTP, and since Laravel 13 the session cookie is Secure.

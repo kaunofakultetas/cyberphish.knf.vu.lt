@@ -218,9 +218,9 @@ class NewsController extends BaseController
     // posted, the picture when one comes (jpeg, png, jpg, gif
     // or svg, at most 2048 KB), the time, and the signed-in
     // manager as its author. Answers a redirect to the news
-    // route on the article's language tab: both route files
-    // name a route news, the later admin one wins, and its URL
-    // is answered by the public news list (see index above).
+    // route on the article's language tab — the panel's list,
+    // the only route that keeps that name (web_user.php) —
+    // whose URL the public list answers (see index above).
     //
     // Known bug (low): the body and the language go in
     // unvalidated (NewsController.php:254-255). An empty editor
@@ -231,11 +231,11 @@ class NewsController extends BaseController
     // language ends the same way. Fix: validate content and
     // lang_id, or store an empty body as an empty string.
     //
-    // Known bug (low): the picture may be an SVG
-    // (NewsController.php:249), which can carry script, and
-    // the site serves it from its own origin — an admin-only
-    // weakness, pinned as news-svg-picture. Fix: drop svg
-    // from the allowed types.
+    // The picture may not be an SVG, though svg is among the
+    // allowed types (NewsController.php:249): Laravel 13's
+    // image rule refuses SVG unless given allow_svg. Under
+    // Laravel 7 SVGs went through (pinned as news-svg-picture
+    // until the upgrade released it).
     //
     // Used by:
     //   - admin-panel/news_form.blade.php — the form, opened

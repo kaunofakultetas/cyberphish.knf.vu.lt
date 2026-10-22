@@ -159,7 +159,7 @@ class AdminContentTest extends FeatureTestCase
         $this->publishWithPicture('With a picture');
 
         $picture = DB::table('bei_news')->where('title', 'With a picture')->value('feat_img');
-        $this->assertRegExp('#^feat/[A-Za-z0-9]{40}\.png$#', $picture);
+        $this->assertMatchesRegularExpression('#^feat/[A-Za-z0-9]{40}\.png$#', $picture);
         $this->assertFileExists(storage_path('app/public/' . $picture));
     }
 
@@ -293,6 +293,42 @@ class AdminContentTest extends FeatureTestCase
         $this->assertEquals(4, DB::table('bei_settings')->where('id', 2)->value('val3'));
         $limits = json_decode(DB::table('bei_settings')->where('id', 3)->value('val1'), true);
         $this->assertEquals(5, $limits[$this->en][$category]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSvgNewsPictureIsRefused
+    // -----------------------------------------------------------
+    //
+    // An SVG picture is refused and no article is saved. The
+    // form's rule lists svg among the picture types, but
+    // Laravel 13's image rule refuses SVG unless it is given
+    // allow_svg — an SVG is a document that can carry script,
+    // and the site serves pictures from its own origin. Under
+    // Laravel 7 the SVG went through; this test was pinned as
+    // news-svg-picture until the upgrade released it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSvgNewsPictureIsRefused(): void
+    {
+        $svg = $this->uploadedFile('cover.svg', '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40"><rect width="60" height="40" fill="#336699"/></svg>' . "\n");
+
+        $this->admin()->from('/admin-panel/news')->post('/admin-panel/news/create', [
+            'title'   => 'Vector cover',
+            'content' => '<p>With a vector cover.</p>',
+            'lang_id' => $this->en,
+            'feat'    => $svg,
+        ])->assertSessionHasErrors('feat');
+
+        $this->assertFalse(DB::table('bei_news')->where('title', 'Vector cover')->exists(), 'the article was saved with an SVG picture');
     }
 
 

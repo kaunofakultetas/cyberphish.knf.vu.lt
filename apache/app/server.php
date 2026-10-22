@@ -8,11 +8,12 @@
 //  path that names a file under public/ is left to the
 //  built-in server, every other request goes to
 //  public/index.php. Production never runs it — Apache
-//  serves public/ and this file lies outside it (the
-//  Apache suite's ProtectionTest checks that /server.php is
-//  a 404) — and the image's php.ini disables the functions
-//  that start processes, so artisan serve could not start
-//  there anyway. Laravel 7's stock file, unchanged.
+//  serves public/ and this file lies outside it (the Apache
+//  suite's ProtectionTest checks that /server.php is a 404)
+//  — and the image's php.ini disables the functions that
+//  start processes, so artisan serve could not start there
+//  anyway. Laravel 7's stock file, unchanged; Laravel 13's
+//  artisan serve still picks it up.
 //
 //  Used by:
 //    - artisan serve, which nothing runs at the moment

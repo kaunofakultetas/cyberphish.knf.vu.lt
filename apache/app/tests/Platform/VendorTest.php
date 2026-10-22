@@ -8,7 +8,9 @@
 //  no PHPUnit, no Mockery, no Whoops, no Collision — and no
 //  facade/ignition, whose execute-solution route is a remote
 //  code execution (CVE-2021-3129) whenever debug mode is on;
-//  the log review found it shipped until March 2026.
+//  the log review found it shipped until March 2026. Its
+//  successor since Laravel 9, spatie/laravel-ignition, is
+//  kept out the same way.
 //  Laravel's package manifest, built at image time,
 //  registers no development provider either.
 //
@@ -42,8 +44,9 @@ use Tests\TestCase;
 class VendorTest extends TestCase
 {
 
-    // The development packages of composer.json, which must
-    // never reach the image
+    // The development and error-page packages of every
+    // composer.json the app has had, which must never reach
+    // the image
     private const DEV_PACKAGES = [
         'facade/ignition',
         'facade/flare-client-php',
@@ -52,6 +55,8 @@ class VendorTest extends TestCase
         'mockery/mockery',
         'nunomaduro/collision',
         'phpunit/phpunit',
+        'spatie/ignition',
+        'spatie/laravel-ignition',
     ];
 
 
@@ -74,7 +79,7 @@ class VendorTest extends TestCase
     public function testNoDevelopmentPackageIsInstalled(): void
     {
         foreach (self::DEV_PACKAGES as $package) {
-            $this->assertDirectoryNotExists(base_path("vendor/$package"), "$package is installed");
+            $this->assertDirectoryDoesNotExist(base_path("vendor/$package"), "$package is installed");
         }
 
         $installed = json_decode(file_get_contents(base_path('vendor/composer/installed.json')), true);
@@ -120,7 +125,8 @@ class VendorTest extends TestCase
     //
     // Every package composer.lock pins is installed at exactly
     // the locked version — the image is built from the lock,
-    // never from fresh resolution.
+    // never from fresh resolution — and the framework is
+    // Laravel 13.38.0, the version the suite was run on.
     //
     // Used by:
     //   - PHPUnit — the Platform suite (runTests.sh)
@@ -135,6 +141,6 @@ class VendorTest extends TestCase
         foreach ($lock['packages'] as $package) {
             $this->assertSame($package['version'], $versions[$package['name']] ?? null, $package['name']);
         }
-        $this->assertSame('v7.15.0', $versions['laravel/framework']);
+        $this->assertSame('v13.38.0', $versions['laravel/framework']);
     }
 }

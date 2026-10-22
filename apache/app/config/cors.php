@@ -3,14 +3,14 @@
 // -----------------------------------------------------------
 //  [*] config/cors.php — CORS headers for the api paths
 //
-//  The settings of fruitcake/laravel-cors, whose HandleCors
-//  middleware sits in the global stack of
-//  app/Http/Kernel.php but acts only on the paths listed
-//  here: api/*, where routes/api.php registers no route.
-//  The CORS headers the site's responses actually carry
-//  come from the app's own Cors middleware
-//  (app/Http/Middleware/Cors.php), further down the same
-//  stack: Access-Control-Allow-Origin and
+//  The settings of HandleCors — Laravel's own since the
+//  fruitcake/laravel-cors package went into the framework —
+//  which sits in the global stack of app/Http/Kernel.php
+//  but acts only on the paths listed here: api/*, where
+//  routes/api.php registers no route. The CORS headers the
+//  site's responses actually carry come from the app's own
+//  Cors middleware (app/Http/Middleware/Cors.php), further
+//  down the same stack: Access-Control-Allow-Origin and
 //  Access-Control-Allow-Methods set to * on every response,
 //  whatever this file says. In production the endpoint
 //  answers a request with a foreign Origin with a 403
@@ -25,8 +25,8 @@
 //  variable feeds this file.
 //
 //  Used by:
-//    - HandleCors (fruitcake/laravel-cors) — every request,
-//      but it handles only the api/* paths
+//    - HandleCors (Illuminate\Http\Middleware) — every
+//      request, but it handles only the api/* paths
 // -----------------------------------------------------------
 
 

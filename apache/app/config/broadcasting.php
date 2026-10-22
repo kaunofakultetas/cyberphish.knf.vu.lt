@@ -3,10 +3,11 @@
 // -----------------------------------------------------------
 //  [*] config/broadcasting.php — where broadcast events go
 //
-//  Laravel 7's stock broadcasting file, unchanged. The app
-//  broadcasts nothing: no event implements ShouldBroadcast,
-//  and App\Providers\BroadcastServiceProvider is switched
-//  off in config/app.php. BROADCAST_DRIVER is not set in
+//  Laravel 7's stock broadcasting file, which Laravel 13
+//  reads unchanged. The app broadcasts nothing: no event
+//  implements ShouldBroadcast, and
+//  App\Providers\BroadcastServiceProvider is switched off
+//  in config/app.php. BROADCAST_DRIVER is not set in
 //  docker-compose.yml, so the null broadcaster would drop
 //  anything sent anyway, and none of the PUSHER_ variables
 //  is set either.

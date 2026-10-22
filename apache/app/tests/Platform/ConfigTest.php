@@ -99,7 +99,7 @@ class ConfigTest extends TestCase
 
     public function testNoEnvFileShips(): void
     {
-        $this->assertFileNotExists(base_path('.env'));
+        $this->assertFileDoesNotExist(base_path('.env'));
         $this->assertNotEmpty(config('app.key'));
     }
 

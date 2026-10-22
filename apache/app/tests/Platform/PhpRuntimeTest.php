@@ -3,7 +3,7 @@
 // -----------------------------------------------------------
 //  [*] PhpRuntimeTest — the PHP the image ships
 //
-//  Pins the runtime of the production image: PHP 7.2.24
+//  Pins the runtime of the production image: PHP 8.4.27
 //  with the extensions the app needs, the production
 //  php.ini, and the disable_functions list the Dockerfile
 //  builds — the functions that run shell commands or read
@@ -12,7 +12,8 @@
 //  or preg_replace off once broke the certificate and every
 //  page, as the error log of April 2024 shows). The test
 //  runs in the same PHP and the same php.ini that Apache
-//  loads; PhpProbeTest checks Apache's side.
+//  loads; ApacheConfigTest checks that no Apache file
+//  overrides it.
 //
 //  Used by:
 //    - PHPUnit — the Platform suite (runTests.sh)
@@ -53,9 +54,12 @@ class PhpRuntimeTest extends TestCase
     private const FILE_FUNCTIONS = ['readfile', 'symlink', 'link'];
 
     // Functions the app cannot work without — the certificate
-    // download deletes its temporary file with unlink, and
-    // Laravel's string helpers and session use the rest
-    private const NEEDED_FUNCTIONS = ['unlink', 'mkdir', 'rmdir', 'base64_encode', 'preg_replace', 'file_put_contents'];
+    // download deletes its temporary file with unlink,
+    // Laravel's string helpers and session use most of the
+    // rest, and assert is called all over the vendor's
+    // libraries: since PHP 8 a disabled function is an
+    // undefined one, so switching it off is a fatal error
+    private const NEEDED_FUNCTIONS = ['unlink', 'mkdir', 'rmdir', 'base64_encode', 'preg_replace', 'file_put_contents', 'assert'];
 
     // The extensions the app and its packages load
     private const EXTENSIONS = [
@@ -80,10 +84,10 @@ class PhpRuntimeTest extends TestCase
 
 
     // -----------------------------------------------------------
-    // testRunsPhp7224
+    // testRunsPhp8427
     // -----------------------------------------------------------
     //
-    // The image is pinned to php:7.2.24-apache; a version
+    // The image is pinned to php:8.4.27-apache; a version
     // change must be a decision, not an accident of a base
     // image tag.
     //
@@ -91,9 +95,9 @@ class PhpRuntimeTest extends TestCase
     //   - PHPUnit — the Platform suite (runTests.sh)
     // -----------------------------------------------------------
 
-    public function testRunsPhp7224(): void
+    public function testRunsPhp8427(): void
     {
-        $this->assertSame('7.2.24', PHP_VERSION);
+        $this->assertSame('8.4.27', PHP_VERSION);
     }
 
 
@@ -178,8 +182,8 @@ class PhpRuntimeTest extends TestCase
     // -----------------------------------------------------------
     //
     // None of the functions that start a program exists for
-    // PHP code — PHP 7.2 reports a disabled function as
-    // missing to function_exists.
+    // PHP code — PHP drops a disabled function from its
+    // function table, so function_exists reports it missing.
     //
     // Used by:
     //   - PHPUnit — the Platform suite (runTests.sh)

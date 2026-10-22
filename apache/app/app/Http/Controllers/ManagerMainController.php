@@ -263,9 +263,18 @@ class ManagerMainController extends BaseController
     // Known bug (medium): bei_users is a latin1 table, so the
     // letters latin1 lacks — ą, č, ę, ė, į, ų, ū — are stored
     // as question marks without an error
-    // (ManagerMainController.php:288), and the certificate
+    // (ManagerMainController.php:297), and the certificate
     // prints them so. Pinned as fullname-latin1. Fix: convert
     // the table to utf8mb4.
+    //
+    // Known bug (medium): the limit of 20 characters
+    // (ManagerMainController.php:288) refuses many real full
+    // names, while the form takes 100 and the certificate has
+    // room for about 43 (CertController::download); a member
+    // with a longer name cannot have the certificate in it.
+    // Pinned as fullname-length. Fix: raise the limit to what
+    // the certificate holds, and the form's maxlength with
+    // it.
     //
     // Used by:
     //   - parts/change_fullname.blade.php — the full-name form

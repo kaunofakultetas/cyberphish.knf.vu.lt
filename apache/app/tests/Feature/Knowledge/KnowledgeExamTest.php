@@ -153,7 +153,7 @@ class KnowledgeExamTest extends FeatureTestCase
     {
         $publicId = $this->startKnowledgeTest($this->member);
 
-        $attempt = $this->attempt($publicId);
+        $attempt = $this->attemptRow($publicId);
         $drawn = json_decode($attempt->question_set, true);
         $this->assertEqualsCanonicalizing(array_column($this->questions, 'question'), array_keys($drawn));
         $this->assertSame([0, 0, 0], array_values($drawn));
@@ -181,7 +181,7 @@ class KnowledgeExamTest extends FeatureTestCase
     {
         $this->world->knowledgeLimits([$this->en => [$this->category => 2]]);
 
-        $drawn = json_decode($this->attempt($this->startKnowledgeTest($this->member))->question_set, true);
+        $drawn = json_decode($this->attemptRow($this->startKnowledgeTest($this->member))->question_set, true);
 
         $this->assertCount(2, $drawn);
         $this->assertEmpty(array_diff(array_keys($drawn), array_column($this->questions, 'question')));
@@ -258,7 +258,7 @@ class KnowledgeExamTest extends FeatureTestCase
             ->assertOk()
             ->assertSee('Also wrong')
             ->getContent();
-        $this->assertRegExp('/Knowledge question \d+/', $html);
+        $this->assertMatchesRegularExpression('/Knowledge question \d+/', $html);
     }
 
 
@@ -285,7 +285,7 @@ class KnowledgeExamTest extends FeatureTestCase
         $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][0]])
             ->assertRedirect("/en/knowledge_test/progress/$publicId");
 
-        $drawn = json_decode($this->attempt($publicId)->question_set, true);
+        $drawn = json_decode($this->attemptRow($publicId)->question_set, true);
         $this->assertSame(1, $drawn[$question['question']]);
         $this->assertEquals(1, DB::table('bei_users_knowledge_options')
             ->where(['public_id' => $publicId, 'question_id' => $question['question']])->value('correct'));
@@ -312,7 +312,7 @@ class KnowledgeExamTest extends FeatureTestCase
     {
         $publicId = $this->finishWith([0, 0, 0]);
 
-        $attempt = $this->attempt($publicId);
+        $attempt = $this->attemptRow($publicId);
         $this->assertEquals(1, $attempt->finished);
         $this->assertEquals(100, $attempt->results);
         $this->assertNotNull($attempt->ended);
@@ -340,7 +340,7 @@ class KnowledgeExamTest extends FeatureTestCase
     {
         $publicId = $this->finishWith([0, 0, 1]);
 
-        $this->assertEquals(67, $this->attempt($publicId)->results);
+        $this->assertEquals(67, $this->attemptRow($publicId)->results);
         $this->assertFalse(DB::table('bei_users_badges')->where('user_id', $this->member->id)->exists());
     }
 
@@ -427,7 +427,7 @@ class KnowledgeExamTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // attempt
+    // attemptRow
     // -----------------------------------------------------------
     //
     // The attempt's row.
@@ -440,7 +440,7 @@ class KnowledgeExamTest extends FeatureTestCase
     //     (above)
     // -----------------------------------------------------------
 
-    private function attempt(string $publicId): \stdClass
+    private function attemptRow(string $publicId): \stdClass
     {
         return DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->first();
     }

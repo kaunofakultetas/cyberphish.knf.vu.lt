@@ -5,7 +5,7 @@
 //
 //  Stamps three headers on whatever the app answers: any
 //  origin and any method may read it, and browsers must
-//  revalidate it before reuse. Fruitcake's HandleCors, in
+//  revalidate it before reuse. Laravel's HandleCors, in
 //  the same stack, acts only on the api/* paths of
 //  config/cors.php, which hold no routes — so this is the
 //  class that puts the CORS headers on the site.

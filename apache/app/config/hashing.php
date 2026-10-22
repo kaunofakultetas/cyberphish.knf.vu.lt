@@ -3,12 +3,13 @@
 // -----------------------------------------------------------
 //  [*] config/hashing.php — how passwords are hashed
 //
-//  Laravel 7's stock hashing file, unchanged: bcrypt at a
-//  cost of 10, since BCRYPT_ROUNDS is not set in
-//  docker-compose.yml (the in-process tests lower it to 4
-//  through phpunit.xml). A stored hash carries its own
-//  algorithm and cost, so a change here applies to new
-//  hashes only and existing passwords keep working.
+//  Laravel 7's stock hashing file, which Laravel 13 reads
+//  unchanged: bcrypt at a cost of 10, since BCRYPT_ROUNDS
+//  is not set in docker-compose.yml (the in-process tests
+//  lower it to 4 through phpunit.xml). A stored hash
+//  carries its own algorithm and cost, so a change here
+//  applies to new hashes only and existing passwords keep
+//  working.
 //
 //  Used by:
 //    - Laravel's HashManager — the password check of both

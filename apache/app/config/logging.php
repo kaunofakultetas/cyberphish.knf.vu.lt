@@ -3,14 +3,14 @@
 // -----------------------------------------------------------
 //  [*] config/logging.php — where the log goes
 //
-//  Laravel 7's stock logging file, unchanged. LOG_CHANNEL
-//  is not set in docker-compose.yml, so everything goes
-//  through the stack channel into the single file
-//  storage/logs/laravel.log, at debug level, never rotated
-//  by Laravel; docker-compose.yml binds that folder to
-//  _LOGS/apache/laravel_logs on the host. The app writes no
-//  log line of its own — what lands there are the errors
-//  the exception handler reports. None of the other
+//  Laravel 7's stock logging file, which Laravel 13 reads
+//  unchanged. LOG_CHANNEL is not set in docker-compose.yml,
+//  so everything goes through the stack channel into the
+//  single file storage/logs/laravel.log, at debug level,
+//  never rotated by Laravel; docker-compose.yml binds that
+//  folder to _LOGS/apache/laravel_logs on the host. The app
+//  writes no log line of its own — what lands there are the
+//  errors the exception handler reports. None of the other
 //  variables here is set either.
 //
 //  Used by:

@@ -12,17 +12,21 @@
 //  MAIL_ENCRYPTION (tls), the Mailjet API key and secret as
 //  MAIL_USERNAME and MAIL_PASSWORD, and the sender as
 //  MAIL_FROM_ADDRESS and MAIL_FROM_NAME; the app ships no
-//  .env file. The container reaches in-v3.mailjet.com only
-//  through the exit proxy (extra_hosts).
+//  .env file. Laravel 13 no longer reads MAIL_ENCRYPTION:
+//  on port 587 its mailer starts TLS by itself. The
+//  container reaches in-v3.mailjet.com only through the
+//  exit proxy (extra_hosts).
 //
-//  Changed from Laravel 7's stock file: the from address
-//  has no default and the name defaults to CyberPhish, and
-//  a mailjet entry is added — settings in the shape of a
-//  Mailjet API package the app does not install. The entry
-//  has no transport, so choosing it would fail, and nothing
-//  chooses it; its MAILJET_APIKEY and MAILJET_APISECRET are
-//  not passed to the container, which gets the key and
-//  secret as the SMTP user and password instead.
+//  The file keeps the layout of Laravel 7's stock file,
+//  which Laravel 13 still reads. Changed from it: the from
+//  address has no default and the name defaults to
+//  CyberPhish, and a mailjet entry is added — settings in
+//  the shape of a Mailjet API package the app does not
+//  install. The entry has no transport, so choosing it
+//  would fail, and nothing chooses it; its MAILJET_APIKEY
+//  and MAILJET_APISECRET are not passed to the container,
+//  which gets the key and secret as the SMTP user and
+//  password instead.
 //
 //  Used by:
 //    - Laravel's MailManager — the sends of RegisterController

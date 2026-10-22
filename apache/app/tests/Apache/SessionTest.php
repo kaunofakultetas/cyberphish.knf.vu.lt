@@ -8,8 +8,8 @@
 //  a member signs in with the login form and keeps the
 //  session in a cookie scripts cannot read, the session id
 //  changes at sign-in so a planted id is worthless, and
-//  signing out ends the session. The cookie's missing
-//  Secure flag is pinned in ApacheDefectsTest.
+//  signing out ends the session. The cookie is Secure as
+//  well, since Laravel 13 marks it so on HTTPS requests.
 //
 //  Used by:
 //    - PHPUnit — the Apache suite (runTests.sh)
@@ -18,6 +18,7 @@
 
 namespace Tests\Apache;
 
+use Illuminate\Cookie\CookieValuePrefix;
 use Illuminate\Support\Facades\Crypt;
 use Tests\ApacheTestCase;
 use Tests\Support\World;
@@ -210,14 +211,48 @@ class SessionTest extends ApacheTestCase
 
 
     // -----------------------------------------------------------
+    // testSessionCookieIsSecure
+    // -----------------------------------------------------------
+    //
+    // The session cookie carries the Secure flag, so a browser
+    // never sends it over plain HTTP. config/session.php takes
+    // the flag from SESSION_SECURE_COOKIE, which neither
+    // docker-compose.yml nor run.sh sets; Laravel 13 then lets
+    // the request decide, and behind the endpoint every request
+    // arrives as HTTPS (X-Forwarded-Proto, believed by
+    // TrustProxies). Laravel 7 sent the cookie without the
+    // flag; this test was pinned as session-cookie-secure
+    // until the upgrade released it.
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSessionCookieIsSecure(): void
+    {
+        $this->http->get('/login');
+        $cookie = $this->http->cookie(self::SESSION_COOKIE);
+
+        $this->assertNotNull($cookie, 'the login page set no session cookie');
+        $this->assertTrue($cookie->getSecure(), 'the session cookie is not Secure');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // sessionId
     // -----------------------------------------------------------
     //
     // The session id inside the session cookie the client
     // holds: EncryptCookies encrypts it with APP_KEY, which the
-    // tests share with Apache, and the cookie carries it URL-
-    // encoded. Checked to have the shape of a Laravel session
-    // id, so a decryption gone wrong cannot pass for a change.
+    // tests share with Apache, behind a prefix that ties the
+    // value to the cookie's name, and the cookie carries it
+    // URL-encoded. The prefix is checked and removed, and the
+    // id checked to have the shape of a Laravel session id, so
+    // a decryption gone wrong cannot pass for a change.
     //
     // Used by:
     //   - testSignInGivesANewSessionId (above)
@@ -228,8 +263,9 @@ class SessionTest extends ApacheTestCase
         $cookie = $this->http->cookie(self::SESSION_COOKIE);
         $this->assertNotNull($cookie, 'Apache set no session cookie');
 
-        $id = Crypt::decrypt(rawurldecode($cookie->getValue()), false);
-        $this->assertRegExp('/^[A-Za-z0-9]{40}$/', $id);
+        $value = Crypt::decrypt(rawurldecode($cookie->getValue()), false);
+        $id = (string) CookieValuePrefix::validate(self::SESSION_COOKIE, $value, Crypt::getAllKeys());
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{40}$/', $id);
         return $id;
     }
 }

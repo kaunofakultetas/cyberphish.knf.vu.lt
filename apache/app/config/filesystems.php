@@ -7,13 +7,15 @@
 //  use them: the admin controllers move news pictures,
 //  lesson files and simulation imports straight into
 //  storage/app/public and public/upload, and the pages link
-//  the files under /upload. Laravel 7's stock file plus an
-//  azure disk, in the shape matthewbdaly/laravel-azure-storage
-//  reads — its provider comes in through package discovery
-//  (the app's own AzureStorageServiceProvider is never
-//  loaded) — and nothing stores on it. Of the variables
-//  here only APP_URL is set in docker-compose.yml; none of
-//  the FILESYSTEM_, AWS_ or AZURE_STORAGE_ ones is.
+//  the files under /upload. Laravel 7's stock file, which
+//  Laravel 13 reads unchanged, plus an azure disk in the
+//  shape matthewbdaly/laravel-azure-storage read. The
+//  upgrade dropped that package, and the app's own
+//  AzureStorageServiceProvider is never loaded, so no
+//  driver serves the disk — and nothing stores on it. Of
+//  the variables here only APP_URL is set in
+//  docker-compose.yml; none of the FILESYSTEM_, AWS_ or
+//  AZURE_STORAGE_ ones is.
 //
 //  Used by:
 //    - Laravel's FilesystemManager, which nothing in the app
@@ -58,8 +60,9 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
         ],
-        // An Azure blob container, the driver of
-        // matthewbdaly/laravel-azure-storage; none of the
+        // An Azure blob container for the driver of
+        // matthewbdaly/laravel-azure-storage, which the upgrade
+        // dropped: no driver serves it, and none of the
         // AZURE_STORAGE_ variables is set
         'azure' => [
             'driver'    => 'azure',

@@ -708,7 +708,7 @@ class LMController extends BaseController
     //
     // Known bug (medium): an Embed box left unticked posts
     // nothing, so embed is stored as NULL
-    // (LMController.php:748), while the lesson page
+    // (LMController.php:751), while the lesson page
     // (App\Http\Controllers\LMController::content) lists the
     // files with embed 0 or 1 only — the file shows nowhere
     // for members. Fix: store a missing box as 0.
@@ -736,6 +736,9 @@ class LMController extends BaseController
 
             $random_name = Str::random(40).'.'.$extension;
             $mimetype = $request->file('doc')->getmimetype();
+            // Read before the move: PHP 8 gives no size for the
+            // temporary file once it is gone
+            $size = $request->file('doc')->getsize();
 
             $request->file('doc')->move(public_path('upload/lm/'), $random_name);
 
@@ -744,7 +747,7 @@ class LMController extends BaseController
             $addRecord->name = $request->get('name');
             $addRecord->file_name = 'lm/'.$random_name;
             $addRecord->mime_type = $mimetype;
-            $addRecord->file_size = $request->file('doc')->getsize();
+            $addRecord->file_size = $size;
             $addRecord->embed = $request->get('embed');
             $addRecord->save();
 
@@ -769,7 +772,7 @@ class LMController extends BaseController
     // (auth.admin:man, perms).
     //
     // Known bug (medium): unticking Embed posts nothing and
-    // stores NULL (LMController.php:786), which hides the
+    // stores NULL (LMController.php:789), which hides the
     // file from the lesson page, as in files_create. Fix:
     // store a missing box as 0.
     // Pinned as lesson-file-embed.
@@ -807,12 +810,12 @@ class LMController extends BaseController
     // (auth.admin:man, perms).
     //
     // Known bug (medium): a plain GET reaches the delete at
-    // LMController.php:837, so a link a signed-in admin opens
+    // LMController.php:840, so a link a signed-in admin opens
     // is enough. Pinned as admin-get-deletes. Fix: a POST
     // route behind the CSRF check.
     //
     // Known bug (low): for an id with no row the path is the
-    // upload folder itself (LMController.php:831); the folder
+    // upload folder itself (LMController.php:834); the folder
     // exists, so unlink runs on it and fails, and a repeated
     // or stale delete link is a 500. Fix: stop when the row
     // is missing.

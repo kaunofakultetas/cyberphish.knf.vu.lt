@@ -67,16 +67,16 @@ class LMContent extends Model
     protected $hidden = [
     ];
 
-    // How the columns read back through the model. 'number'
-    // names no cast type: Laravel 7 leaves hours uncast, as
-    // the driver returns it; later Laravel versions throw on
-    // it
+    // How the columns read back through the model. hours goes
+    // uncast, as the driver returns it, as it always did: its
+    // entry named the cast type 'number', which no cast is —
+    // Laravel 7 ignored it, Laravel 13 throws on it — so the
+    // migration dropped it
     protected $casts = [
         'id'=>'integer',
         'cat_id'=>'integer',
         'title'=>'string',
         'content'=>'string',
-        'hours'=>'number',
         'lang_id'=>'integer'
     ];
 

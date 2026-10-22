@@ -3,12 +3,13 @@
 // -----------------------------------------------------------
 //  [*] config/view.php — where Blade reads and compiles
 //
-//  Laravel 7's stock view file, unchanged: the templates
-//  come from resources/views, and their compiled PHP goes
-//  to storage/framework/views — a tmpfs in the
-//  cyberphish-apache container, so a restart empties it and
-//  each template compiles again on its first use.
-//  VIEW_COMPILED_PATH is not set in docker-compose.yml.
+//  Laravel 7's stock view file, which Laravel 13 reads
+//  unchanged: the templates come from resources/views, and
+//  their compiled PHP goes to storage/framework/views — a
+//  tmpfs in the cyberphish-apache container, so a restart
+//  empties it and each template compiles again on its first
+//  use. VIEW_COMPILED_PATH is not set in
+//  docker-compose.yml.
 //
 //  Used by:
 //    - Laravel's ViewServiceProvider — every view the

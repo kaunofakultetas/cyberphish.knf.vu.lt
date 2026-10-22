@@ -72,8 +72,6 @@
 //    manager-update-main        — the manager dialog rewrites
 //                                 a main admin's address and
 //                                 password
-//    news-svg-picture           — an SVG news picture is
-//                                 accepted
 //    simulation-update-descr    — a simulation without steps
 //                                 loses its description edit
 //    simulations-pdf-categories — every scenario of the
@@ -1064,45 +1062,6 @@ class AdminDefectsTest extends FeatureTestCase
             $row = Managers::find($other->id);
             $this->assertSame($other->email, $row->email, "the update rewrote a main admin's address");
             $this->assertTrue(Hash::check(World::PASSWORD, $row->password), "the update rewrote a main admin's password");
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testSvgNewsPictureIsRefused
-    // -----------------------------------------------------------
-    //
-    // Admin\NewsController::create allows svg among the
-    // picture types, and the site serves a stored picture
-    // from its own origin. An SVG is a document that can
-    // carry script rather than a plain image, so it should
-    // not be accepted as a picture — an admin-only weakness;
-    // NewsController::update allows the same types. Wanted:
-    // the SVG is refused and no article is saved.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testSvgNewsPictureIsRefused(): void
-    {
-        $svg = $this->uploadedFile('cover.svg', '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
-            . '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40"><rect width="60" height="40" fill="#336699"/></svg>' . "\n");
-
-        $response = $this->signInManager($this->admin)->from('/admin-panel/news')->post('/admin-panel/news/create', [
-            'title'   => 'Vector cover',
-            'content' => '<p>With a vector cover.</p>',
-            'lang_id' => $this->en,
-            'feat'    => $svg,
-        ]);
-
-        $this->pinDefect('news-svg-picture', function () use ($response) {
-            $response->assertSessionHasErrors('feat');
-            $this->assertFalse(DB::table('bei_news')->where('title', 'Vector cover')->exists(), 'the article was saved with an SVG picture');
         });
     }
 

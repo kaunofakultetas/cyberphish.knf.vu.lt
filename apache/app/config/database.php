@@ -9,10 +9,11 @@
 //  pgsql and sqlsrv connections and the Redis section are
 //  Laravel's stock entries and go unused.
 //
-//  Changed from Laravel 7's stock file: the database name,
-//  user and password lose their forge defaults, and strict
-//  mode is off (the comment above strict says what that
-//  does).
+//  The file keeps the layout of Laravel 7's stock file,
+//  which Laravel 13 still reads. Changed from it: the
+//  database name, user and password lose their forge
+//  defaults, and strict mode is off (the comment above
+//  strict says what that does).
 //
 //  The cyberphish-apache service in docker-compose.yml sets
 //  DB_HOST (cyberphish-mysql) and DB_DATABASE, DB_USERNAME

@@ -10,12 +10,13 @@
 //  loads the configuration and every provider and requires
 //  routes/console.php; the command's status becomes the
 //  exit code. The image build runs it once — composer
-//  install calls package:discover, which writes the
-//  package manifest to bootstrap/cache — and nothing runs
-//  it after that: no migration, no seeder, no schedule. It
-//  lies outside public/, so Apache never serves it (the
-//  Apache suite's ProtectionTest checks that /artisan is a
-//  404). Laravel 7's stock file, unchanged.
+//  install calls package:discover, which writes the package
+//  manifest to bootstrap/cache — and nothing runs it after
+//  that: no migration, no seeder, no schedule. It lies
+//  outside public/, so Apache never serves it (the Apache
+//  suite's ProtectionTest checks that /artisan is a 404).
+//  Laravel 7's stock file, unchanged; Laravel 13's console
+//  still runs from it.
 //
 //  Used by:
 //    - composer install in apache/Dockerfile — the

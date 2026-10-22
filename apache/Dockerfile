@@ -1,19 +1,14 @@
-FROM php:7.2.24-apache
+FROM php:8.4.27-apache
 
 # MySQL deps
 RUN docker-php-ext-install pdo_mysql
 
 
-# Switch to archived Debian Buster repositories (EOL)
-RUN sed -i 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g' /etc/apt/sources.list && \
-    sed -i 's|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|g' /etc/apt/sources.list && \
-    sed -i '/buster-updates/d' /etc/apt/sources.list
-
-
-# Install GD
+# Install GD (the image is Debian trixie: FreeType's headers come in
+# libfreetype-dev, and since PHP 7.4 gd takes --with-freetype/--with-jpeg)
 RUN apt-get update
-RUN apt-get install -y build-essential libssl-dev zlib1g-dev libpng-dev libjpeg-dev libfreetype6-dev libzip-dev
-RUN docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/     \
+RUN apt-get install -y build-essential libssl-dev zlib1g-dev libpng-dev libjpeg-dev libfreetype-dev libzip-dev
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd
 RUN docker-php-ext-install zip
 
@@ -83,8 +78,12 @@ RUN echo "readfile,symlink,link"                             | xargs -I {} sed -
 #         RUN echo "fopen,fclose,fwrite,fread,file_get_contents,file_put_contents"        | xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.i>
 
 
-# Dangerous functions for code evaluation:
-RUN echo "eval,assert,create_function,include,include_once"    |     xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
+# Dangerous functions for code evaluation. assert stays enabled since PHP 8:
+# it can no longer evaluate code (string assertions are gone), and PHP 8 turns
+# a disabled function into an undefined one, so every assert() in the vendor's
+# libraries (Symfony, ramsey/uuid, brick/math ...) would be a fatal error.
+# zend.assertions = -1 of php.ini-production compiles those calls away anyway.
+RUN echo "eval,create_function,include,include_once"    |     xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
 #         RUN echo "preg_replace,include_once"        | xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
 #         RUN echo "require,require_once"                                                 | xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
 

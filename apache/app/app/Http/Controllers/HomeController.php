@@ -79,10 +79,10 @@ class HomeController extends BaseController
     // JSON keyed by language id, each entry a description and
     // a link — with the id of the session's language to pick
     // from it; with no row 1 at all, as on a fresh install,
+    // the view skips the lookup (as PHP 7 did by itself) and
     // the about block stays empty. It also gets the three
-    // newest articles of that language, which it no longer
-    // shows: the view keeps its news section inside a Blade
-    // comment.
+    // newest articles of that language, never shown: the view
+    // keeps its news section inside a Blade comment.
     //
     // Known bug (low): the view reads the about entry of the
     // language id unchecked (fed by HomeController.php:110,

@@ -3,9 +3,10 @@
 // -----------------------------------------------------------
 //  [*] config/cache.php — the cache stores
 //
-//  Laravel 7's stock cache file, unchanged. CACHE_DRIVER is
-//  not set in docker-compose.yml, so the default store is
-//  file, under storage/framework/cache — a tmpfs in the
+//  Laravel 7's stock cache file, which Laravel 13 reads
+//  unchanged. CACHE_DRIVER is not set in
+//  docker-compose.yml, so the default store is file, under
+//  storage/framework/cache — a tmpfs in the
 //  cyberphish-apache container, emptied by every restart.
 //  Nothing uses the cache at the moment: the app makes no
 //  Cache call, and the only throttles — the api group's and

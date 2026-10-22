@@ -5,8 +5,11 @@
 #  the cyberphish-apache-check tag, plus what the suite
 #  needs around the app — nothing inside the app changes.
 #  MySQL 5.7.42, the server of the production stack, comes
-#  from the Debian build of the official image (the same
-#  Debian as the PHP image); PHPUnit and Mockery go to
+#  from the Debian build of the official image. That build
+#  is Debian buster's and the PHP image is trixie's, so the
+#  libraries it links come under trixie's names, and libaio
+#  — renamed libaio.so.1t64 by trixie — gets back the name
+#  mysqld asks for. PHPUnit and Mockery go to
 #  /opt/test-tools, never into the app's vendor, which
 #  stays exactly what ships. The build context is app/:
 #  the suite is kept out of the production image by
@@ -25,9 +28,11 @@ USER root
 COPY --from=mysql:5.7.42-debian /usr/sbin/mysqld /usr/sbin/mysqld
 COPY --from=mysql:5.7.42-debian /usr/bin/mysql /usr/bin/mysqladmin /usr/bin/
 COPY --from=mysql:5.7.42-debian /usr/share/mysql /usr/share/mysql
-RUN apt-get update &&                                                        \
-    apt-get install -y --no-install-recommends libaio1 libnuma1 libatomic1 && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update &&                                                          \
+    apt-get install -y --no-install-recommends                                  \
+        libaio1t64 libnuma1 libatomic1 libncurses6 libstdc++6 &&                \
+    rm -rf /var/lib/apt/lists/* &&                                              \
+    aio=$(ls /usr/lib/*/libaio.so.1t64) && ln -s "$aio" "${aio%t64}"
 
 
 # PHPUnit and Mockery, at the versions tests/container/composer.lock pins

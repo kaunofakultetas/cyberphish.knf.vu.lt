@@ -8,12 +8,15 @@
 //  the encryption key, and the service providers and facade
 //  aliases every request and artisan run boots with.
 //
-//  Changed from Laravel 7's stock file: the name defaults
-//  to CYBERPHISH and the URL has no default; a translation
-//  missing from the visitor's language falls back to
-//  Lithuanian instead of English; and three packages add
-//  their providers and aliases — anhskohbo/no-captcha
-//  (NoCaptcha), laravelcollective/html (Form, Html) and
+//  The file keeps the layout of Laravel 7's stock file,
+//  which Laravel 13 still reads. Changed from it: the name
+//  defaults to CYBERPHISH and the URL has no default; a
+//  translation missing from the visitor's language falls
+//  back to Lithuanian instead of English; and three
+//  packages add their providers and aliases —
+//  anhskohbo/no-captcha (NoCaptcha),
+//  fajarsulaksono/laravel-collective-html, the maintained
+//  fork of laravelcollective/html (Form, Html), and
 //  barryvdh/laravel-dompdf (PDF).
 //
 //  The values come from the environment the
@@ -138,7 +141,7 @@ return [
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
 
-        // laravelcollective/html (Form, Html) and
+        // The laravelcollective/html fork (Form, Html) and
         // barryvdh/laravel-dompdf (PDF, the certificate)
         Collective\Html\HtmlServiceProvider::class,
         Barryvdh\DomPDF\ServiceProvider::class,
@@ -190,7 +193,7 @@ return [
         'Form' => Collective\Html\FormFacade::class,
         'Html' => Collective\Html\HtmlFacade::class,
         'NoCaptcha' => Anhskohbo\NoCaptcha\Facades\NoCaptcha::class,
-        'PDF' => Barryvdh\DomPDF\Facade::class,
+        'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
 
     ],
 
