@@ -11,14 +11,11 @@
 //  field's name, the other placeholders for the rule's
 //  arguments.
 //
-//  Known bug (low): nothing here covers the captcha rule
-//  (anhskohbo/no-captcha) of the sign-up and reset request
-//  forms, and attributes (validation.php:148) names no field,
-//  so a failed check reads validation.captcha and an unticked
-//  box names the field g-recaptcha-response. Fix: add a
-//  captcha line, and a name for g-recaptcha-response under
-//  attributes.
-//  Pinned as captcha-message.
+//  Two entries are the app's own: the message of the captcha
+//  rule, which anhskohbo/no-captcha brings none of, and the
+//  name the reCAPTCHA widget's field g-recaptcha-response
+//  goes by in messages — for the sign-up and reset-request
+//  forms.
 //
 //  Used by:
 //    - Laravel's validator — the validate calls of
@@ -47,6 +44,8 @@ return [
         'array' => 'The :attribute must have between :min and :max items.',
     ],
     'boolean' => 'The :attribute field must be true or false.',
+    // The app's own: the captcha rule of anhskohbo/no-captcha
+    'captcha' => 'The reCAPTCHA check failed. Please try again.',
     'confirmed' => 'The :attribute confirmation does not match.',
     'date' => 'The :attribute is not a valid date.',
     'date_equals' => 'The :attribute must be a date equal to :date.',
@@ -143,8 +142,10 @@ return [
         ],
     ],
 
-    // The names :attribute shows in place of a field's own;
-    // none are set
-    'attributes' => [],
+    // The names :attribute shows in place of a field's own:
+    // the reCAPTCHA widget's
+    'attributes' => [
+        'g-recaptcha-response' => 'reCAPTCHA',
+    ],
 
 ];

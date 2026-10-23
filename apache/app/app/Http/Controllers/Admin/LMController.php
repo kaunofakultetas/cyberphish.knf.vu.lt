@@ -32,6 +32,8 @@ use App\Models\LMCategory as LMCategory;
 use App\Models\LMContent as LMContent;
 use App\Models\LMFiles as LMFiles;
 use App\Models\LMUsers as LMUsers;
+use App\Models\SelfEval;
+use App\Models\KnowledgeTest;
 use Illuminate\Support\Facades\Validator;
 
 
@@ -214,18 +216,12 @@ class LMController extends BaseController
     //
     // Stores a new lesson: the title must hold 1 to 255
     // characters, the category, body and hours are taken as
-    // posted, and the language is the form's hidden uid.
-    // Then back to the lessons page on that language's tab,
-    // with "Created!". Main admins only (auth.admin:man,
-    // perms).
-    //
-    // Known bug (medium): ConvertEmptyStringsToNull turns an
-    // empty editor into NULL and bei_lm_content.content is
-    // NOT NULL, so the save at LMController.php:247 fails —
-    // a 500 instead of a lesson or a message; an empty hours
-    // field does the same. Pinned, through the news form, as
-    // empty-body-500. Fix: validate content and hours as
-    // required, or store an empty body.
+    // posted — an empty editor, NULL by then
+    // (ConvertEmptyStringsToNull), as an empty body and empty
+    // hours as 0, both columns being NOT NULL — and the
+    // language is the form's hidden uid. Then back to the
+    // lessons page on that language's tab, with "Created!".
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content_form.blade.php — the lesson
@@ -241,8 +237,8 @@ class LMController extends BaseController
         $addRecord = new LMContent;
         $addRecord->cat_id = $request->get('cat_id');
         $addRecord->title = $request->get('title');
-        $addRecord->content = $request->get('content');
-        $addRecord->hours = $request->get('hours');
+        $addRecord->content = $request->get('content') ?? '';
+        $addRecord->hours = $request->get('hours') ?? 0;
         $addRecord->lang_id = $request->get('uid');
         $addRecord->save();
 
@@ -301,33 +297,17 @@ class LMController extends BaseController
     // delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/lm/content_delete/{uid}
+    // POST /admin-panel/lm/content_delete/{uid}
     //
     // Deletes a lesson: its files from disk with their rows,
     // the members' completions of it (bei_lm_users), then the
-    // lesson itself; back to the previous page with
-    // "Removed!". Main admins only (auth.admin:man, perms).
-    //
-    // Known bug (medium): a file's row is deleted only after
-    // its file was unlinked (LMController.php:347), so a file
-    // already gone from disk keeps its row, and that row's
-    // foreign key (NO ACTION) makes the lesson's delete fail
-    // — a 500, with the completions already deleted; on a
-    // read-only upload mount the unlink itself fails first.
-    // Pinned as lesson-delete-missing-file. Fix: delete every
-    // file row whatever happens on disk, before the lesson.
-    //
-    // Known bug (medium): a plain GET reaches the delete at
-    // LMController.php:353, so a link a signed-in admin opens
-    // is enough. Pinned as admin-get-deletes. Fix: a POST
-    // route behind the CSRF check.
-    //
-    // Known bug (low): the redirect's anchor carries the
-    // lesson id (LMController.php:354) where the tabs are
-    // named by language id, and the lang_id read for it goes
-    // unused, so the list does not reopen on the lesson's
-    // language. Fix: put the lesson's lang_id in the anchor.
-    // Pinned as lm-delete-anchor.
+    // lesson itself; back to the previous page, on the
+    // lesson's language tab, with "Removed!". Every file row
+    // goes, as its foreign key would block the lesson's
+    // delete, whether its file is still on disk or not; a
+    // file on a read-only upload folder, as production mounts
+    // it, stays on disk. Main admins only (auth.admin:man,
+    // perms).
     //
     // Used by:
     //   - admin-panel/lm_content.blade.php — the delete icon
@@ -342,16 +322,16 @@ class LMController extends BaseController
         if(count($files)>0){
             foreach($files as $k => $v){
                 $file_path = public_path('upload/').$v['file_name'];
-                if(file_exists($file_path)){
+                if(is_file($file_path) && is_writable(dirname($file_path))){
                     unlink($file_path);
-                    LMFiles::where(['id'=>$v['id']])->delete();
                 }
+                LMFiles::where(['id'=>$v['id']])->delete();
             }
         }
 
         LMUsers::where(['content_id'=>$uid])->delete();
         LMContent::destroy($uid);
-        return Redirect::to(URL::previous() . "#a".$uid)->withSuccess("Removed!");
+        return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
     }
 
 
@@ -521,34 +501,18 @@ class LMController extends BaseController
     // categories_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/lm/categores/delete/{uid}
+    // POST /admin-panel/lm/categores/delete/{uid}
     //
-    // Deletes a category and goes back to the previous page
-    // with "Removed!"; its lessons stay, without a category
-    // (the foreign key sets their cat_id to NULL). The route
-    // and the page that links to it share the "categores"
-    // spelling. Main admins only (auth.admin:man, perms).
-    //
-    // Known bug (medium): a plain GET reaches the delete at
-    // LMController.php:563, so a link a signed-in admin opens
-    // is enough. Pinned as admin-get-deletes. Fix: a POST
-    // route behind the CSRF check.
-    //
-    // Known bug (low): the category's self-evaluation and
-    // knowledge-test questions have no foreign key to it and
-    // stay behind with their options, where no panel page
-    // lists them any more; the knowledge test keeps drawing
-    // them (KnowledgeTestController::start) while the limits
-    // in settings row 3 still name the category. Fix: delete
-    // the questions and options with the category, or refuse
-    // while it has any.
-    // Pinned as category-delete-orphans.
-    //
-    // Known bug (low): the redirect's anchor carries the
-    // category id (LMController.php:565) where the tabs are
-    // named by language id, and the lang_id read for it goes
-    // unused. Fix: put the category's lang_id in the anchor.
-    // Pinned as lm-delete-anchor.
+    // Deletes a category and goes back to the previous page,
+    // on the category's language tab, with "Removed!"; its
+    // lessons stay, without a category (the foreign key sets
+    // their cat_id to NULL). A category that still holds
+    // self-evaluation or knowledge-test questions is refused
+    // with a message instead: they have no foreign key to it,
+    // and would outlive it where no page lists them — the
+    // knowledge test drawing them still. The route and the
+    // page that links to it share the "categores" spelling.
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_categories.blade.php — the delete
@@ -560,9 +524,13 @@ class LMController extends BaseController
     {
         $lang_id = LMCategory::where(['id'=>$uid])->pluck('lang_id')->first();
 
+        if(SelfEval::where(['cat_id'=>$uid])->count() > 0 || KnowledgeTest::where(['cat_id'=>$uid])->count() > 0){
+            return Redirect::to(URL::previous() . "#a".$lang_id)->withErrors("Category still has questions! Delete them first.");
+        }
+
         LMCategory::destroy($uid);
 
-        return Redirect::to(URL::previous() . "#a".$uid)->withSuccess("Removed!");
+        return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
     }
 
 
@@ -703,22 +671,13 @@ class LMController extends BaseController
     // row keeps the name given, that path, the MIME type read
     // from the content, the size and the Embed flag — an
     // embedded file shows in the lesson's PDF viewer, the
-    // others are listed for download. Back with "Created!".
-    // Main admins only (auth.admin:man, perms).
-    //
-    // Known bug (medium): an Embed box left unticked posts
-    // nothing, so embed is stored as NULL
-    // (LMController.php:751), while the lesson page
-    // (App\Http\Controllers\LMController::content) lists the
-    // files with embed 0 or 1 only — the file shows nowhere
-    // for members. Fix: store a missing box as 0.
-    // Pinned as lesson-file-embed.
-    //
-    // Known bug (low): a request without a usable file — none
-    // chosen, or one over PHP's upload_max_filesize — stores
-    // nothing and still says "Created!". Fix: go back with an
-    // error when there is no file.
-    // Pinned as lesson-file-missing.
+    // others are listed for download; an unticked box posts
+    // nothing and stores 0, the lesson page lists only 0 and
+    // 1. Back with "Created!". A request without a usable
+    // file — none chosen, or one over PHP's
+    // upload_max_filesize — goes back with an error and
+    // stores nothing. Main admins only (auth.admin:man,
+    // perms).
     //
     // Used by:
     //   - admin-panel/dialog/lm_files_form.blade.php — the
@@ -748,8 +707,12 @@ class LMController extends BaseController
             $addRecord->file_name = 'lm/'.$random_name;
             $addRecord->mime_type = $mimetype;
             $addRecord->file_size = $size;
-            $addRecord->embed = $request->get('embed');
+            $addRecord->embed = $request->get('embed') == 1 ? 1 : 0;
             $addRecord->save();
+
+        } else {
+
+            return back()->withErrors("No file was uploaded!");
 
         }
 
@@ -768,14 +731,9 @@ class LMController extends BaseController
     // POST /admin-panel/lm/file/update
     //
     // Renames the file in the hidden uid and sets its Embed
-    // flag, then goes back with "Updated!". Main admins only
-    // (auth.admin:man, perms).
-    //
-    // Known bug (medium): unticking Embed posts nothing and
-    // stores NULL (LMController.php:789), which hides the
-    // file from the lesson page, as in files_create. Fix:
-    // store a missing box as 0.
-    // Pinned as lesson-file-embed.
+    // flag — an unticked box posts nothing and stores 0, as
+    // in files_create — then goes back with "Updated!". Main
+    // admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/lm_files_form.blade.php — the
@@ -786,7 +744,7 @@ class LMController extends BaseController
     {
         LMFiles::where(['id'=>$request->get('uid')])->update([
             'name'=>$request->get('name'),
-            'embed'=>$request->get('embed')
+            'embed'=>$request->get('embed') == 1 ? 1 : 0
         ]);
 
         return back()->withSuccess("Updated!");
@@ -801,20 +759,16 @@ class LMController extends BaseController
     // files_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/lm/files/delete/{uid}
+    // POST /admin-panel/lm/files/delete/{uid}
     //
     // Deletes one file of a lesson: from disk when it is
-    // there, then its row, so unlike delete a file already
-    // gone blocks nothing. An id with no row — a link opened
+    // there and the upload folder is writable — production
+    // mounts it read-only — then its row, whatever happened
+    // on disk. An id with no row — a link opened
     // twice, or one on a stale page — finds nothing to delete
     // and gets the same answer. Back with "Updated!", not the
     // "Removed!" of the other deletes. Main admins only
     // (auth.admin:man, perms).
-    //
-    // Known bug (medium): a plain GET reaches the delete at
-    // LMController.php:841, so a link a signed-in admin opens
-    // is enough. Pinned as admin-get-deletes. Fix: a POST
-    // route behind the CSRF check.
     //
     // Used by:
     //   - admin-panel/lm_additional_files.blade.php — the
@@ -834,7 +788,9 @@ class LMController extends BaseController
 
         $file_path = public_path('upload/').$file;
 
-        if(file_exists($file_path)){
+        // A read-only upload folder, as production mounts it,
+        // keeps the file; the row goes all the same
+        if(is_file($file_path) && is_writable(dirname($file_path))){
             unlink($file_path);
         }
 

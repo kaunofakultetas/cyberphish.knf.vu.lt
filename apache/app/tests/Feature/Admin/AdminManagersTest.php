@@ -6,9 +6,9 @@
 //  The managers page of the panel (ManagersController):
 //  it lists the country managers, creates new ones switched
 //  off (status 0) until a main admin switches them on,
-//  updates a manager's address and password and deletes
-//  managers. A main admin can be neither deleted, switched
-//  off nor rewritten from here.
+//  updates a manager's address, password and country, and
+//  deletes managers. A main admin can be neither deleted,
+//  switched off nor rewritten from here.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -172,7 +172,7 @@ class AdminManagersTest extends FeatureTestCase
         $manager = $this->world->manager(['main' => 0, 'status' => '0']);
 
         $this->signInManager($this->admin)->from('/admin-panel/settings/managers')
-            ->get("/admin-panel/settings/manager/status/1/{$manager->id}")
+            ->post("/admin-panel/settings/manager/status/1/{$manager->id}")
             ->assertRedirect('/admin-panel/settings/managers');
         $this->app['auth']->guard('man')->logout();
         $this->flushSession();
@@ -221,6 +221,36 @@ class AdminManagersTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testManagerCountryChangeIsSaved
+    // -----------------------------------------------------------
+    //
+    // The update saves the country the dialog asks for too.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testManagerCountryChangeIsSaved(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+
+        $this->signInManager($this->admin)->from('/admin-panel/settings/managers')->post('/admin-panel/manager/update', [
+            'uid'     => $manager->id,
+            'email'   => $manager->email,
+            'pass'    => 'Fresh-Manager-Pass-3',
+            'repass'  => 'Fresh-Manager-Pass-3',
+            'country' => 4,
+        ])->assertSessionHas('success');
+
+        $this->assertSame(4, Managers::find($manager->id)->country);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testCountryManagerCanBeDeleted
     // -----------------------------------------------------------
     //
@@ -235,7 +265,7 @@ class AdminManagersTest extends FeatureTestCase
         $manager = $this->world->manager(['main' => 0]);
 
         $this->signInManager($this->admin)->from('/admin-panel/settings/managers')
-            ->get("/admin-panel/settings/manager/delete/{$manager->id}");
+            ->post("/admin-panel/settings/manager/delete/{$manager->id}");
 
         $this->assertNull(Managers::find($manager->id));
     }
@@ -261,9 +291,9 @@ class AdminManagersTest extends FeatureTestCase
         $other = $this->world->manager();
 
         $this->signInManager($this->admin)->from('/admin-panel/settings/managers')
-            ->get("/admin-panel/settings/manager/status/0/{$other->id}");
+            ->post("/admin-panel/settings/manager/status/0/{$other->id}");
         $this->signInManager($this->admin)->from('/admin-panel/settings/managers')
-            ->get("/admin-panel/settings/manager/delete/{$other->id}");
+            ->post("/admin-panel/settings/manager/delete/{$other->id}");
 
         $this->assertNotNull(Managers::find($other->id));
         $this->assertEquals(1, Managers::find($other->id)->status);

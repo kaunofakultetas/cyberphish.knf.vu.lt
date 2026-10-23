@@ -208,24 +208,12 @@ class InfoController extends BaseController
     //
     // Saves a new page: the title — required, at most 255
     // characters — and its slug, the body and the language as
-    // posted. Answers a redirect to the list.
-    //
-    // Known bug (low): the body and the language go in
-    // unvalidated (InfoController.php:243-244). An empty editor
-    // arrives as NULL (ConvertEmptyStringsToNull), and a
-    // single-row INSERT of NULL into the NOT NULL content
-    // column fails, a 500 instead of a saved page or a
-    // message (pinned as empty-body-500); a missing or unknown
-    // language ends the same way. Fix: validate content and
-    // lang_id, or store an empty body as an empty string.
-    //
-    // Known bug (low): the redirect is Laravel's intended one
-    // (InfoController.php:248), which first takes any page an
-    // auth middleware parked in the session — a member page
-    // the admin opened while not signed in as a member — and
-    // sends the admin there instead of to the list. Fix: a
-    // plain redirect to the list.
-    // Pinned as info-create-intended.
+    // posted. An empty editor arrives as NULL
+    // (ConvertEmptyStringsToNull) and is stored as an empty
+    // body, the NOT NULL column refusing NULL; a missing or
+    // unknown language goes back with a form error. Answers a
+    // redirect to the list — the list itself, whatever page
+    // an auth middleware parked in the session.
     //
     // Used by:
     //   - admin-panel/information_form.blade.php — the form,
@@ -236,16 +224,17 @@ class InfoController extends BaseController
     {
         $validatedData = $request->validate([
             'title' => [ 'required', 'min:1', 'max:255' ],
+            'lang_id' => ['required', 'exists:bei_lang,id'],
         ]);
 
         $addRecord = new Information;
         $addRecord->title = $validatedData['title'];
-        $addRecord->content = $request->get('content');
+        $addRecord->content = $request->get('content') ?? '';
         $addRecord->lang_id = $request->get('lang_id');
         $addRecord->alias = Str::slug($validatedData['title']);
         $addRecord->save();
 
-        return redirect()->intended(route('information'))->withSuccess("Created!");
+        return redirect(route('information'))->withSuccess("Created!");
     }
 
 
@@ -300,15 +289,9 @@ class InfoController extends BaseController
     // delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/information/delete/{uid}
+    // POST /admin-panel/information/delete/{uid}
     //
     // Deletes the page and answers a redirect back to the list.
-    //
-    // Known bug (medium): the delete answers a plain GET
-    // (InfoController.php:321), which the CSRF check never
-    // covers, so a link a signed-in admin opens deletes a
-    // page (pinned as admin-get-deletes, for every delete of
-    // the panel). Fix: a POST route, sent with the CSRF token.
     //
     // Used by:
     //   - admin-panel/information.blade.php — each row's

@@ -209,16 +209,15 @@ class RegisterController extends BaseController
     // The link of the verification mail. The one member
     // holding the token from the URL is switched on (status 1)
     // and the token is emptied, then the login form greets
-    // them with user_verified — through intended(), so a
-    // visitor who opened a member page earlier is sent there
-    // instead, bounced back to the form, and misses the
-    // greeting. An unknown token changes nothing and ends on
-    // the login form as well, and so does a token of blanks:
-    // MySQL ignores trailing spaces when it compares strings,
-    // so it would match every emptied token — every verified
-    // account, those an admin switched off included. A token
-    // more than one member holds changes nothing either, the
-    // guard ValidateReset gives the reset link.
+    // them with user_verified — the form itself, even when a
+    // member page opened earlier parked another destination in
+    // the session. An unknown token changes nothing and ends
+    // on the login form as well, and so does a token of
+    // blanks: MySQL ignores trailing spaces when it compares
+    // strings, so it would match every emptied token — every
+    // verified account, those an admin switched off included.
+    // A token more than one member holds changes nothing
+    // either, the guard ValidateReset gives the reset link.
     //
     // Used by:
     //   - SendVerification — the link in the verification mail
@@ -237,7 +236,7 @@ class RegisterController extends BaseController
 
                 Members::where(['verify_token' => $verify_token])->update(['status'=>1,'verify_token'=>'']);
 
-                return redirect()->intended(route('login'))->withSuccess(__('main.user_verified'));
+                return redirect(route('login'))->withSuccess(__('main.user_verified'));
             }
 
         } else {
@@ -287,15 +286,10 @@ class RegisterController extends BaseController
     // -----------------------------------------------------------
     //
     // A list of $quantity distinct random integers from $min
-    // to $max: the whole range is built, shuffled, and its
-    // head returned.
-    //
-    // Known bug (low): getUsername wants a single number, yet
-    // for it this builds and shuffles a range of almost a
-    // million integers (RegisterController.php:306) — some tens
-    // of megabytes and a full shuffle on every sign-up and
-    // every retry. Not pinned. Fix: draw the number with
-    // random_int.
+    // to $max — never more than the range holds — drawn one
+    // by one with random_int until enough distinct ones have
+    // come up, so asking for one number from a range of a
+    // million costs one draw, not the range.
     //
     // Used by:
     //   - getUsername (above)
@@ -303,8 +297,10 @@ class RegisterController extends BaseController
 
     public static function randomGen($min, $max, $quantity)
     {
-        $numbers = range($min, $max);
-        shuffle($numbers);
-        return array_slice($numbers, 0, $quantity);
+        $numbers = [];
+        while (count($numbers) < min($quantity, $max - $min + 1)) {
+            $numbers[random_int($min, $max)] = true;
+        }
+        return array_keys($numbers);
     }
 }

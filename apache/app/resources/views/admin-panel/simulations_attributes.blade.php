@@ -48,7 +48,7 @@
                                             <tr>
                                             <td>{{ $value['name'] }}</td>
                                             <td class="actions"><a class="icon" href="#" onClick="simulations_attributes_form('edit', {{ $value['id'] }})"><i class="mdi mdi-settings"></i></a></td>
-                                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/simulations/attributes/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/admin_simulations/attributes/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
                                           </tr>
                                         @endforeach
 

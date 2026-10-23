@@ -34,8 +34,8 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as Middleware;
 // X-CSRF-TOKEN or X-XSRF-TOKEN header — and answers a
 // missing or wrong one with 419. GET, HEAD and OPTIONS
 // pass unchecked, which is why the panel's deletes and
-// status changes, all GET routes, can be set off by a link
-// (pinned as admin-get-deletes).
+// status changes are all POST routes: no link can set one
+// off.
 //
 // Used by:
 //   - Kernel::$middlewareGroups — the web group, on every

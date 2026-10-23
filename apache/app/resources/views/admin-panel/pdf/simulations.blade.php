@@ -50,8 +50,8 @@
  				
  				 
  				
- 				  @if(isset($v['categories']) && count($v['categories'])>0)
- 					@foreach($v['categories'] as $k => $cat)
+ 				  @if(isset($scenario['categories']) && count($scenario['categories'])>0)
+ 					@foreach($scenario['categories'] as $k => $cat)
  					 
  						  {{ $cat['name'] ?? '' }}
  						  <br>
@@ -62,8 +62,8 @@
  				<td valign="top" width="33%">
  				Attributes: <br><br>
  				
- 				@if(isset($v['attributes']) && count($v['attributes'])>0)
- 					@foreach($v['attributes'] as $attributes)
+ 				@if(isset($scenario['attributes']) && count($scenario['attributes'])>0)
+ 					@foreach($scenario['attributes'] as $attributes)
  					
  					{{ $attributes['name'] ?? '' }}
  					  <br>

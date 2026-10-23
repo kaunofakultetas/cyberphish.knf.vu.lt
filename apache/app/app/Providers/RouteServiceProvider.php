@@ -87,19 +87,13 @@ class RouteServiceProvider extends ServiceProvider
     // -----------------------------------------------------------
     //
     // Loads the three route files in this order: api.php,
-    // web_user.php, web_admin.php. The order counts, since
+    // web_admin.php, web_user.php. The order counts, since
     // Laravel answers a request with the first route that
-    // matches it.
-    //
-    // Known bug (medium): web_user.php is loaded before
-    // web_admin.php (RouteServiceProvider.php:113), and its
-    // {lang} takes any value, so {lang}/news answers
-    // admin-panel/news and {lang}/news/{slug}/{uid} answers
-    // the panel's edit, delete and remove-picture links with
-    // the public article — no admin can delete an article
-    // from the panel; pinned as admin-news-shadowed. Fix:
-    // load web_admin.php first, or limit {lang} to the five
-    // languages.
+    // matches it: web_user.php's {lang} takes any value, so
+    // its {lang}/news routes would answer the panel's news
+    // pages for a language called admin-panel. Every admin
+    // route starts with admin-panel/, so loaded first they
+    // can shadow no member page.
     //
     // Used by:
     //   - Laravel's RouteServiceProvider::boot, while the app
@@ -110,9 +104,9 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->mapApiRoutes();
 
-        $this->mapWebUserRoutes();
-
         $this->mapWebAdminRoutes();
+
+        $this->mapWebUserRoutes();
     }
 
 

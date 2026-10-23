@@ -14,8 +14,9 @@
 //  In step-by-step mode (type 1) each choice's feedback
 //  shows at the next step, in summary mode (type 2) all of
 //  it at the end. A run is its member's alone, and a
-//  simulation of another language a 404. The defects are
-//  pinned in SimulationDefectsTest.
+//  simulation of another language a 404; one filed under no
+//  category still opens. The badge is announced once, by
+//  the visit that earns it.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -211,6 +212,31 @@ class SimulationsTest extends FeatureTestCase
             ->assertSee('Credential theft')
             ->assertSee('Urgency');
         $this->signInMember($this->member)->get('/en/simulation/' . ($this->scenario + 1000))->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSimulationWithoutACategoryOpens
+    // -----------------------------------------------------------
+    //
+    // A simulation filed under no category still has its start
+    // page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationWithoutACategoryOpens(): void
+    {
+        $uncategorised = $this->world->scenario($this->en, ['descr' => 'An uncategorised simulation']);
+
+        $this->signInMember($this->member)->get("/en/simulation/$uncategorised")
+            ->assertOk()
+            ->assertSee('An uncategorised simulation');
     }
 
 
@@ -418,6 +444,35 @@ class SimulationsTest extends FeatureTestCase
 
         $this->assertFalse(DB::table('bei_users_badges')
             ->where(['user_id' => $this->member->id, 'name' => 'badge_all_simulations'])->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testHeldBadgeIsNotAnnouncedAgain
+    // -----------------------------------------------------------
+    //
+    // The end page that earns badge_all_simulations announces
+    // it; opening that end page again — a reload, a visit
+    // from the history — does not announce it a second time.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHeldBadgeIsNotAnnouncedAgain(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")
+            ->assertSee(__('main.new_badge'), false);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")
+            ->assertDontSee(__('main.new_badge'), false);
     }
 
 

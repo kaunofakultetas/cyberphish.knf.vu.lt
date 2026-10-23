@@ -26,6 +26,9 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use App\Http\Controllers\SettingsController;
 use App\Models\Langs as Langs;
+use App\Models\Information;
+use App\Models\LMCategory;
+use App\Models\News;
 use Illuminate\Support\Facades\Validator;
 
 
@@ -165,19 +168,11 @@ class LanguagesController extends BaseController
     //
     // POST /admin-panel/dialog/lang/create
     //
-    // Adds a language: the name, required and at most 255
-    // characters, and the locale as posted. Answers a redirect
-    // back to the languages page.
-    //
-    // Known bug (low): the rules miss what bei_lang demands
-    // (LanguagesController.php:190). A name another language
-    // has breaks the table's unique key and an empty locale
-    // its NOT NULL, both a 500, and a name longer than the
-    // column's 45 characters is cut without a word (MySQL's
-    // strict mode is off). Fix: limit the name to 45
-    // characters and to names not taken, and require the
-    // locale.
-    // Pinned as language-rules.
+    // Adds a language under the rules bei_lang keeps: a name
+    // of at most the column's 45 characters that no other
+    // language has, and a locale. A form that breaks one goes
+    // back with its error. Answers a redirect back to the
+    // languages page.
     //
     // Used by:
     //   - admin-panel/dialog/lang_form.blade.php — the dialog,
@@ -187,7 +182,8 @@ class LanguagesController extends BaseController
     public function create(Request $request)
     {
         $validatedData = $request->validate([
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'min:1', 'max:45', 'unique:bei_lang,name' ],
+            'locale' => [ 'required' ],
         ]);
 
         $addLangs = new Langs;
@@ -209,14 +205,9 @@ class LanguagesController extends BaseController
     //
     // POST /admin-panel/dialog/lang/update
     //
-    // Renames the language named by uid and sets its locale.
+    // Renames the language named by uid and sets its locale,
+    // under create's rules — the language's own name may stay.
     // Answers a redirect back to the languages page.
-    //
-    // Known bug (low): as in create, a name another language
-    // has is a 500 and one longer than 45 characters is cut
-    // (LanguagesController.php:230); an empty locale is
-    // stored as an empty string. Fix: the rules create needs.
-    // Pinned as language-rules.
     //
     // Used by:
     //   - admin-panel/dialog/lang_form.blade.php — the dialog,
@@ -227,7 +218,8 @@ class LanguagesController extends BaseController
     {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'min:1', 'max:45', 'unique:bei_lang,name,'.$request->get('uid') ],
+            'locale' => [ 'required' ],
         ]);
 
         Langs::where(['id' => $validatedData['uid']])->update(['name'=>$validatedData['name'], 'locale'=>$request->get('locale')]);
@@ -244,24 +236,13 @@ class LanguagesController extends BaseController
     // delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/settings/languages/delete/{uid}
+    // POST /admin-panel/settings/languages/delete/{uid}
     //
     // Deletes the language and answers a redirect back to
-    // the languages page.
-    //
-    // Known bug (medium): the delete answers a plain GET
-    // (LanguagesController.php:273), which the CSRF check
-    // never covers, so a link a signed-in admin opens deletes
-    // a language (pinned as admin-get-deletes, for every
-    // delete of the panel). Fix: a POST route, sent with the
-    // CSRF token.
-    //
-    // Known bug (low): a language that still has news,
-    // information pages or learning-material categories
-    // cannot go — their foreign keys (NO ACTION) refuse the
-    // delete, and the request ends in a 500 instead of a
-    // message. Fix: look for them first and say so.
-    // Pinned as language-delete-in-use.
+    // the languages page. A language that still has news,
+    // information pages or learning-material categories —
+    // their foreign keys refuse the delete — stays, and the
+    // page says why.
     //
     // Used by:
     //   - admin-panel/langs.blade.php — each row's delete
@@ -270,6 +251,10 @@ class LanguagesController extends BaseController
 
     public function delete(Request $request, $uid)
     {
+        if(News::where(['lang_id'=>$uid])->count() > 0 || Information::where(['lang_id'=>$uid])->count() > 0 || LMCategory::where(['lang_id'=>$uid])->count() > 0){
+            return back()->withErrors("The language still has news, information pages or categories!");
+        }
+
         Langs::destroy($uid);
 
         return back()->withSuccess("Removed!");

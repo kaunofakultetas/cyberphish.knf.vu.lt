@@ -73,26 +73,20 @@ class ScenariosAttributes extends Model
     // IdByAttr
     // -----------------------------------------------------------
     //
-    // The id of the attribute with that name, the spreadsheet
-    // cell's surrounding spaces trimmed off; null when no
-    // attribute has it, which the import passes on unchecked.
-    //
-    // Known bug (low): the name is matched across every
-    // language (ScenariosAttributes.php:95), so where two
-    // languages share an attribute name, whichever row MySQL
-    // returns first wins, and an imported simulation can be
-    // tagged with the other language's attribute. Fix: pass
-    // the import's language in and match lang_id too.
-    // Pinned as import-cross-language.
+    // The id of the attribute with that name in the language,
+    // the spreadsheet cell's surrounding spaces trimmed off;
+    // null when the language has no attribute of that name.
+    // Another language's attribute of the same name never
+    // answers.
     //
     // Used by:
     //   - Admin\SimulationsController::get_xlsx_attrs — the
     //     attributes ticked in an imported spreadsheet
     // -----------------------------------------------------------
 
-    public static function IdByAttr($name)
+    public static function IdByAttr($name, $lang_id)
     {
-        $id = ScenariosAttributes::where(['name'=>trim($name)])->pluck('id')->first();
+        $id = ScenariosAttributes::where(['name'=>trim($name), 'lang_id'=>$lang_id])->pluck('id')->first();
 
         return $id;
     }

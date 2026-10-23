@@ -109,7 +109,7 @@
 
 		  					@else
 
-		  						<center><br><br><br><br><br><br><br><br><br>{{ __('main.no_questions') }}</center>
+		  						<center><br><br><br><br><br><br><br><br><br>{{ __('main.no_selfeval_questions') }}</center>
 
 							@endif
 

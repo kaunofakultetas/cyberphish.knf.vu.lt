@@ -100,58 +100,17 @@ Three files outside `tests/` belong to the suite:
 
 | Id | File | What breaks |
 |---|---|---|
-| `home-about-missing` | `Feature/Site/SiteDefectsTest` | The home page is a 500 in a language the saved about text has no entry for |
-| `news-page-links` | `Feature/Site/SiteDefectsTest` | The page links under the news list point at `/news`, a 404 |
 | `reset-link-logout` | `Feature/Auth/AuthDefectsTest` | Signing out replaces `remember_token`, which holds a pending reset link's token |
-| `login-error-lost` | `Feature/Auth/AuthDefectsTest` | A failed login that a member page led to returns to the form without its error |
-| `login-badge-message` | `Feature/Auth/AuthDefectsTest` | The login that earns the ten-days badge never announces it |
-| `captcha-message` | `Feature/Auth/AuthDefectsTest` | A failed reCAPTCHA shows the raw key `validation.captcha`, and an unticked one names the field `g-recaptcha-response` |
 | `username-lithuanian` | `Feature/Account/AccountDefectsTest` | A user name with Lithuanian letters is a 500 |
-| `password-policy` | `Feature/Account/AccountDefectsTest` | A changed password may be 6 characters; a new one needs 12 |
 | `fullname-latin1` | `Feature/Account/AccountDefectsTest` | Lithuanian letters of the full name turn into question marks |
-| `fullname-length` | `Feature/Account/AccountDefectsTest` | A full name over 20 characters is refused with a bare "Error!", though the form takes 100 |
-| `ee-strings` | `Feature/Account/AccountDefectsTest` | The Estonian user-name button ends in a stray "2", and a rename is answered with password messages |
 | `course-progress-selfeval` | `Feature/Learning/LearningDefectsTest` | Progress counts finished self-evaluations against the number of questions |
-| `lesson-badge-chain` | `Feature/Learning/LearningDefectsTest` | A completed lesson earns at most one badge, so badges that fall due together are lost |
-| `selfeval-get-creates` | `Feature/Learning/LearningDefectsTest` | Every visit of the self-evaluation start page opens one more attempt |
-| `selfeval-short-category` | `Feature/Learning/LearningDefectsTest` | In a category with fewer questions than the self-evaluation length, the attempt never closes |
-| `selfeval-badge-count` | `Feature/Learning/LearningDefectsTest` | A member who left a self-evaluation unfinished never gets its badge |
-| `selfeval-badge-locale` | `Feature/Learning/LearningDefectsTest` | The self-evaluation's new-badge message is always in English |
 | `course-progress-null` | `Feature/Learning/LearningDefectsTest` | In a language without simulations or self-evaluation questions, the progress shows 0 whatever else is done |
-| `badge-duplicate` | `Feature/Learning/LearningDefectsTest` | A badge stored twice reads as not held |
-| `lang-no-questions` | `Feature/Learning/LearningDefectsTest` | `no_questions` is defined twice in four `main.php` files, so the self-evaluation page never shows its own text |
-| `simulation-without-category` | `Feature/Simulations/SimulationDefectsTest` | A simulation filed under no category is a 500 |
-| `simulation-badge-message` | `Feature/Simulations/SimulationDefectsTest` | Once every simulation is finished, each end page announces the held badge as new again |
-| `knowledge-skipped-answers` | `Feature/Knowledge/KnowledgeDefectsTest` | A question answered with no option drops out of the result |
-| `knowledge-all-skipped` | `Feature/Knowledge/KnowledgeDefectsTest` | Skipping every question divides by zero, and the test never closes |
-| `knowledge-limits-missing` | `Feature/Knowledge/KnowledgeDefectsTest` | A language missing from the knowledge-test limits makes every start a 500 |
-| `knowledge-badge-later-pass` | `Feature/Knowledge/KnowledgeDefectsTest` | A pass on a later try never earns the final-test badge |
-| `certificate-greek-name` | `Feature/Knowledge/KnowledgeDefectsTest` | The certificate's name font has no Greek letters, so a Greek member's name cannot print |
-| `admin-get-deletes` | `Feature/Admin/AdminDefectsTest` | Deleting and switching off answer a plain GET, so a link can do it |
-| `selfeval-greek-import` | `Feature/Admin/AdminDefectsTest` | The import never finds a Greek question line |
-| `lesson-delete-missing-file` | `Feature/Admin/AdminDefectsTest` | A lesson whose file is gone from disk cannot be deleted |
-| `empty-body-500` | `Feature/Admin/AdminDefectsTest` | News, pages and lessons saved with an empty body are a 500 |
-| `admin-news-shadowed` | `Feature/Admin/AdminDefectsTest` | The public news routes answer the panel's news list, edit and delete links |
-| `simulation-delete-links` | `Feature/Admin/AdminDefectsTest` | The delete icons of the simulation categories and attributes lead to a 404 |
-| `admin-login-error-lost` | `Feature/Admin/AdminDefectsTest` | A failed admin login that a panel page led to returns to the form without its message |
-| `admin-pass-messages` | `Feature/Admin/AdminDefectsTest` | The panel's password dialog answers with raw `main.msg_*` keys |
-| `lesson-file-embed` | `Feature/Admin/AdminDefectsTest` | A lesson file saved with Embed unticked is stored as NULL and shows nowhere |
-| `simulation-import-partial` | `Feature/Admin/AdminDefectsTest` | A failed spreadsheet import leaves a half-saved simulation behind |
-| `info-create-intended` | `Feature/Admin/AdminDefectsTest` | A new information page sends the admin to a page parked in the session instead of the list |
-| `import-markers` | `Feature/Admin/AdminDefectsTest` | Both question imports drop every "=" or "~" inside an option's text, not only its marker |
-| `question-update-no-options` | `Feature/Admin/AdminDefectsTest` | A question with no options never saves its edited text, yet the page says "Updated!" |
-| `lm-delete-anchor` | `Feature/Admin/AdminDefectsTest` | Deleting a lesson or a category reopens the list on the wrong language tab |
-| `category-delete-orphans` | `Feature/Admin/AdminDefectsTest` | A deleted category's self-evaluation and knowledge-test questions stay behind |
-| `lesson-file-missing` | `Feature/Admin/AdminDefectsTest` | A lesson-file post without a usable file stores nothing, yet says "Created!" |
-| `language-rules` | `Feature/Admin/AdminDefectsTest` | A language name another language already has is a 500, not a form error |
-| `language-delete-in-use` | `Feature/Admin/AdminDefectsTest` | Deleting a language that still has content is a 500 instead of a message |
-| `manager-country-update` | `Feature/Admin/AdminDefectsTest` | Editing a manager drops the country the dialog asks for |
-| `simulation-update-descr` | `Feature/Admin/AdminDefectsTest` | Editing a simulation without steps drops the new description, though the page says "Updated!" |
-| `simulations-pdf-categories` | `Feature/Admin/AdminDefectsTest` | Every scenario of the simulations printout shows its language's last scenario's categories |
-| `import-cross-language` | `Feature/Admin/AdminDefectsTest` | The simulation import matches category and attribute names across languages |
 
 Each test's banner explains its defect: the cause, the impact, and the
-behaviour wanted instead.
+behaviour wanted instead. All five wait on the production database: the
+latin1 columns of `bei_users`, the stored function
+`bei_user_course_progress`, and a column of its own for the reset
+token.
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -165,9 +124,9 @@ their home files:
 
 ## Fixed defects
 
-These 34 pins were fixed in October 2026, each with a change small enough
-that no user should notice it. Their tests now live in their home files,
-without the pin:
+A first batch of 34 pins was fixed in October 2026, each with a change
+small enough that no user should notice it. Their tests now live in their
+home files, without the pin:
 
 | Id | Home test |
 |---|---|
@@ -206,40 +165,95 @@ without the pin:
 | `remoteip-trust-range` | `ApacheConfigTest::testOnlyPrivateProxiesAreTrusted` |
 | `seed-admin-password` | `SchemaTest::testSeededAdminHasNoKnownPassword` |
 
-The fixes left the Platform and Apache suites without a pinned defect, so
-`PlatformDefectsTest` and `ApacheDefectsTest` are gone. A new pin there
-starts the file again.
+A second batch, later that month, fixed every pin whose fix lies in the
+Apache code alone, visible changes included: skipped knowledge-test
+questions count as wrong, changed passwords need the login's 12 to 50
+characters, a full name may hold the form's 100 characters, and the
+certificate shrinks a name too wide for its line. Nine defects found on
+the way were pinned and fixed with them: `weak-tokens`,
+`username-draw-cost`, `verify-message-lost`, `reset-message-lost`,
+`cors-wildcard`, `upload-htaccess`, `certificate-name-wrap`,
+`upload-folder-readonly` and `news-picture-remove`.
+
+| Id | Home test |
+|---|---|
+| `home-about-missing` | `PublicPagesTest::testHomePageOpensInALanguageWithoutAboutText` |
+| `news-page-links` | `PublicPagesTest::testNewsPageLinkOpensPageTwo` |
+| `cors-wildcard` | `PublicPagesTest::testResponsesDoNotInviteEveryOrigin` |
+| `login-error-lost` | `LoginTest::testFailedLoginShowsItsError` |
+| `login-badge-message` | `LoginTest::testLoginThatEarnsTheBadgeAnnouncesIt` |
+| `captcha-message` | `RegistrationTest::testCaptchaErrorsReadInWords` |
+| `weak-tokens` | `PasswordResetTest::testTokensDoNotFollowTheMersenneTwistersSeed` |
+| `username-draw-cost` | `RegistrationTest::testUserNameIsDrawnWithoutAMillionNumbers` |
+| `verify-message-lost` | `VerificationTest::testVerificationGreetsAVisitorSentFromAMemberPage` |
+| `reset-message-lost` | `PasswordResetTest::testNewPasswordMessageReachesAVisitorSentFromAMemberPage` |
+| `password-policy` | the "new under 12 characters" and "new over 50 characters" cases of `AccountSettingsTest::testPasswordChangeIsRefused` |
+| `fullname-length` | `AccountSettingsTest::testLongFullNameIsStored` |
+| `ee-strings` | `AccountSettingsTest::testEstonianUserNameFormSpeaksOfTheUserName` |
+| `lesson-badge-chain` | `LearningMaterialTest::testCompletionAwardsEveryBadgeThatFallsDue` |
+| `badge-duplicate` | `LearningMaterialTest::testBadgeStoredTwiceStillReadsAsHeld` |
+| `selfeval-get-creates` | `SelfEvaluationTest::testRevisitingTheStartPageOpensNoSecondAttempt` |
+| `selfeval-short-category` | `SelfEvaluationTest::testAttemptClosesWhenTheCategoryRunsOutOfQuestions` |
+| `selfeval-badge-count` | `SelfEvaluationTest::testFirstFinishedSelfEvaluationEarnsTheBadge` |
+| `selfeval-badge-locale` | `SelfEvaluationTest::testNewBadgeMessageIsInTheMembersLanguage` |
+| `lang-no-questions` | `SelfEvaluationTest::testCategoryWithoutQuestionsSaysSo` |
+| `simulation-without-category` | `SimulationsTest::testSimulationWithoutACategoryOpens` |
+| `simulation-badge-message` | `SimulationsTest::testHeldBadgeIsNotAnnouncedAgain` |
+| `knowledge-skipped-answers` | `KnowledgeExamTest::testSkippedQuestionsCountAsWrong` |
+| `knowledge-all-skipped` | `KnowledgeExamTest::testTestWithEveryQuestionSkippedCloses` |
+| `knowledge-limits-missing` | `KnowledgeExamTest::testLanguageMissingFromTheLimitsDrawsNothing` |
+| `knowledge-badge-later-pass` | `KnowledgeExamTest::testPassOnALaterTryEarnsTheBadge` |
+| `certificate-greek-name` | `CertificateTest::testGreekNamePrintsInGreekLetters` |
+| `certificate-name-wrap` | `CertificateTest::testNameStaysOnItsLine`, with `testLatinNameKeepsTheScriptFont` keeping the usual names as they were |
+| `admin-get-deletes` | `AdminUsersTest::testDeletingAMemberNeedsMoreThanALink`; the panel's other delete and status tests now post |
+| `admin-news-shadowed` | `AdminContentTest::testNewsPagesOfThePanelReachThePanel`, and `AdminAccessTest`'s sweeps, which no longer leave the news pages out |
+| `news-picture-remove` | `AdminContentTest::testRemovingAMissingPictureIsHarmless` |
+| `empty-body-500` | `AdminContentTest::testNewsWithAnEmptyBodyIsSaved` |
+| `info-create-intended` | `AdminContentTest::testNewInformationPageReturnsToTheList` |
+| `language-rules` | `AdminContentTest::testTakenLanguageNameIsRefused` |
+| `language-delete-in-use` | `AdminContentTest::testLanguageStillInUseIsRefusedWithAMessage` |
+| `simulations-pdf-categories` | `AdminContentTest::testEachScenarioOfThePrintoutShowsItsOwnCategories` |
+| `admin-login-error-lost` | `AdminLoginTest::testFailedAdminLoginShowsItsError` |
+| `admin-pass-messages` | `AdminLoginTest::testPasswordDialogAnswersInWords` |
+| `manager-country-update` | `AdminManagersTest::testManagerCountryChangeIsSaved` |
+| `selfeval-greek-import` | `AdminLearningTest::testGreekQuestionsAreImported` |
+| `import-markers` | `AdminLearningTest::testImportedOptionsKeepTheirText` |
+| `question-update-no-options` | `AdminLearningTest::testQuestionWithoutOptionsIsSaved` |
+| `lesson-delete-missing-file` | `AdminLearningTest::testLessonWithAMissingFileCanBeDeleted` |
+| `upload-folder-readonly` | `AdminLearningTest::testDeletesWorkOnAReadOnlyUploadFolder` |
+| `lesson-file-embed` | `AdminLearningTest::testFileWithoutEmbedIsListedForDownload` |
+| `lesson-file-missing` | `AdminLearningTest::testFilePostWithoutAFileGetsAnError` |
+| `lm-delete-anchor` | `AdminLearningTest::testDeletesReturnToTheLanguageTab` |
+| `category-delete-orphans` | `AdminLearningTest::testCategoryWithQuestionsIsNotDeleted`: the delete is refused while questions remain |
+| `simulation-delete-links` | `AdminSimulationsTest::testDeleteIconsDelete` |
+| `simulation-import-partial` | `AdminSimulationsTest::testFailedImportLeavesNothingBehind` |
+| `import-cross-language` | `AdminSimulationsTest::testImportFilesUnderTheCategoriesOfItsLanguage` |
+| `simulation-update-descr` | `AdminSimulationsTest::testDescriptionOfASimulationWithoutStepsIsSaved` |
+| `upload-htaccess` | `ProtectionTest::testUploadedHtaccessChangesNothing`, and the `AllowOverride None` check of `ApacheConfigTest::testUploadFolderRunsNoPhp` |
+
+Only the Auth, Account and Learning folders still hold a pinned defect;
+the other `*DefectsTest.php` files are gone, and a new pin starts its
+folder's file again.
 
 ## Found but not pinned
 
 These were found during review but not pinned. Some have no impact in
 production; others can't be tested deterministically.
 
-- **CORS headers.** The `Cors` middleware adds
-  `Access-Control-Allow-Origin: *` to every response. The endpoint
-  answers any foreign `Origin` with 403 before Apache sees the request,
-  and credentials are never allowed.
-- **Uploaded `.htaccess`.** `AllowOverride All` reaches `public/upload`,
-  so Apache would read an `.htaccess` dropped there. PHP stays off
-  (`ProtectionTest` proves it). Only admins write to the folder, and
-  production mounts it read-only.
-- **Spreadsheet library.** The imports use phpoffice/phpspreadsheet
-  1.19.0, which has known XXE vulnerabilities fixed in later releases.
-  Only admins can upload a spreadsheet.
-- **Weak tokens.** `SettingsController::random_string` builds the
-  verification and reset tokens with `str_shuffle`, which is not a
-  cryptographic generator.
-- **Dead code.** `LMController::gen_test_id` and
-  `SimulationsController::gen_test_id` retry through a method their
-  models do not have. The retry runs only when a random id collides,
-  so no test can reach it. The `ValidateVerify` middleware is never
-  registered.
-- **News picture removal.** `Admin\NewsController::delete_picture`
-  unlinks the picture folder itself when an article has no picture. No
-  test can reach it while `admin-news-shadowed` stands: the public news
-  route answers that URL first.
-- **Costly user names.** `RegisterController::randomGen` shuffles a
-  million-element range for every new user name.
+- **Unreachable retries.** `LMController::gen_test_id` and
+  `SimulationsController::gen_test_id` retried through a method their
+  models do not have; they now retry through their own class. The
+  retry runs only when two random ids collide, so no test reaches it.
+- **Dead code.** The `ValidateVerify` middleware is never registered;
+  `RegisterController::verify` makes the same checks itself.
+- **Duplicate strings.** `my_badges`, `register` and
+  `learning_material` are defined twice in most `main.php` files, and
+  PHP keeps the later entry. The two texts differ only in capitals, but
+  for the Greek `register`, which shows "Κανω ΕΓΓΡΑΦΗ" rather than
+  "Εγγραφείτε".
+- **Dependencies.** Since the PHP 8.4 upgrade the imports use
+  phpoffice/phpspreadsheet 5.10.0, and `composer audit` finds no
+  advisory for any locked package.
 
 ## Practical notes
 
@@ -260,10 +274,6 @@ Things the suite learned the hard way:
     the link it carries.
   - Registration and forgot-password need `solveCaptcha()`; the member
     login has no captcha.
-- **Shadowed routes.** The public `{lang}/news…` routes are registered
-  first and answer four `admin-panel/news…` URLs. `AdminAccessTest`
-  leaves them out of its route sweep (`SHADOWED`), and
-  `AdminDefectsTest` pins them.
 - **latin1 columns.** The full-name column cannot hold Lithuanian
   letters, so tests that read names back use plain ASCII. The pin
   `fullname-latin1` is the exception.
@@ -286,11 +296,21 @@ Things the suite learned the hard way:
   locale the previous request set, while production starts every
   request at the configured `en`. A test that checks a translated text
   after a request in another language sets the locale back first, as
-  `selfeval-badge-locale` does.
+  `SelfEvaluationTest::testNewBadgeMessageIsInTheMembersLanguage` does.
 - **A real server error.** `ProductionModeTest` renames
   `bei_users_badges` for one request and puts it back, so the 500 it
   inspects comes from a real exception. It used to borrow the error of a
   pinned defect, `country-out-of-range`, and lost it when that was fixed.
+- **A read-only upload folder.** Production mounts the upload folders
+  read-only. `AdminLearningTest::testDeletesWorkOnAReadOnlyUploadFolder`
+  makes `public/upload/lm` read-only with `chmod` and makes it writable
+  again in a `finally`.
+- **The random seed.** `PasswordResetTest` seeds the Mersenne Twister
+  twice to show the tokens ignore it, then reseeds it at random for the
+  tests that follow.
+- **Certificates.** dompdf drops a page's frames once the page is drawn,
+  so `CertificateTest` reads the name's font, size, lines, width and
+  block height in an `end_frame` callback.
 - **Apache tests commit.** Apache runs the app in its own processes,
   which see only committed rows. `ApacheTestCase` therefore gives its
   tests no transaction. `World::removeAll` deletes their rows and the

@@ -33,12 +33,12 @@
 //
 //    GET|POST  /admin-panel/change-pass
 //    GET       /admin-panel/users
-//    GET       /admin-panel/user/delete/{user_id}
-//    GET       /admin-panel/user/status/{status_id}/{user_id}
-//    GET       /admin-panel/settings/languages[/…]
+//    POST      /admin-panel/user/delete/{user_id}
+//    POST      /admin-panel/user/status/{status_id}/{user_id}
+//    GET|POST  /admin-panel/settings/languages[/…]
 //    GET|POST  /admin-panel/dialog/lang/…
 //    GET       /admin-panel/settings/managers
-//    GET       /admin-panel/settings/manager/…
+//    POST      /admin-panel/settings/manager/…
 //    GET       /admin-panel/dialog/manager/…
 //    POST      /admin-panel/manager/…
 //    GET       /admin-panel/settings/other
@@ -56,17 +56,15 @@
 //    GET|POST  /admin-panel/dialog/simulations/…
 //    GET|POST  /admin-panel/dialog/simulation/…
 //
-//  Known bug (medium): every delete and status change of the
-//  panel is a plain GET route — the member's delete and
-//  status change (web_admin.php:96, 98) among them — which
-//  the CSRF check never covers and the session cookie
-//  follows on a top-level visit, so a link a signed-in admin
-//  opens from a mail deletes; pinned as admin-get-deletes.
-//  Fix: make them POST routes behind the CSRF check.
+//  Every delete and status change of the panel is a POST
+//  route, so the CSRF check covers it: a link opened from a
+//  mail changes nothing. The pages send them through
+//  Confirm_Dialog and Post_To (public/js/admn.js), with the
+//  page's CSRF token.
 //
 //  Used by:
 //    - RouteServiceProvider::mapWebAdminRoutes — loads it
-//      under the web middleware group, with no prefix, after
+//      under the web middleware group, with no prefix, before
 //      web_user.php
 // -----------------------------------------------------------
 
@@ -93,9 +91,9 @@ Route::post('admin-panel/change-pass', array('before' => 'csrf', 'uses' => 'Admi
 // off
 Route::get('admin-panel/users', 'Admin\UsersController@index')->name('users')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/user/delete/{user_id}', 'Admin\UsersController@delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/user/delete/{user_id}', 'Admin\UsersController@delete')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/user/status/{status_id}/{user_id}', 'Admin\UsersController@change_status')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/user/status/{status_id}/{user_id}', 'Admin\UsersController@change_status')->middleware(['auth.admin:man', 'perms']);
 
 // The site languages' list
 Route::get('admin-panel/settings/languages', 'Admin\LanguagesController@index')->name('langs')->middleware(['auth.admin:man', 'perms']);
@@ -106,7 +104,7 @@ Route::get('admin-panel/settings/simulations_download_pdf', 'Admin\SiteSettingsC
 
 // The site languages, continued: deleting one, and the
 // dialog that adds or edits one with its two saves
-Route::get('admin-panel/settings/languages/delete/{uid}', 'Admin\LanguagesController@delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/settings/languages/delete/{uid}', 'Admin\LanguagesController@delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/dialog/lang/new', 'Admin\LanguagesController@form')->middleware(['auth.admin:man', 'perms']);
 
@@ -118,25 +116,23 @@ Route::post('admin-panel/dialog/lang/update', 'Admin\LanguagesController@update'
 
 // News articles: the list, the form for a new or an existing
 // article, deleting one, the form's two saves, and removing
-// an article's picture. The list's name, news, is the
-// public list's name too; registered later, this route
-// takes it, so Admin\NewsController::create redirects here
-// by it. The public {lang}/news routes of web_user.php
-// answer the list and the per-article links first — the
-// admin-news-shadowed bug documented there.
+// an article's picture. The list is named news, the name
+// Admin\NewsController::create redirects by. This file
+// loads before web_user.php, whose public {lang}/news
+// routes would otherwise answer these URLs first.
 Route::get('admin-panel/news', 'Admin\NewsController@index')->name('news')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/news/new', 'Admin\NewsController@form')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/news/edit/{uid?}', 'Admin\NewsController@form')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/news/delete/{uid}', 'Admin\NewsController@delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/news/delete/{uid}', 'Admin\NewsController@delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::post('admin-panel/news/create', 'Admin\NewsController@create')->middleware(['auth.admin:man', 'perms']);
 
 Route::post('admin-panel/news/update', 'Admin\NewsController@update')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/news/delete_picture/{uid}', 'Admin\NewsController@delete_picture')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/news/delete_picture/{uid}', 'Admin\NewsController@delete_picture')->middleware(['auth.admin:man', 'perms']);
 
 // The managers: the list, the dialog for a new or an
 // existing manager, deleting one, switching one on or off
@@ -146,9 +142,9 @@ Route::get('admin-panel/dialog/manager/new', 'Admin\ManagersController@manager_f
 
 Route::get('admin-panel/dialog/manager/edit/{uid?}', 'Admin\ManagersController@manager_form')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/settings/manager/delete/{uid}', 'Admin\ManagersController@manager_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/settings/manager/delete/{uid}', 'Admin\ManagersController@manager_delete')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/settings/manager/status/{status_id}/{user_id}', 'Admin\ManagersController@manager_status')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/settings/manager/status/{status_id}/{user_id}', 'Admin\ManagersController@manager_status')->middleware(['auth.admin:man', 'perms']);
 
 // The other settings: the page, and its forms for the
 // self-evaluation length, the about text and the knowledge
@@ -174,7 +170,7 @@ Route::get('admin-panel/information/new', 'Admin\InfoController@form')->middlewa
 
 Route::get('admin-panel/information/edit/{uid?}', 'Admin\InfoController@form')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/information/delete/{uid}', 'Admin\InfoController@delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/information/delete/{uid}', 'Admin\InfoController@delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::post('admin-panel/information/create', 'Admin\InfoController@create')->middleware(['auth.admin:man', 'perms']);
 
@@ -192,7 +188,7 @@ Route::post('admin-panel/dialog/lm/categories/create', 'Admin\LMController@categ
 
 Route::post('admin-panel/dialog/lm/categories/update', 'Admin\LMController@categories_update')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/lm/categores/delete/{uid}', 'Admin\LMController@categories_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/lm/categores/delete/{uid}', 'Admin\LMController@categories_delete')->middleware(['auth.admin:man', 'perms']);
 
 // The lessons: the list, the form for a new or an existing
 // lesson with its two saves, and deleting one
@@ -204,7 +200,7 @@ Route::post('admin-panel/lm/content/create', 'Admin\LMController@create')->middl
 
 Route::post('admin-panel/lm/content/update', 'Admin\LMController@update')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/lm/content_delete/{uid}', 'Admin\LMController@delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/lm/content_delete/{uid}', 'Admin\LMController@delete')->middleware(['auth.admin:man', 'perms']);
 
 // A lesson's additional files: the list, the dialog for a
 // new or an existing file with its two saves, and deleting
@@ -217,7 +213,7 @@ Route::post('admin-panel/lm/file/create', 'Admin\LMController@files_create')->mi
 
 Route::post('admin-panel/lm/file/update', 'Admin\LMController@files_update')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/lm/files/delete/{uid}', 'Admin\LMController@files_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/lm/files/delete/{uid}', 'Admin\LMController@files_delete')->middleware(['auth.admin:man', 'perms']);
 
 // A category's self-evaluation questions: the list, the
 // import dialog and the import, and deleting, editing and
@@ -228,7 +224,7 @@ Route::get('admin-panel/dialog/lm/self_eval/import/{uid}', 'Admin\SelfevalContro
 
 Route::post('admin-panel/lm/self_eval/import', 'Admin\SelfevalController@import_questions')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/lm/self_eval/delete/{uid}', 'Admin\SelfevalController@question_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/lm/self_eval/delete/{uid}', 'Admin\SelfevalController@question_delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/lm/self_eval/edit/{uid}', 'Admin\SelfevalController@question_edit')->middleware(['auth.admin:man', 'perms']);
 
@@ -243,7 +239,7 @@ Route::get('admin-panel/dialog/lm/knowledge_test/import/{uid}', 'Admin\Knowledge
 
 Route::post('admin-panel/lm/knowledge_test/import', 'Admin\KnowledgeController@import_questions')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/lm/knowledge_test/delete/{uid}', 'Admin\KnowledgeController@question_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/lm/knowledge_test/delete/{uid}', 'Admin\KnowledgeController@question_delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/lm/knowledge_test/edit/{uid}', 'Admin\KnowledgeController@question_edit')->middleware(['auth.admin:man', 'perms']);
 
@@ -265,7 +261,7 @@ Route::post('admin-panel/dialog/simulations/categories/create', 'Admin\Simulatio
 
 Route::post('admin-panel/dialog/simulations/categories/update', 'Admin\SimulationsController@categories_update')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/admin_simulations/categores/delete/{uid}', 'Admin\SimulationsController@categories_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/admin_simulations/categores/delete/{uid}', 'Admin\SimulationsController@categories_delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/admin_simulations/attributes', 'Admin\SimulationsController@attributes')->name('simulations_attributes')->middleware(['auth.admin:man', 'perms']);
 
@@ -275,13 +271,13 @@ Route::post('admin-panel/dialog/simulations/attributes/create', 'Admin\Simulatio
 
 Route::post('admin-panel/dialog/simulations/attributes/update', 'Admin\SimulationsController@attributes_update')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/admin_simulations/attributes/delete/{uid}', 'Admin\SimulationsController@attributes_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/admin_simulations/attributes/delete/{uid}', 'Admin\SimulationsController@attributes_delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/dialog/simulation/import/{lang_id}', 'Admin\SimulationsController@dialog_import_simulation')->middleware(['auth.admin:man', 'perms']);
 
 Route::post('admin-panel/admin_simulations/import', 'Admin\SimulationsController@simulations_import')->middleware(['auth.admin:man', 'perms']);
 
-Route::get('admin-panel/admin_simulations/delete/{uid}', 'Admin\SimulationsController@simulation_delete')->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/admin_simulations/delete/{uid}', 'Admin\SimulationsController@simulation_delete')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/admin_simulations/edit/{uid}', 'Admin\SimulationsController@simulation_edit')->middleware(['auth.admin:man', 'perms']);
 

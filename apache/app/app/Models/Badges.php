@@ -139,15 +139,9 @@ class Badges extends Model
     // -----------------------------------------------------------
     //
     // Whether the signed-in member holds the badge in the
-    // language the session shows: true for one row, false for
-    // none.
-    //
-    // Known bug (low): a badge stored twice — save_badge's
-    // unlocked check lets two requests at the same moment do
-    // it — matches neither branch (Badges.php:161), so the
-    // method answers null and the badge reads as not held.
-    // Fix: answer whether the count is above 0.
-    // Pinned as badge-duplicate.
+    // language the session shows: true for a row of it, even
+    // for two — save_badge's unlocked check lets two requests
+    // at the same moment store it twice — false for none.
     //
     // Used by:
     //   - BaseController::__construct — badge_all_presentations,
@@ -158,10 +152,6 @@ class Badges extends Model
     {
         $num = Badges::where(['name'=>$name, 'user_id'=>Auth::guard('mem')->id(), 'lang_id'=>Langs::getLangId(Session::get('lang'))])->count();
 
-        if($num == 1){
-            return true;
-        } elseif($num == 0){
-            return false;
-        }
+        return $num > 0;
     }
 }

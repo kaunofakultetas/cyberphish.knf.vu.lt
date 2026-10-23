@@ -78,20 +78,12 @@ class HomeController extends BaseController
     // gets the about text — settings row 1, whose val1 holds
     // JSON keyed by language id, each entry a description and
     // a link — with the id of the session's language to pick
-    // from it; with no row 1 at all, as on a fresh install,
-    // the view skips the lookup (as PHP 7 did by itself) and
-    // the about block stays empty. It also gets the three
-    // newest articles of that language, never shown: the view
-    // keeps its news section inside a Blade comment.
-    //
-    // Known bug (low): the view reads the about entry of the
-    // language id unchecked (fed by HomeController.php:110,
-    // read at welcome.blade.php:22), so in a language the text
-    // has no entry for — one added after the text was last
-    // saved, or one with no bei_lang row — the home page is a
-    // 500 until an admin saves the about text again. Fix: fall
-    // back to an empty entry when the language has none.
-    // Pinned as home-about-missing.
+    // from it. With no about text, as on a fresh install, or
+    // none for that language — one added after the text was
+    // last saved — the about block stays empty. It also gets
+    // the three newest articles of that language, never
+    // shown: the view keeps its news section inside a Blade
+    // comment.
     //
     // Used by:
     //   - layouts/main.blade.php — the logo and the home entry

@@ -229,29 +229,13 @@ class LMController extends BaseController
     // lesson as ued, the MD5 of the MD5 of APP_SALT and the
     // lesson id, so only the lesson's own page can complete
     // it; a hash that matches no lesson changes nothing.
-    // Badges belong to the lesson's language, at most one per
-    // completion: badge_topic for the member's first lesson,
+    // Badges belong to the lesson's language, and every one
+    // that falls due comes with the same completion:
+    // badge_topic with the member's first lesson there,
     // badge_category the first time a category is finished,
-    // and — with badge_category already held —
     // badge_all_presentations once every lesson of the
-    // language is done.
-    //
-    // Known bug (low): the badge chain stops at the first
-    // step that applies. The first lesson returns before the
-    // category check (LMController.php:285), so a first
-    // lesson that finishes its category alone earns no
-    // badge_category, and a new badge_category returns before
-    // the all-lessons check (LMController.php:304), so when
-    // the completion that earns it also finishes the
-    // language — in a language of one category, say —
-    // badge_all_presentations is never awarded, and with it
-    // never badge_finished_course. The first lesson is also
-    // counted over every language (LMController.php:283), so
-    // a member's first lesson in a second language earns no
-    // badge_topic there. Fix: count the lessons of the
-    // lesson's language and check every badge on each
-    // completion.
-    // Pinned as lesson-badge-chain.
+    // language is done. The message is flashed only when one
+    // of them is new.
     //
     // Used by:
     //   - lm-content.blade.php — the mark-as-completed form
@@ -277,52 +261,24 @@ class LMController extends BaseController
             ]);
 
 
-            // STEP 3: the member's first completed lesson earns
-            // badge_topic
-            // =================================================
-            $num = LMUsers::where(['user_id'=>$user_id])->count();
+            // STEP 3: every badge the completion earns — a
+            // lesson of the language earns badge_topic, a
+            // finished category badge_category, a finished
+            // language badge_all_presentations; save_badge
+            // stores each once and answers true when it is new
+            // ================================================
+            $new = Badges::save_badge($lang_id, 'badge_topic');
 
-            if($num == 1){
-
-                // announced as new whatever save_badge answers,
-                // so a form sent twice announces it twice
-                $badge = Badges::save_badge($lang_id, 'badge_topic');
-
-                return back()->withSuccess(__('main.new_badge'));
-
+            if($this->show_self_eval($content_id) == true){
+                $new = Badges::save_badge($lang_id, 'badge_category') || $new;
             }
 
+            if(!in_array(0, LMController::check_if_all_presentations_finished($lang_id))){
+                $new = Badges::save_badge($lang_id, 'badge_all_presentations') || $new;
+            }
 
-            // STEP 4: a finished category earns badge_category;
-            // with that one held, a finished language earns
-            // badge_all_presentations
-            // =================================================
-            if($this->show_self_eval($content_id) == true){
-
-                $a = Badges::save_badge($lang_id, 'badge_category');
-
-                if($a == true){
-
-                    return back()->withSuccess(__('main.new_badge'));
-
-                } else {
-
-                    if(!in_array(0, LMController::check_if_all_presentations_finished($lang_id))){
-
-                        $b = Badges::save_badge($lang_id, 'badge_all_presentations');
-
-                        if($b == true){
-                            return back()->withSuccess(__('main.new_badge'));
-                        } else {
-                            return back();
-                        }
-
-                    }
-
-                    return back();
-
-                }
-
+            if($new){
+                return back()->withSuccess(__('main.new_badge'));
             }
 
         }
@@ -438,16 +394,11 @@ class LMController extends BaseController
     // category): a new bei_users_selfeval_test row for the
     // member in the session's language, started now, under a
     // fresh public id, then a redirect to its first question.
-    // Nothing here checks that the member has completed the
-    // category's lessons — only the button waits for that.
-    //
-    // Known bug (low): a plain GET creates the attempt
-    // (LMController.php:462), so every visit of this URL —
-    // another click on the button, a browser's prefetch —
-    // opens one more attempt, even while one is open, and
-    // the open ones pile up in the member's history. Fix:
-    // start the attempt from a POST.
-    // Pinned as selfeval-get-creates.
+    // An attempt of the category the member still has open is
+    // resumed instead, so another visit of the URL — a second
+    // click on the button, a browser's prefetch — opens no new
+    // one. Nothing here checks that the member has completed
+    // the category's lessons — only the button waits for that.
     //
     // Used by:
     //   - lm-content.blade.php — the self-evaluation button
@@ -457,6 +408,12 @@ class LMController extends BaseController
 
     public function self_evaluation_test(Request $request, $lang=null, $cat_id)
     {
+        $open = SelfEvalUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id, 'finished'=>0])->get()->pluck('public_id')->first();
+
+        if($open != null){
+            return redirect('/cp/se/'.$open.'/'.$cat_id);
+        }
+
         $p_id = LMController::gen_test_id();
 
         $addRecord = new SelfEvalUserTest;
@@ -487,20 +444,13 @@ class LMController extends BaseController
     // finished.se and r_exists:lm_cat. FinishedSe runs first:
     // a 404 unless the attempt is the member's own and of this
     // category, and once the member has answered as many
-    // questions as an attempt asks, it closes the attempt with
+    // questions as an attempt asks — or every question of a
+    // category that has fewer — it closes the attempt with
     // its points and redirects to the result instead. Here a
     // question the attempt has not answered yet is picked at
     // random, its options shuffled, with the progress so far.
     // Answers self-eval.blade.php, which shows
-    // main.no_questions when none is left.
-    //
-    // Known bug (low): an attempt closes only at its full
-    // length, so in a category with fewer questions than that
-    // the questions run out first (LMController.php:538) and
-    // the attempt stays open for good on a page without a
-    // question. Fix: close it as well when no unanswered
-    // question is left.
-    // Pinned as selfeval-short-category.
+    // main.no_selfeval_questions for a category without any.
     //
     // Used by:
     //   - self_evaluation_test (above), self_eval_test_save
@@ -646,13 +596,9 @@ class LMController extends BaseController
     //
     // A fresh public id for an attempt: 16 random letters and
     // digits from SettingsController::random_string, checked
-    // against the ids bei_users_selfeval_test already holds.
-    //
-    // Known bug (low): the retry (LMController.php:671) calls
-    // SelfEvalUserTest::gen_test_id, a method that model does
-    // not have, so the one id that collides fails the request
-    // with a BadMethodCallException instead of drawing again —
-    // dead code in practice. Fix: call LMController::gen_test_id.
+    // against the ids bei_users_selfeval_test already holds;
+    // an id taken already is drawn again. With 62 to the 16th
+    // possible ids no test can make two collide.
     //
     // Used by:
     //   - self_evaluation_test (above)
@@ -667,8 +613,7 @@ class LMController extends BaseController
         if($num == 0){
             return $p_id;
         } elseif($num > 0){
-            // the model has no gen_test_id — the Known bug above
-            return SelfEvalUserTest::gen_test_id();
+            return LMController::gen_test_id();
         }
     }
 

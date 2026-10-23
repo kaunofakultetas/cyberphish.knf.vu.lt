@@ -12,24 +12,6 @@
 //  use come from this file too. A few keys appear twice; PHP
 //  keeps the later entry.
 //
-//  Known bug (low): no_questions is defined twice
-//  (main.php:134, 184) and PHP keeps the later, generic text,
-//  so the self-evaluation page, which the first was written
-//  for, never says the category has no questions. Fix: give
-//  the category text its own key and use that key in
-//  self-eval.blade.php.
-//  Pinned as lang-no-questions.
-//
-//  Known bug (low): Admin\ManagerMainController::change_pass
-//  asks for msg_current_pass_wrong, msg_current_new_same,
-//  msg_new_pass_dont_match, msg_pass_too_short and
-//  msg_pass_changed, which no main.php defines, so the
-//  panel's password form answers with those raw keys. Fix:
-//  use the member side's curr_pass_wrong, curr_new_same,
-//  new_pass_not_match, pass_too_short and pass_changed, which
-//  say the same.
-//  Pinned as admin-pass-messages.
-//
 //  Used by:
 //    - the views under resources/views — the layouts, the
 //      sign-in forms, the course pages and the mails'
@@ -106,6 +88,7 @@ return [
     'curr_new_same'=>'Current and new password is the same',
     'new_pass_not_match'=>'New passwords do not match',
     'pass_too_short'=>'Password is too short',
+    'pass_too_long'=>'Password is too long',
     'pass_changed'=>'Password changed',
     // Despite their keys, these two answer the user name
     // change (ManagerMainController::change_username)
@@ -131,7 +114,7 @@ return [
     'ended'=>'Ended',
     'points'=>'Points',
     'next'=>'Next',
-    'no_questions'=>'No questions for this category!',
+    'no_selfeval_questions'=>'No questions for this category!',
     'self_eval_ranks'=>'Self Evaluation Ranks',
     'nobody'=>'Nobody',
     'username'=>'Username',

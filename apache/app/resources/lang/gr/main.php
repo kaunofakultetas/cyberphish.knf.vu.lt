@@ -8,14 +8,6 @@
 //  en/main.php. A few keys appear twice; PHP keeps the later
 //  entry.
 //
-//  Known bug (low): no_questions is defined twice
-//  (main.php:111, 161) and PHP keeps the later, generic text,
-//  so the self-evaluation page, which the first was written
-//  for, never says the category has no questions. Fix: give
-//  the category text its own key and use that key in
-//  self-eval.blade.php.
-//  Pinned as lang-no-questions.
-//
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
 //      the site is in Greek
@@ -83,6 +75,7 @@ return [
     'curr_new_same'=>'Ο τρέχων και ο νέος κωδικός πρόσβασης είναι ο ίδιος',
     'new_pass_not_match'=>'Οι νέοι κωδικοί πρόσβασης δεν ταιριάζουν',
     'pass_too_short'=>'Ο κωδικός πρόσβασης είναι πολύ σύντομος',
+    'pass_too_long'=>'Ο κωδικός πρόσβασης είναι πολύ μεγάλος',
     'pass_changed'=>'Ο κωδικός άλλαξε',
     // Despite their keys, these two answer the user name
     // change (ManagerMainController::change_username)
@@ -108,7 +101,7 @@ return [
     'ended'=>'Τελείωσε',
     'points'=>'Πόντοι',
     'next'=>'Επόμενο',
-    'no_questions'=>'Δεν υπάρχουν ερωτήσεις για αυτήν την κατηγορία!',
+    'no_selfeval_questions'=>'Δεν υπάρχουν ερωτήσεις για αυτήν την κατηγορία!',
     'self_eval_ranks'=>'Βαθμοί αυτοαξιολόγησης',
     'nobody'=>'Κανείς',
     'username'=>'Όνομα χρήστη',

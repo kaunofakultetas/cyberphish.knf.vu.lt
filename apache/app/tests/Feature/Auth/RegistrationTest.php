@@ -15,7 +15,8 @@
 //  verification link is built from APP_URL, so a forged
 //  Host or X-Forwarded-Host header cannot point it anywhere
 //  else. The form is for visitors only: a signed-in member
-//  is sent to the home page.
+//  is sent to the home page. Both reCAPTCHA errors read in
+//  words, and the generated name costs one random draw.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -24,6 +25,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Http\Controllers\Auth\RegisterController;
 use App\Mail\SendVerification;
 use App\Models\Members;
 use Illuminate\Support\Facades\Hash;
@@ -430,6 +432,79 @@ class RegistrationTest extends FeatureTestCase
 
         $this->assertFalse(Members::where('email', self::EMAIL)->exists());
         Mail::assertNothingSent();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCaptchaErrorsReadInWords
+    // -----------------------------------------------------------
+    //
+    // A failed reCAPTCHA and an unticked one both come back in
+    // words, in every site language and on both forms that
+    // check one — this one and forgot-password: no raw
+    // validation.captcha key and no raw g-recaptcha-response
+    // field name.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCaptchaErrorsReadInWords(): void
+    {
+        $this->solveCaptcha(false);
+        $forms = [
+            '/register'        => $this->form(['g-recaptcha-response' => null]),
+            '/forgot-password' => ['email' => self::EMAIL],
+        ];
+
+        // Both forms speak the session's language, which
+        // BaseController reads on every request
+        foreach (['en', 'lt', 'ee', 'lv', 'gr'] as $locale) {
+            foreach ($forms as $form => $fields) {
+                foreach (['a failed check' => 'expired-token', 'an unticked box' => ''] as $answer => $token) {
+                    $this->withSession(['lang' => $locale])->from($form)
+                        ->post($form, array_merge($fields, ['g-recaptcha-response' => $token]))
+                        ->assertSessionHasErrors('g-recaptcha-response');
+                    $error = session('errors')->first('g-recaptcha-response');
+                    $this->assertStringStartsNotWith('validation.', $error, "$form in $locale after $answer says $error");
+                    $this->assertStringNotContainsString('g-recaptcha-response', $error, "$form in $locale after $answer says $error");
+                }
+            }
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUserNameIsDrawnWithoutAMillionNumbers
+    // -----------------------------------------------------------
+    //
+    // Drawing the generated user name costs one random draw,
+    // not the range of nearly a million numbers it comes from:
+    // the second draw — the first loads the classes —
+    // needs less than a megabyte.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUserNameIsDrawnWithoutAMillionNumbers(): void
+    {
+        RegisterController::getUsername();
+        memory_reset_peak_usage();
+        $before = memory_get_usage();
+        $name = RegisterController::getUsername();
+        $used = memory_get_peak_usage() - $before;
+
+        $this->assertMatchesRegularExpression('/^User\d+$/', $name);
+        $this->assertLessThan(1048576, $used, "a draw took $used bytes");
     }
 
 

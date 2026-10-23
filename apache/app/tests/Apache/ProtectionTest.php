@@ -11,8 +11,9 @@
 //  rule is what keeps an uploaded script harmless, so the
 //  tests plant real scripts there — under every name PHP
 //  could answer to, and behind an .htaccess that tries to
-//  switch PHP back on — and make sure none of them runs.
-//  The upload folder is the symlink public/upload ->
+//  switch PHP back on — and make sure none of them runs; an
+//  .htaccess there is not even read. The upload folder is
+//  the symlink public/upload ->
 //  storage/app/public, a tmpfs in the test container. No
 //  response names the version of PHP or of Apache either.
 //
@@ -221,9 +222,8 @@ class ProtectionTest extends ApacheTestCase
     //
     // An .htaccess dropped into the folder that maps .jpg to
     // PHP and turns the engine on cannot undo php_admin_value:
-    // the "image" never runs. (Apache does read the file —
-    // AllowOverride All reaches the folder — so the type it
-    // sets is applied.)
+    // the "image" never runs. (Apache does not even read the
+    // file: AllowOverride None covers the folder.)
     //
     // Used by:
     //   - PHPUnit — the Apache suite (runTests.sh)
@@ -235,6 +235,34 @@ class ProtectionTest extends ApacheTestCase
         $this->plant('photo.jpg', self::SCRIPT);
 
         $this->assertInert($this->http->get('/upload/photo.jpg'), 'photo.jpg');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUploadedHtaccessChangesNothing
+    // -----------------------------------------------------------
+    //
+    // An .htaccess dropped into the folder that would send one
+    // of its files to another site changes nothing: the file
+    // is served as it is.
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUploadedHtaccessChangesNothing(): void
+    {
+        $this->plant('.htaccess', "Redirect 302 /upload/handout.txt https://example.test/\n");
+        $this->plant('handout.txt', 'The handout.');
+
+        $response = $this->http->get('/upload/handout.txt');
+
+        $this->assertSame(200, $response->getStatusCode(), 'the planted .htaccess answered ' . $response->getStatusCode() . ' ' . $response->getHeaderLine('Location'));
+        $this->assertSame('The handout.', (string) $response->getBody());
     }
 
 

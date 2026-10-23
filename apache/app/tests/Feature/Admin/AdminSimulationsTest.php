@@ -12,9 +12,14 @@
 //  58 down: level, situation, answer type (Incorrect,
 //  Semi-incorrect, Semi-correct, Correct — 0, 50, 100 and
 //  200 points) and feedback, each step hanging under the
-//  last step one level up. Editing changes the texts;
-//  deleting removes the simulation with everything that
-//  hangs off it.
+//  last step one level up. The names are looked up in the
+//  import's language only, and a sheet naming a category
+//  the language lacks is refused before anything is saved.
+//  Editing changes the texts — the description of a
+//  simulation without steps too; deleting removes the
+//  simulation with everything that hangs off it, and the
+//  delete icons of categories and attributes reach their
+//  routes.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -104,7 +109,7 @@ class AdminSimulationsTest extends FeatureTestCase
         $this->admin()->from($page)->post('/admin-panel/dialog/simulations/categories/update', ['uid' => $id, 'name' => 'Voice phishing']);
         $this->assertSame('Voice phishing', DB::table('bei_scenarios_category')->where('id', $id)->value('name'));
 
-        $this->admin()->from($page)->get("/admin-panel/admin_simulations/categores/delete/$id");
+        $this->admin()->from($page)->post("/admin-panel/admin_simulations/categores/delete/$id");
         $this->assertFalse(DB::table('bei_scenarios_category')->where('id', $id)->exists());
     }
 
@@ -132,8 +137,37 @@ class AdminSimulationsTest extends FeatureTestCase
         $this->admin()->from($page)->post('/admin-panel/dialog/simulations/attributes/update', ['uid' => $id, 'name' => 'Fake authority']);
         $this->assertSame('Fake authority', DB::table('bei_scenarios_attributes')->where('id', $id)->value('name'));
 
-        $this->admin()->from($page)->get("/admin-panel/admin_simulations/attributes/delete/$id");
+        $this->admin()->from($page)->post("/admin-panel/admin_simulations/attributes/delete/$id");
         $this->assertFalse(DB::table('bei_scenarios_attributes')->where('id', $id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeleteIconsDelete
+    // -----------------------------------------------------------
+    //
+    // The delete icons of the categories and attributes pages
+    // send Confirm_Dialog the routes under admin_simulations,
+    // which delete the row.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeleteIconsDelete(): void
+    {
+        $category = $this->world->scenarioCategory($this->en);
+        $attribute = $this->world->scenarioAttribute($this->en);
+
+        $this->admin()->post($this->deleteLink('/admin-panel/admin_simulations/categories', $category));
+        $this->admin()->post($this->deleteLink('/admin-panel/admin_simulations/attributes', $attribute));
+
+        $this->assertFalse(DB::table('bei_scenarios_category')->where('id', $category)->exists());
+        $this->assertFalse(DB::table('bei_scenarios_attributes')->where('id', $attribute)->exists());
     }
 
 
@@ -177,6 +211,73 @@ class AdminSimulationsTest extends FeatureTestCase
         $this->assertEquals([2, $check->id, 100, 2], [$report->level, $report->parent_option_id, $report->points, $report->option_type]);
         $this->assertEquals([1, 0, 0, 0], [$click->level, $click->parent_option_id, $click->points, $click->option_type]);
         $this->assertSame('Good: the domain is wrong', $check->feedback);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFailedImportLeavesNothingBehind
+    // -----------------------------------------------------------
+    //
+    // A sheet that marks a category no row of the language
+    // has goes back with an error, and leaves no simulation
+    // behind.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFailedImportLeavesNothingBehind(): void
+    {
+        $this->world->scenarioAttribute($this->en, ['name' => 'Urgency']);
+
+        $this->admin()->from('/admin-panel/admin_simulations')->post('/admin-panel/admin_simulations/import', [
+            'lang_id' => $this->en,
+            'doc'     => $this->simulationSheet(['C34' => 'A category nobody created']),
+        ])->assertSessionHasErrors();
+
+        $this->assertFalse(DB::table('bei_scenarios')->where('descr', 'An urgent invoice arrives')->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testImportFilesUnderTheCategoriesOfItsLanguage
+    // -----------------------------------------------------------
+    //
+    // Where another language has a category and an attribute
+    // of the same names, the import files its simulation under
+    // its own language's.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testImportFilesUnderTheCategoriesOfItsLanguage(): void
+    {
+        // The Lithuanian rows go in first: a lookup that
+        // ignored the language would meet them before the
+        // English ones
+        $lithuanian = $this->world->language('lt');
+        $this->world->scenarioCategory($lithuanian, ['name' => 'Smishing']);
+        $this->world->scenarioAttribute($lithuanian, ['name' => 'Spoofing']);
+        $category = $this->world->scenarioCategory($this->en, ['name' => 'Smishing']);
+        $attribute = $this->world->scenarioAttribute($this->en, ['name' => 'Spoofing']);
+
+        $this->admin()->from('/admin-panel/admin_simulations')->post('/admin-panel/admin_simulations/import', [
+            'lang_id' => $this->en,
+            'doc'     => $this->simulationSheet(['C34' => 'Smishing', 'E34' => 'Spoofing']),
+        ])->assertSessionHas('success');
+
+        $scenario = DB::table('bei_scenarios')->where('descr', 'An urgent invoice arrives')->value('id');
+        $this->assertTrue(DB::table('bei_scenarios_in_category')->where(['scenario_id' => $scenario, 'cat_id' => $category])->exists());
+        $this->assertTrue(DB::table('bei_scenarios_in_attributes')->where(['scenario_id' => $scenario, 'attribute_id' => $attribute])->exists());
     }
 
 
@@ -238,11 +339,38 @@ class AdminSimulationsTest extends FeatureTestCase
         $this->assertSame('New description', DB::table('bei_scenarios')->where('id', $scenario)->value('descr'));
         $this->assertSame('New feedback', DB::table('bei_scenarios_options')->where('id', $step)->value('feedback'));
 
-        $this->admin()->from('/admin-panel/admin_simulations')->get("/admin-panel/admin_simulations/delete/$scenario");
+        $this->admin()->from('/admin-panel/admin_simulations')->post("/admin-panel/admin_simulations/delete/$scenario");
         $this->assertFalse(DB::table('bei_scenarios')->where('id', $scenario)->exists());
         $this->assertFalse(DB::table('bei_scenarios_options')->where('scenario_id', $scenario)->exists());
         $this->assertFalse(DB::table('bei_scenarios_in_category')->where('scenario_id', $scenario)->exists());
         $this->assertFalse(DB::table('bei_users_scenarios')->where('scenario_id', $scenario)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDescriptionOfASimulationWithoutStepsIsSaved
+    // -----------------------------------------------------------
+    //
+    // Editing a simulation without steps — its edit page posts
+    // no steps at all — saves the new description.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDescriptionOfASimulationWithoutStepsIsSaved(): void
+    {
+        $scenario = $this->world->scenario($this->en, ['descr' => 'Description before the edit']);
+
+        $this->admin()->from("/admin-panel/admin_simulations/edit/$scenario")
+            ->post("/admin-panel/admin_simulations/update/$scenario", ['situation' => 'Description after the edit'])
+            ->assertSessionHas('success');
+
+        $this->assertSame('Description after the edit', DB::table('bei_scenarios')->where('id', $scenario)->value('descr'));
     }
 
 
@@ -263,5 +391,29 @@ class AdminSimulationsTest extends FeatureTestCase
     private function admin(): self
     {
         return $this->signInManager($this->admin);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // deleteLink
+    // -----------------------------------------------------------
+    //
+    // The path the delete icon of a row opens — the pages hand
+    // the icon's URL to Confirm_Dialog. Fails the test when
+    // the page has no icon for the row.
+    //
+    // Used by:
+    //   - testDeleteIconsDelete (above)
+    // -----------------------------------------------------------
+
+    private function deleteLink(string $page, int $id): string
+    {
+        $html = $this->admin()->get($page)->assertOk()->getContent();
+        $this->assertSame(1, preg_match("#Confirm_Dialog\\('([^']*/delete/$id)'\\)#", $html, $link), "no delete icon for row $id on $page");
+        return parse_url($link[1], PHP_URL_PATH);
     }
 }

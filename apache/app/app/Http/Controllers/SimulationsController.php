@@ -235,16 +235,9 @@ class SimulationsController extends BaseController
     // simulation of another language than the session's is a
     // 404 too. Its columns become the view's variables, next
     // to the names of its categories and attributes by id,
-    // and the page's form starts a run in one of two modes.
-    // Answers simulation_start.blade.php.
-    //
-    // Known bug (low): categories is set only inside its loop
-    // (SimulationsController.php:271), so a simulation filed
-    // under no category hands the view no $categories, which
-    // simulation_start.blade.php counts without the isset it
-    // gives the attributes — a 500; pinned as
-    // simulation-without-category. Fix: start categories as
-    // an empty list.
+    // and the page's form starts a run in one of two modes —
+    // a simulation filed under no category hands the view an
+    // empty list of them. Answers simulation_start.blade.php.
     //
     // Used by:
     //   - simulations_list.blade.php — each simulation's link
@@ -265,8 +258,7 @@ class SimulationsController extends BaseController
         $categories = ScenariosInCategory::where(['scenario_id'=>$scenario['id'], 'lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
         $attributes = ScenariosInAttributes::where(['scenario_id'=>$scenario['id'], 'lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
 
-        // categories and attributes exist only when the
-        // simulation has some — the Known bug above
+        $scenario['categories'] = [];
         foreach($categories as $k => $v){
             $scenario['categories'][$v['cat_id']] = ScenariosCategory::where(['id'=>$v['cat_id']])->get()->pluck('name')->first();
         }
@@ -335,15 +327,9 @@ class SimulationsController extends BaseController
     //
     // A fresh public id for a run: 16 random letters and
     // digits from SettingsController::random_string, checked
-    // against the ids bei_users_scenarios already holds.
-    //
-    // Known bug (low): the retry
-    // (SimulationsController.php:362) calls
-    // ScenariosUsers::gen_test_id, a method that model does
-    // not have, so the one id that collides fails the request
-    // with a BadMethodCallException instead of drawing again —
-    // dead code in practice. Fix: call
-    // SimulationsController::gen_test_id.
+    // against the ids bei_users_scenarios already holds; an
+    // id taken already is drawn again. With 62 to the 16th
+    // possible ids no test can make two collide.
     //
     // Used by:
     //   - simulation_progress (above)
@@ -358,8 +344,7 @@ class SimulationsController extends BaseController
         if($num == 0){
             return $p_id;
         } elseif($num > 0){
-            // the model has no gen_test_id — the Known bug above
-            return ScenariosUsers::gen_test_id();
+            return SimulationsController::gen_test_id();
         }
     }
 
@@ -389,15 +374,8 @@ class SimulationsController extends BaseController
     // simulation_do_stuff.blade.php with the choices, the
     // run's ids, whether it is finished and the points so
     // far; the mode 1 feedback of the last choice reaches the
-    // page through the session.
-    //
-    // Known bug (low): main.new_badge is flashed
-    // (SimulationsController.php:455) on every end page once
-    // all simulations are finished, whatever save_badge
-    // answered, so a badge held for long is announced again
-    // on each visit. Fix: flash only when save_badge saved
-    // the badge.
-    // Pinned as simulation-badge-message.
+    // page through the session. The new-badge message comes
+    // only with the visit that saved the badge.
     //
     // Used by:
     //   - simulation_progress (above), simulation_do_stuff_save
@@ -450,9 +428,9 @@ class SimulationsController extends BaseController
 
                 if(!in_array(0, SimulationsController::check_if_all_simulations_finished(Langs::getLangId($lang)))){
 
-                    Badges::save_badge(Langs::getLangId($lang), 'badge_all_simulations');
-
-                    $request->session()->now('success', __('main.new_badge'));
+                    if(Badges::save_badge(Langs::getLangId($lang), 'badge_all_simulations') == true){
+                        $request->session()->now('success', __('main.new_badge'));
+                    }
 
                 }
 

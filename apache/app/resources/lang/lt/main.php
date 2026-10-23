@@ -10,14 +10,6 @@
 //  no file has shows as the raw key. A few keys appear twice;
 //  PHP keeps the later entry.
 //
-//  Known bug (low): no_questions is defined twice
-//  (main.php:112, 163) and PHP keeps the later, generic text,
-//  so the self-evaluation page, which the first was written
-//  for, never says the category has no questions. Fix: give
-//  the category text its own key and use that key in
-//  self-eval.blade.php.
-//  Pinned as lang-no-questions.
-//
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
 //      the site is in Lithuanian
@@ -84,6 +76,7 @@ return [
     'curr_new_same'=>'Dabartinis ir naujas slaptažodis sutampa',
     'new_pass_not_match'=>'Naujas slaptažodis nesutampa su pakartotu',
     'pass_too_short'=>'Slaptažodis per trumpas',
+    'pass_too_long'=>'Slaptažodis per ilgas',
     'pass_changed'=>'Slaptažodis pakeistas!',
     // Despite their keys, these two answer the user name
     // change (ManagerMainController::change_username)
@@ -109,7 +102,7 @@ return [
     'ended'=>'Užbaigta',
     'points'=>'Taškai',
     'next'=>'Kitas',
-    'no_questions'=>'Šioje kategorijoje nėra savitikros klausimų!',
+    'no_selfeval_questions'=>'Šioje kategorijoje nėra savitikros klausimų!',
     'self_eval_ranks'=>'Savitikros reitingas',
     'nobody'=>'Niekas',
     'username'=>'Vartotojo vardas',

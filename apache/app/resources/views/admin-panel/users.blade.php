@@ -41,9 +41,9 @@
                             @endif
                             <td><center>
                             	@if ($value['status'] == 1)
-                            		<a href="{{ env('APP_URL_ADMIN') }}/user/status/2/{{ $value['id'] }}"><span class="badge badge-success">Active</span></a>
+                            		<a href="#" onClick="Post_To('{{ env('APP_URL_ADMIN') }}/user/status/2/{{ $value['id'] }}'); return false;"><span class="badge badge-success">Active</span></a>
                             	@else
-                            		<a href="{{ env('APP_URL_ADMIN') }}/user/status/1/{{ $value['id'] }}"><span class="badge badge-danger">Not active</span></a>
+                            		<a href="#" onClick="Post_To('{{ env('APP_URL_ADMIN') }}/user/status/1/{{ $value['id'] }}'); return false;"><span class="badge badge-danger">Not active</span></a>
                             	@endif
                             </center></td>
                             <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/user/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>

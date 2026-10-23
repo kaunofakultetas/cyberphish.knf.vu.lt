@@ -27,7 +27,7 @@
   </style>
 </head>
 <body>
-  <div id="name">{{ $fullname }}</div>
+  <div id="name" style="{{ $nameStyle ?? '' }}">{{ $fullname }}</div>
   <div class="date"><span>{{ $date }}</span></div>
 </body>
 </body>

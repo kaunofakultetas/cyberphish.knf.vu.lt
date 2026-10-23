@@ -5,12 +5,12 @@
 //
 //  The Apache half of the image, read from its files: the
 //  virtual host serves public/ on port 8080, the upload
-//  folder runs no PHP whatever a file is called, folder
-//  listings are off, mod_rewrite and mod_remoteip are on —
-//  trusting only private addresses to name the visitor —
-//  and mod_php reads the production php.ini with nothing in
-//  Apache's configuration loosening it. The Apache suite
-//  proves the same rules over HTTP.
+//  folder runs no PHP whatever a file is called and reads
+//  no .htaccess, folder listings are off, mod_rewrite and
+//  mod_remoteip are on — trusting only private addresses to
+//  name the visitor — and mod_php reads the production
+//  php.ini with nothing in Apache's configuration loosening
+//  it. The Apache suite proves the same rules over HTTP.
 //
 //  Used by:
 //    - PHPUnit — the Platform suite (runTests.sh)
@@ -83,8 +83,8 @@ class ApacheConfigTest extends TestCase
     //
     // The upload folder's block switches PHP's engine off with
     // php_admin_value — which no .htaccess can turn back on —
-    // removes the PHP handlers and denies every PHP-like file
-    // name outright.
+    // removes the PHP handlers, denies every PHP-like file
+    // name outright, and reads no .htaccess at all.
     //
     // Used by:
     //   - PHPUnit — the Platform suite (runTests.sh)
@@ -94,6 +94,7 @@ class ApacheConfigTest extends TestCase
     {
         $this->assertTrue((bool) preg_match('#<Directory /var/www/html/public/upload\s*>(.*?)</Directory>#s', $this->vhost(), $block));
 
+        $this->assertMatchesRegularExpression('#AllowOverride None#', $block[1]);
         $this->assertMatchesRegularExpression('#php_admin_value engine Off#', $block[1]);
         $this->assertMatchesRegularExpression('#RemoveHandler \.php \.phtml \.phar#', $block[1]);
         $this->assertMatchesRegularExpression('#<FilesMatch "\\\\\.ph\(p\[3457s\]\?\|t\|tml\|ar\)\$">\s*Require all denied#', $block[1]);

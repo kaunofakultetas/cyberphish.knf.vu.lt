@@ -35,10 +35,6 @@ use App\Models\News as News;
 //
 // Guards the article page: an id that is not a number, or
 // names no article, is a 404. The slug is not looked at.
-// The public routes are registered before the panel's, so
-// the panel's news edit, delete and remove-picture links
-// land here too (pinned as admin-news-shadowed; see
-// RouteServiceProvider::map).
 //
 // Used by:
 //   - Kernel::$routeMiddleware — the alias news.exists

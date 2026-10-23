@@ -7,14 +7,6 @@
 //  key, the same keys as en/main.php. A few keys appear
 //  twice; PHP keeps the later entry.
 //
-//  Known bug (low): no_questions is defined twice
-//  (main.php:108, 158) and PHP keeps the later, generic text,
-//  so the self-evaluation page, which the first was written
-//  for, never says the category has no questions. Fix: give
-//  the category text its own key and use that key in
-//  self-eval.blade.php.
-//  Pinned as lang-no-questions.
-//
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
 //      the site is in Latvian
@@ -80,6 +72,7 @@ return [
     'curr_new_same'=>'Pašreizējā un jaunā parole ir vienāda',
     'new_pass_not_match'=>'Jaunās paroles nesakrīt',
     'pass_too_short'=>'Parole ir pārāk īsa',
+    'pass_too_long'=>'Parole ir pārāk gara',
     'pass_changed'=>'Parole mainīta',
     // Despite their keys, these two answer the user name
     // change (ManagerMainController::change_username)
@@ -105,7 +98,7 @@ return [
     'ended'=>'Beigās',
     'points'=>'Punkti',
     'next'=>'Nākamais',
-    'no_questions'=>'Šai kategorijai nav jautājumu!',
+    'no_selfeval_questions'=>'Šai kategorijai nav jautājumu!',
     'self_eval_ranks'=>'Pašnovērtējuma rangi',
     'nobody'=>'Neviens',
     'username'=>'Lietotājvārds',

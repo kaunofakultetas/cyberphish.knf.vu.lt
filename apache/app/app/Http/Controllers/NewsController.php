@@ -91,19 +91,8 @@ class NewsController extends BaseController
     // missing or non-numeric page number means page one; an
     // empty list goes to the view as an empty array. The same
     // query runs twice, once to count and once to fetch.
-    // Because web_user.php is loaded before web_admin.php and
-    // {lang} takes any value, this route also answers the
-    // panel's GET /admin-panel/news — pinned as
-    // admin-news-shadowed, a defect of the route order rather
-    // than of this method.
-    //
-    // Known bug (low): the paginator's path is the bare /news
-    // (NewsController.php:142), a route web_user.php no
-    // longer registers, so every page link under the list is
-    // a 404 and articles past the first twelve can be reached
-    // only by typing the page number into the address. Fix:
-    // build the path from the language's own list URL.
-    // Pinned as news-page-links.
+    // The page links lead back to the list URL the visitor
+    // opened, {lang}/news.
     //
     // Used by:
     //   - nothing links to it at the moment: the only link,
@@ -136,10 +125,8 @@ class NewsController extends BaseController
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 
-        // The page links lead to /news, which no route answers
-        // (the Known bug above)
         $paginator = new LengthAwarePaginator($currentItems, count($arr), $perPage, $curr_page, [
-            'path' => url('news')
+            'path' => url($request->route('lang').'/news')
         ]);
 
         $paginator = $paginator->appends('page', request('page'));
@@ -171,11 +158,7 @@ class NewsController extends BaseController
     // not numeric or matches no bei_news row with a 404, and
     // neither {lang} nor the slug is read here — an article
     // opens under any language and any slug. The view gets
-    // the row as an array. Like index, this route also
-    // answers three of the panel's URLs — its edit, delete
-    // and remove-picture links under /admin-panel/news —
-    // with the public article (admin-news-shadowed, the route
-    // order's defect).
+    // the row as an array.
     //
     // Used by:
     //   - news.blade.php — the read button of every article on

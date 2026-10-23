@@ -37,12 +37,6 @@ use Illuminate\Database\Eloquent\Model;
 // The best finished score per member and category feeds
 // the ranking (ViewMaxPointsSelfEvalCat).
 //
-// The model defines no gen_test_id, though
-// LMController::gen_test_id retries through
-// SelfEvalUserTest::gen_test_id when a fresh public id is
-// already taken: Eloquent hands the unknown name to the
-// query builder, which throws.
-//
 // Used by:
 //   - LMController — self_evaluation_test, self_eval_test,
 //     self_eval_test_save, gen_test_id,

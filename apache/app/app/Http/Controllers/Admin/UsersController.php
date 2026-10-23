@@ -7,7 +7,8 @@
 //  its country, 25 a page, with a status switch and a
 //  delete icon on each row. Its routes carry auth.admin:man
 //  and perms, so only main admins reach them; a country
-//  manager gets a 404. Both row actions answer a plain GET.
+//  manager gets a 404. Both row actions are POST routes,
+//  behind the CSRF check.
 //
 //  Used by:
 //    - routes/web_admin.php — admin-panel/users and the
@@ -148,7 +149,7 @@ class UsersController extends BaseController
     // delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/user/delete/{user_id}
+    // POST /admin-panel/user/delete/{user_id}
     //
     // Removes the member's completed lessons (bei_lm_users)
     // and then the account, when an account has that id, and
@@ -156,12 +157,6 @@ class UsersController extends BaseController
     // also when none had it. The member's other rows (logins,
     // badges, test attempts, simulation runs) stay behind.
     // Main admins only (auth.admin:man, perms).
-    //
-    // Known bug (medium): the account goes on a plain GET
-    // (UsersController.php:182), and a GET carries no CSRF
-    // token, so a link a signed-in admin opens from a mail
-    // deletes the member; pinned as admin-get-deletes. Fix: a
-    // POST route, posted from a form that carries the token.
     //
     // Used by:
     //   - admin-panel/users.blade.php — the delete icon of
@@ -195,7 +190,7 @@ class UsersController extends BaseController
     // change_status
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/user/status/{status_id}/{user_id}
+    // POST /admin-panel/user/status/{status_id}/{user_id}
     //
     // Writes {status_id} from the URL, unchecked, into the
     // member's status and redirects to the members page; an
@@ -204,12 +199,6 @@ class UsersController extends BaseController
     // login): the list links 2 to switch an active member off
     // and 1 to switch an inactive one back on. Main admins
     // only (auth.admin:man, perms).
-    //
-    // Known bug (medium): the status changes on a plain GET
-    // (UsersController.php:225), so a link a signed-in admin
-    // opens switches the member off — the switching-off half
-    // of admin-get-deletes. Fix: a POST route, posted from a
-    // form that carries the CSRF token.
     //
     // Used by:
     //   - admin-panel/users.blade.php — the Active / Not

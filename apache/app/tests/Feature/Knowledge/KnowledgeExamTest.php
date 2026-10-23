@@ -11,11 +11,13 @@
 //  the progress page asks the unanswered questions one by
 //  one, for the member's own attempt only, and once all are
 //  answered it closes the attempt for good, with the share
-//  of correct answers as its result. Each answer counts
-//  once, under its question's category. A result above 74
-//  passes, earns badge_final_test with the first finished
-//  attempt, and unlocks the certificate (CertificateTest).
-//  The scoring defects are pinned in KnowledgeDefectsTest.
+//  of the drawn questions answered right as its result — a
+//  question answered with no option counts as wrong. Each
+//  answer counts once, under its question's category. A
+//  result above 74 passes, earns badge_final_test on
+//  whichever try, and unlocks the certificate
+//  (CertificateTest). A start with nothing to draw — a
+//  language the limits leave out — stores no attempt.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -300,8 +302,7 @@ class KnowledgeExamTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // All three right: the attempt closes with 100, the page
-    // congratulates, and the first finished pass earns
-    // badge_final_test.
+    // congratulates, and the pass earns badge_final_test.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -341,6 +342,81 @@ class KnowledgeExamTest extends FeatureTestCase
 
         $this->assertEquals(67, $this->attemptRow($publicId)->results);
         $this->assertFalse(DB::table('bei_users_badges')->where('user_id', $this->member->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSkippedQuestionsCountAsWrong
+    // -----------------------------------------------------------
+    //
+    // A question answered with no option counts against the
+    // result: one right of three is 33, a fail.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSkippedQuestionsCountAsWrong(): void
+    {
+        $publicId = $this->finishWith([0, null, null]);
+
+        $this->assertEquals(33, $this->attemptRow($publicId)->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTestWithEveryQuestionSkippedCloses
+    // -----------------------------------------------------------
+    //
+    // Skipping every question closes the attempt with 0 — the
+    // progress page opens, and the member is free to start
+    // another try.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTestWithEveryQuestionSkippedCloses(): void
+    {
+        $publicId = $this->finishWith([null, null, null]);
+
+        $attempt = $this->attemptRow($publicId);
+        $this->assertEquals(1, $attempt->finished);
+        $this->assertEquals(0, $attempt->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPassOnALaterTryEarnsTheBadge
+    // -----------------------------------------------------------
+    //
+    // A member who failed the first try earns
+    // badge_final_test with the pass on the second.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPassOnALaterTryEarnsTheBadge(): void
+    {
+        $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 40]);
+
+        $this->finishWith([0, 0, 0]);
+
+        $this->assertTrue(DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'name' => 'badge_final_test'])->exists());
     }
 
 
@@ -390,6 +466,35 @@ class KnowledgeExamTest extends FeatureTestCase
 
         $this->assertNotSame($first, $this->startKnowledgeTest($this->member));
         $this->assertSame(2, DB::table('bei_users_knowledge_test')->where('user_id', $this->member->id)->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageMissingFromTheLimitsDrawsNothing
+    // -----------------------------------------------------------
+    //
+    // A language with a category and a question but no entry
+    // in the limits — its first category came after they were
+    // last saved — has nothing to draw: the start goes back to
+    // the test page and stores no attempt.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageMissingFromTheLimitsDrawsNothing(): void
+    {
+        $lt = $this->world->language('lt');
+        $this->world->knowledgeQuestion($this->world->lmCategory($lt), [['Right', true], ['Wrong', false]]);
+        $this->signInMember($this->member)->get('/lt/knowledge_test')->assertOk()->assertSee('/lt/knowledge_start');
+
+        $this->signInMember($this->member)->post('/lt/knowledge_start')->assertRedirect('/lt/knowledge_test');
+
+        $this->assertFalse(DB::table('bei_users_knowledge_test')->where(['user_id' => $this->member->id, 'lang_id' => $lt])->exists());
     }
 
 
@@ -579,9 +684,9 @@ class KnowledgeExamTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // Starts a test, answers the three questions with the
-    // options at the given positions (0 is the correct one)
-    // and opens the progress page, which closes the attempt;
-    // returns its public id.
+    // options at the given positions (0 is the correct one,
+    // null sends no option) and opens the progress page,
+    // which closes the attempt; returns its public id.
     //
     // Used by:
     //   - the result tests of this class
@@ -592,7 +697,8 @@ class KnowledgeExamTest extends FeatureTestCase
     {
         $publicId = $this->startKnowledgeTest($this->member);
         foreach ($this->questions as $i => $question) {
-            $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][$positions[$i]]]);
+            $options = $positions[$i] === null ? [] : [$question['options'][$positions[$i]]];
+            $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], $options);
         }
         $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
         return $publicId;

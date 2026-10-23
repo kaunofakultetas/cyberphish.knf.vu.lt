@@ -99,23 +99,14 @@ class SettingsController extends Controller
     // -----------------------------------------------------------
     //
     // A random string of digits and ASCII letters, 16
-    // characters unless told otherwise: the pool repeated as
-    // many times as characters are wanted, shuffled, and cut
-    // to length, so a character may repeat. It makes the
-    // verification and password-reset tokens, the new
-    // password the reset link mails, and the public ids of
-    // self-evaluation and knowledge-test attempts and of
-    // simulation runs.
-    //
-    // Known bug (medium): str_shuffle draws from PHP's
-    // Mersenne Twister (SettingsController.php:133), which
-    // is not a cryptographic generator: its output can be
-    // predicted once its 32-bit seed is worked out, and tokens
-    // of one's own can be enough for that — then the reset
-    // tokens and new passwords the same Apache process hands
-    // out next are known too. Not pinned. Fix: draw the
-    // characters with random_int, or use Str::random, which
-    // reads random_bytes.
+    // characters unless told otherwise, each drawn from the
+    // pool on its own, so a character may repeat. The draws
+    // come from random_int, PHP's cryptographic generator:
+    // no seed steers it, so tokens one has seen tell nothing
+    // of the next. It makes the verification and
+    // password-reset tokens, the new password the reset link
+    // mails, and the public ids of self-evaluation and
+    // knowledge-test attempts and of simulation runs.
     //
     // Used by:
     //   - RegisterController::register — the verify token
@@ -130,7 +121,12 @@ class SettingsController extends Controller
     {
         $pool = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-        return substr(str_shuffle(str_repeat($pool, $length)), 0, $length);
+        $string = '';
+        for ($i = 0; $i < $length; $i++) {
+            $string .= $pool[random_int(0, strlen($pool) - 1)];
+        }
+
+        return $string;
     }
 
 

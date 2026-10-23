@@ -119,20 +119,12 @@ Route::post('cp/change-fullname', array('before' => 'csrf', 'uses' => 'ManagerMa
 // The public news and information pages; news.exists and
 // page.exists answer an unknown id with a 404. These pages,
 // the lessons and the course outline lost their paths
-// without a language when {lang} came in, but
-// NewsController::index still builds the news list's page
-// links on /news, which nothing answers since.
+// without a language when {lang} came in; the news list's
+// page links follow, on {lang}/news.
 //
-// Known bug (medium): {lang} takes any value and this file
-// loads before web_admin.php, so {lang}/news
-// (web_user.php:141) answers admin-panel/news, and
-// {lang}/news/{slug}/{uid} (web_user.php:143) answers the
-// panel's news edit, delete and delete_picture links: the
-// panel shows the public list and articles, and no admin
-// can edit or delete an article there; pinned as
-// admin-news-shadowed. Fix: constrain {lang} on these two
-// routes to two letters, which keeps the fallback for an
-// unknown language.
+// {lang} takes any value; the panel's own news routes of
+// web_admin.php are loaded first, so admin-panel/news is
+// never taken for a language here.
 // The public list has no route name: news names the
 // panel's list (web_admin.php), as it did under Laravel 7,
 // where a name's later route won — Laravel 13 keeps the

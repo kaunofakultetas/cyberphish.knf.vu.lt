@@ -10,9 +10,9 @@
 //  the reports of its own country's members, another
 //  country's member being a 404 too. The sweeps read the
 //  routes from the live route table, so a route added
-//  tomorrow is checked the same way. The panel's news
-//  pages, which the public news routes answer instead, are
-//  pinned in AdminDefectsTest.
+//  tomorrow is checked the same way — the panel's news
+//  pages among them, which the public news routes no longer
+//  answer first.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -52,17 +52,6 @@ class AdminAccessTest extends FeatureTestCase
 
     // The admin routes open to visitors: signing in and out
     private const OPEN = ['GET admin-panel', 'POST admin-panel', 'GET admin-panel/logout'];
-
-    // The panel's news pages that the public routes {lang}/news
-    // and {lang}/news/{slug}/{uid} answer first — the
-    // admin-news-shadowed defect of AdminDefectsTest; the
-    // sweeps leave them to that test
-    private const SHADOWED = [
-        'GET admin-panel/news',
-        'GET admin-panel/news/edit/{uid?}',
-        'GET admin-panel/news/delete/{uid}',
-        'GET admin-panel/news/delete_picture/{uid}',
-    ];
 
     // A sample value for every route parameter name the admin
     // routes use
@@ -349,9 +338,8 @@ class AdminAccessTest extends FeatureTestCase
     // adminRoutes
     // -----------------------------------------------------------
     //
-    // Every admin route outside OPEN and SHADOWED, as method
-    // and route pairs — HEAD left out, Laravel adds it to
-    // every GET.
+    // Every admin route outside OPEN, as method and route
+    // pairs — HEAD left out, Laravel adds it to every GET.
     //
     // Used by:
     //   - the route sweeps of this class
@@ -366,7 +354,7 @@ class AdminAccessTest extends FeatureTestCase
             }
             foreach (array_diff($route->methods(), ['HEAD']) as $method) {
                 $name = "$method {$route->uri()}";
-                if (!in_array($name, self::OPEN, true) && !in_array($name, self::SHADOWED, true)) {
+                if (!in_array($name, self::OPEN, true)) {
                     $routes[] = [$method, $route];
                 }
             }

@@ -8,7 +8,10 @@
 //  and a full name gets the certificate as a PDF rendered
 //  by dompdf; anyone else gets a 404. The template prints
 //  the full name — which the member types in — as text, so
-//  no markup reaches dompdf.
+//  no markup reaches dompdf. A name keeps to the line drawn
+//  for it, shrinking when it is too wide, and a name the
+//  script font cannot draw, a Greek one, comes in a font
+//  that can.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -17,6 +20,9 @@
 
 namespace Tests\Feature\Knowledge;
 
+use App\Http\Controllers\CertController;
+use DOMElement;
+use FontLib\Font;
 use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
 
@@ -235,5 +241,141 @@ class CertificateTest extends FeatureTestCase
 
         $this->assertStringContainsString('&lt;img src=//x.yz/a&gt;', $html);
         $this->assertStringNotContainsString('<img src=//x.yz/a>', $html);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLatinNameKeepsTheScriptFont
+    // -----------------------------------------------------------
+    //
+    // A name the template always drew well comes out as
+    // before: Parisienne at 62px — 46.5 points — on one line.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLatinNameKeepsTheScriptFont(): void
+    {
+        $drawn = $this->nameFrame('Jonas Jonaitis');
+
+        $this->assertStringContainsString('parisienne', $drawn['font']);
+        $this->assertEquals(46.5, $drawn['size']);
+        $this->assertSame(1, $drawn['lines']);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNameStaysOnItsLine
+    // -----------------------------------------------------------
+    //
+    // The line under the name is 620 points long. A name
+    // wider than that at 62px — twenty capitals, which the
+    // script font draws far wider than small letters, or the
+    // form's longest name of 100 characters — is drawn smaller
+    // until it fits, on one line, never wrapping over the
+    // course's text; its block keeps the height of a name the
+    // template draws at full size, so the date laid out under
+    // it stays on its own line.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNameStaysOnItsLine(): void
+    {
+        $template = $this->nameFrame('Jonas Jonaitis')['height'];
+        foreach (['ALEKSANDRAS PETRAUSK', str_repeat('Wilhelmina ', 9) . 'Westhuizen'] as $name) {
+            $drawn = $this->nameFrame($name);
+
+            $this->assertSame(1, $drawn['lines'], "$name took {$drawn['lines']} lines");
+            $this->assertLessThanOrEqual(620, $drawn['width'], "$name is {$drawn['width']} points wide");
+            $this->assertEqualsWithDelta($template, $drawn['height'], 0.01, "the block of $name is {$drawn['height']} points tall");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testGreekNamePrintsInGreekLetters
+    // -----------------------------------------------------------
+    //
+    // Greek is one of the five site languages, and Parisienne
+    // has Latin letters only: a Greek name is drawn in a font
+    // that has every one of its letters. (The full-name
+    // column still turns them into question marks before the
+    // certificate is drawn — fullname-latin1.)
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testGreekNamePrintsInGreekLetters(): void
+    {
+        $name = 'Γιώργος Παπαδόπουλος';
+        $font = Font::load($this->nameFrame($name)['font'] . '.ttf');
+        $font->parse();
+        $map = $font->getUnicodeCharMap();
+        $letters = preg_split('//u', str_replace(' ', '', $name), -1, PREG_SPLIT_NO_EMPTY);
+        $missing = implode('', array_filter($letters, function (string $letter) use ($map) {
+            return !isset($map[mb_ord($letter)]);
+        }));
+
+        $this->assertSame('', $missing, "the name font lacks $missing");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // nameFrame
+    // -----------------------------------------------------------
+    //
+    // Draws the certificate for a full name the way the
+    // download does (CertController::certificate) and returns
+    // what dompdf made of the name: the file of its font,
+    // without the extension, its size and number of lines,
+    // the width of the text and the height of the block, both
+    // in points. dompdf drops a
+    // page's frames once the page is drawn, so they are read
+    // in its end_frame callback.
+    //
+    // Used by:
+    //   - the name tests of this class (above)
+    // -----------------------------------------------------------
+
+    private function nameFrame(string $fullname): array
+    {
+        $dompdf = CertController::certificate($fullname, '05 October, 2026')->getDomPDF();
+        $drawn = [];
+        $dompdf->setCallbacks([['event' => 'end_frame', 'f' => function ($frame) use (&$drawn, $dompdf, $fullname) {
+            $node = $frame->get_node();
+            if ($node instanceof DOMElement && $node->getAttribute('id') === 'name') {
+                $style = $frame->get_style();
+                $drawn = [
+                    'font'  => (string) $style->font_family,
+                    'size'  => $style->font_size,
+                    'lines' => count($frame->get_line_boxes()),
+                    'height' => $frame->get_border_box()['h'],
+                    'width' => $dompdf->getFontMetrics()->getTextWidth($fullname, $style->font_family, $style->font_size),
+                ];
+            }
+        }]]);
+        $dompdf->render();
+        $this->assertNotSame([], $drawn, 'the certificate drew no name block');
+        return $drawn;
     }
 }

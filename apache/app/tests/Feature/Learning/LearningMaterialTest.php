@@ -10,7 +10,9 @@
 //  lesson page posts (LMContent::get_id) and hands out the
 //  badges: badge_topic for the first lesson, badge_category
 //  when a whole category is done, badge_all_presentations
-//  when every lesson of the language is.
+//  when every lesson of the language is — all that fall due
+//  with the same completion. A badge stored twice still
+//  reads as held.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -285,7 +287,8 @@ class LearningMaterialTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // Completing the last lesson of a category earns
-    // badge_category.
+    // badge_category — and nothing more while another
+    // category of the language is unfinished.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -293,6 +296,7 @@ class LearningMaterialTest extends FeatureTestCase
 
     public function testFinishingACategoryEarnsTheCategoryBadge(): void
     {
+        $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
         $this->complete($this->firstLesson);
 
         $this->complete($this->secondLesson)->assertSessionHas('success', __('main.new_badge'));
@@ -326,6 +330,64 @@ class LearningMaterialTest extends FeatureTestCase
         $this->complete($lastLesson)->assertSessionHas('success', __('main.new_badge'));
 
         $this->assertSame(['badge_all_presentations', 'badge_category', 'badge_topic'], $this->badges());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCompletionAwardsEveryBadgeThatFallsDue
+    // -----------------------------------------------------------
+    //
+    // A first lesson that is the only one of its category and
+    // of its language finishes all three at once, and earns
+    // all three badges with the one completion — here in
+    // Lithuanian, the setUp's English lessons aside.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCompletionAwardsEveryBadgeThatFallsDue(): void
+    {
+        $lt = $this->world->language('lt');
+        $lesson = $this->world->lmContent($this->world->lmCategory($lt), $lt);
+
+        $this->complete($lesson)->assertSessionHas('success', __('main.new_badge'));
+
+        $this->assertSame(
+            ['badge_all_presentations', 'badge_category', 'badge_topic'],
+            DB::table('bei_users_badges')->where(['user_id' => $this->member->id, 'lang_id' => $lt])->orderBy('name')->pluck('name')->all()
+        );
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBadgeStoredTwiceStillReadsAsHeld
+    // -----------------------------------------------------------
+    //
+    // save_badge's check is not locked, so two requests at the
+    // same moment can store a badge twice: it still reads as
+    // held — here badge_all_presentations, so the dashboard
+    // keeps offering the knowledge test.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBadgeStoredTwiceStillReadsAsHeld(): void
+    {
+        $badge = ['lang_id' => $this->en, 'user_id' => $this->member->id, 'name' => 'badge_all_presentations'];
+        DB::table('bei_users_badges')->insert($badge);
+        DB::table('bei_users_badges')->insert($badge);
+
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertSee('/en/knowledge_test', false);
     }
 
 

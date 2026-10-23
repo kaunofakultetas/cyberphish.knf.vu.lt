@@ -11,8 +11,11 @@
 //  reset is cancelled. A wrong password, an unknown address
 //  and an unverified account all get the same refusal, and
 //  ten of them for one email from one address lock that
-//  pair out for a while, the right password included. The
-//  ten-days-in-a-row badge is earned at sign-in.
+//  pair out for a while, the right password included. A
+//  refusal comes back to the form with its error, even when
+//  a member page sent the visitor there. The
+//  ten-days-in-a-row badge is earned, and announced, at
+//  sign-in.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -261,6 +264,33 @@ class LoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testFailedLoginShowsItsError
+    // -----------------------------------------------------------
+    //
+    // A refusal that a member page led to — the auth
+    // middleware parked that page in the session — comes back
+    // to the form with its error, not to the parked page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFailedLoginShowsItsError(): void
+    {
+        $member = $this->world->member();
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+
+        $this->signIn($member->email, 'Wrong-Password-12')
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testTenWrongPasswordsLockTheLogin
     // -----------------------------------------------------------
     //
@@ -433,6 +463,35 @@ class LoginTest extends FeatureTestCase
         $this->assertTrue(DB::table('bei_users_badges')
             ->where(['user_id' => $member->id, 'name' => 'badge_login_10', 'lang_id' => $this->world->language('en')])
             ->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLoginThatEarnsTheBadgeAnnouncesIt
+    // -----------------------------------------------------------
+    //
+    // The login that earns badge_login_10 flashes the
+    // new-badge message, and the dashboard it leads to shows
+    // it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLoginThatEarnsTheBadgeAnnouncesIt(): void
+    {
+        $member = $this->world->member();
+        for ($day = 1; $day <= 9; $day++) {
+            $this->world->loginLog($member->id, date('Y-m-d 12:00:00', strtotime("-$day days")));
+        }
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+
+        $this->get('/cp/dashboard')->assertSee(__('main.new_badge'), false);
     }
 
 

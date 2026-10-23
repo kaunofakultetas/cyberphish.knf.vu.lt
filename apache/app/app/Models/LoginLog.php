@@ -103,17 +103,9 @@ class LoginLog extends Model
     // Awards badge_login_10 when the member has logged in on
     // each of the last ten days, today included — one count
     // query per day, ten on every login. The badge goes to
-    // the language the session shows.
-    //
-    // Known bug (low): the message condition is inverted
-    // (LoginLog.php:144). save_badge answers true for a NEW
-    // badge, so the new-badge message is set on every login
-    // after the badge was earned and never on the login that
-    // earns it — and session()->now() keeps it for this
-    // request only, which ends in the login's redirect, so no
-    // page shows it either way. Fix: flash the message when
-    // save_badge answers true.
-    // Pinned as login-badge-message.
+    // the language the session shows, and the login that
+    // earns it flashes the new-badge message for the page the
+    // login redirects to.
     //
     // Used by:
     //   - Auth\LoginController::login — every successful member
@@ -139,12 +131,9 @@ class LoginLog extends Model
 
             $ba = Badges::save_badge(Langs::getLangId(Session::get('lang')), 'badge_login_10');
 
-            // Inverted: true means the badge is new — see the
-            // Known bug above
+            // save_badge answers true for a new badge only
             if($ba == true){
-
-            } else {
-                session()->now('success', __('main.new_badge'));
+                session()->flash('success', __('main.new_badge'));
             }
 
         }

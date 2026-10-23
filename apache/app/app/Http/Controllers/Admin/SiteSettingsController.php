@@ -246,20 +246,11 @@ class SiteSettingsController extends BaseController
     //
     // Every simulation of every language on one page,
     // admin-panel/pdf/simulations.blade.php: per language its
-    // scenarios, each with all of its options. Despite the
+    // scenarios, each with all of its options and its own
+    // categories and attributes. Despite the
     // name the answer is HTML, not a PDF — the PDF facade
     // imported above is never used — and the button opens it
     // in a new tab.
-    //
-    // Known bug (low): the categories and the attributes are
-    // kept once per language and overwritten for every
-    // scenario (SiteSettingsController.php:282-283), and the
-    // view prints that one list under every scenario: each
-    // scenario of a language shows the categories and
-    // attributes of the language's last one. Fix: store them
-    // on the scenario, next to its options, and read them
-    // from there in the view.
-    // Pinned as simulations-pdf-categories.
     //
     // Used by:
     //   - admin-panel/settings_other.blade.php — the Download
@@ -279,8 +270,8 @@ class SiteSettingsController extends BaseController
             foreach($simulation_list as $kk => $vv){
 
                 $simulation_list[$kk]['option'] = ScenariosOptions::where(['scenario_id'=>$vv['id']])->get()->toArray();
-                $simulations[$k]['attributes'] = ScenariosInAttributes::select("bei_scenarios_attributes.name")->leftJoin('bei_scenarios_attributes', 'bei_scenarios_attributes.id', 'bei_scenarios_in_attributes.attribute_id')->where(['bei_scenarios_in_attributes.scenario_id'=>$vv['id']])->get()->toArray();
-                $simulations[$k]['categories'] = ScenariosInCategory::select("bei_scenarios_category.name")->leftJoin('bei_scenarios_category', 'bei_scenarios_category.id', 'bei_scenarios_in_category.cat_id')->where(['bei_scenarios_in_category.scenario_id'=>$vv['id']])->get()->toArray();
+                $simulation_list[$kk]['attributes'] = ScenariosInAttributes::select("bei_scenarios_attributes.name")->leftJoin('bei_scenarios_attributes', 'bei_scenarios_attributes.id', 'bei_scenarios_in_attributes.attribute_id')->where(['bei_scenarios_in_attributes.scenario_id'=>$vv['id']])->get()->toArray();
+                $simulation_list[$kk]['categories'] = ScenariosInCategory::select("bei_scenarios_category.name")->leftJoin('bei_scenarios_category', 'bei_scenarios_category.id', 'bei_scenarios_in_category.cat_id')->where(['bei_scenarios_in_category.scenario_id'=>$vv['id']])->get()->toArray();
 
             }
 

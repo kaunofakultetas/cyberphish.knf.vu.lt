@@ -6,8 +6,9 @@
 //  admin-panel/users (UsersController) lists every member,
 //  25 a page; user/status/{status_id}/{user_id} switches a
 //  member on or off and user/delete/{user_id} removes the
-//  account with its completed lessons. That both changes
-//  answer a plain GET is pinned in AdminDefectsTest.
+//  account with its completed lessons. Both changes are
+//  POST routes behind the CSRF check: a link opened from a
+//  mail changes nothing.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -112,7 +113,7 @@ class AdminUsersTest extends FeatureTestCase
     {
         $member = $this->world->member();
 
-        $this->signInManager($this->admin)->get("/admin-panel/user/status/0/{$member->id}")
+        $this->signInManager($this->admin)->post("/admin-panel/user/status/0/{$member->id}")
             ->assertRedirect('/admin-panel/users');
 
         $this->assertSame(0, Members::find($member->id)->status);
@@ -140,9 +141,36 @@ class AdminUsersTest extends FeatureTestCase
     {
         $member = $this->world->member();
 
-        $this->signInManager($this->admin)->get('/admin-panel/user/status/0/' . ($member->id + 1000))
+        $this->signInManager($this->admin)->post('/admin-panel/user/status/0/' . ($member->id + 1000))
             ->assertRedirect('/admin-panel/users')
             ->assertSessionHasErrors();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletingAMemberNeedsMoreThanALink
+    // -----------------------------------------------------------
+    //
+    // A plain GET of the delete URL — a link a signed-in admin
+    // opens from a mail — is refused and deletes nothing; like
+    // every delete and status change of the panel, it takes a
+    // POST with the CSRF token.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletingAMemberNeedsMoreThanALink(): void
+    {
+        $member = $this->world->member();
+
+        $this->signInManager($this->admin)->get("/admin-panel/user/delete/{$member->id}")->assertStatus(405);
+
+        $this->assertNotNull(Members::find($member->id));
     }
 
 
@@ -167,7 +195,7 @@ class AdminUsersTest extends FeatureTestCase
         $member = $this->world->member();
         $this->world->lessonDone($member->id, $this->world->lmContent($this->world->lmCategory($en), $en));
 
-        $this->signInManager($this->admin)->get("/admin-panel/user/delete/{$member->id}")
+        $this->signInManager($this->admin)->post("/admin-panel/user/delete/{$member->id}")
             ->assertRedirect('/admin-panel/users')
             ->assertSessionHas('success');
 

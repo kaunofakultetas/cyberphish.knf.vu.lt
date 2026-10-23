@@ -127,19 +127,10 @@ class ManagerMainController extends BaseController
     // Changes the member's password, behind auth:mem. The
     // current password must match the stored hash, the new
     // one must differ from it and equal its repetition, and
-    // both new fields need 6 characters; each refusal comes
-    // back with its own message, and success stores the new
-    // hash.
-    //
-    // Known bug (medium): the new password needs only 6
-    // characters and has no upper limit
-    // (ManagerMainController.php:167), while registration
-    // takes 12 to 50 and the login refuses anything else — a
-    // member who picks a shorter or a longer one cannot sign
-    // in again until a password reset. The form asks for 12
-    // to 50 in the browser only. Pinned as password-policy
-    // (the short side). Fix: the login's rule, 12 to 50, here
-    // too.
+    // it must be 12 to 50 characters long — the login's rule,
+    // so no member can pick a password the login then
+    // refuses; each refusal comes back with its own message,
+    // and success stores the new hash.
     //
     // Used by:
     //   - parts/change_password.blade.php — the password form
@@ -164,13 +155,19 @@ class ManagerMainController extends BaseController
         }
 
         $validator = Validator::make($request->all(), [
-            'newpass' => 'required|min:6',
-            'renewpass' => 'required|min:6'
+            'newpass' => 'required|min:12',
+            'renewpass' => 'required|min:12'
         ]);
 
         if($validator->fails()){
 
-            return redirect()->back()->withErrors(__('main.pass_too_short', ['length'=>6]));
+            return redirect()->back()->withErrors(__('main.pass_too_short', ['length'=>12]));
+
+        }
+
+        if(Validator::make($request->all(), ['newpass' => 'max:50'])->fails()){
+
+            return redirect()->back()->withErrors(__('main.pass_too_long'));
 
         }
 
@@ -201,7 +198,7 @@ class ManagerMainController extends BaseController
     //
     // Known bug (medium): bei_users is latin1 while the
     // connection speaks utf8mb4, so the uniqueness lookup
-    // (ManagerMainController.php:227) fails on a name with
+    // (ManagerMainController.php:224) fails on a name with
     // Lithuanian letters with an illegal mix of collations —
     // a 500, which production logged for students' real
     // names. Pinned as username-lithuanian. Fix: convert the
@@ -249,25 +246,17 @@ class ManagerMainController extends BaseController
     // POST /cp/change-fullname
     //
     // Stores the full name the certificate prints, behind
-    // auth:mem: 6 to 20 characters (the form allows up to
-    // 100), a bare "Error!" otherwise. Unlike the user name
-    // it need not be unique.
+    // auth:mem: 6 to 100 characters, as the form asks — the
+    // certificate shrinks a name too wide for its line
+    // (CertController::name_style) — and a bare "Error!"
+    // otherwise. Unlike the user name it need not be unique.
     //
     // Known bug (medium): bei_users is a latin1 table, so the
     // letters latin1 lacks — ą, č, ę, ė, į, ų, ū — are stored
     // as question marks without an error
-    // (ManagerMainController.php:290), and the certificate
+    // (ManagerMainController.php:279), and the certificate
     // prints them so. Pinned as fullname-latin1. Fix: convert
     // the table to utf8mb4.
-    //
-    // Known bug (medium): the limit of 20 characters
-    // (ManagerMainController.php:281) refuses many real full
-    // names, while the form takes 100 and the certificate has
-    // room for about 43 (CertController::download); a member
-    // with a longer name cannot have the certificate in it.
-    // Pinned as fullname-length. Fix: raise the limit to what
-    // the certificate holds, and the form's maxlength with
-    // it.
     //
     // Used by:
     //   - parts/change_fullname.blade.php — the full-name form
@@ -278,7 +267,7 @@ class ManagerMainController extends BaseController
     public function change_fullname(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'fullname' => 'required|min:6|max:20'
+            'fullname' => 'required|min:6|max:100'
         ]);
 
         if($validator->fails()){

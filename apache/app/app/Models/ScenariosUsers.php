@@ -38,12 +38,6 @@ use Illuminate\Database\Eloquent\Model;
 // the run ends. The best finished run per member and
 // simulation feeds the ranking (ViewMaxPointsScenario).
 //
-// The model defines no gen_test_id, though
-// SimulationsController::gen_test_id retries through
-// ScenariosUsers::gen_test_id when a fresh public id is
-// already taken: Eloquent hands the unknown name to the
-// query builder, which throws.
-//
 // Used by:
 //   - SimulationsController — simulations_list,
 //     simulation_progress, gen_test_id, simulation_do_stuff,

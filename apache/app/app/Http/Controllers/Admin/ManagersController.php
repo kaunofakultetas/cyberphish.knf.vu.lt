@@ -158,19 +158,12 @@ class ManagersController extends BaseController
     // manager_status
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/settings/manager/status/{status_id}/{user_id}
+    // POST /admin-panel/settings/manager/status/{status_id}/{user_id}
     //
     // Writes the status from the URL, whatever its value, onto
     // the manager unless it is a main admin; the managers page
     // sends 1 to switch a manager on and 2 to switch it off.
     // Answers a redirect back to the page.
-    //
-    // Known bug (medium): a change on a plain GET
-    // (ManagersController.php:182), which the CSRF check never
-    // covers, so a link a signed-in admin opens switches a
-    // manager on or off (pinned as admin-get-deletes, for
-    // every delete and status change of the panel). Fix: a
-    // POST route, sent with the CSRF token.
     //
     // Used by:
     //   - admin-panel/manager_settings.blade.php — the Enabled
@@ -256,17 +249,12 @@ class ManagersController extends BaseController
     //
     // Gives the manager named by uid a new address, one no
     // other manager has, and a new password typed twice; both
-    // are required on every save. Like manager_status and
-    // manager_delete it passes over main admins, which the
-    // page never lists: a post with a main admin's id changes
-    // nothing. Answers a redirect back with the result.
-    //
-    // Known bug (low): the dialog asks for the country again,
-    // but only the address and the password are saved
-    // (ManagersController.php:289), so a manager's country
-    // cannot change once it is created. Fix: save the country
-    // too, or drop the field from the edit dialog.
-    // Pinned as manager-country-update.
+    // are required on every save. The country the dialog asks
+    // for is saved too, when it is posted. Like manager_status
+    // and manager_delete it passes over main admins, which
+    // the page never lists: a post with a main admin's id
+    // changes nothing. Answers a redirect back with the
+    // result.
     //
     // Used by:
     //   - admin-panel/dialog/managers_form.blade.php — the
@@ -286,10 +274,10 @@ class ManagersController extends BaseController
 
             if(Managers::where(['email'=>$validatedData['email']])->where('id','!=', $validatedData['uid'])->count() == 0){
 
-                Managers::where(['id' => $validatedData['uid']])->where('main', '!=', '1')->update([
+                Managers::where(['id' => $validatedData['uid']])->where('main', '!=', '1')->update(array_merge([
                     'email'=>$validatedData['email'],
                     'password'=>Hash::make($validatedData['pass'])
-                ]);
+                ], $request->has('country') ? ['country'=>$request->get('country')] : []));
 
                 return back()->withSuccess("Manager updated!");
 
@@ -318,17 +306,10 @@ class ManagersController extends BaseController
     // manager_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/settings/manager/delete/{uid}
+    // POST /admin-panel/settings/manager/delete/{uid}
     //
     // Deletes the manager unless it is a main admin; answers
     // a redirect back to the managers page.
-    //
-    // Known bug (medium): a delete on a plain GET
-    // (ManagersController.php:341), which the CSRF check never
-    // covers, so a link a signed-in admin opens deletes a
-    // manager (pinned as admin-get-deletes, for every delete
-    // of the panel). Fix: a POST route, sent with the CSRF
-    // token.
     //
     // Used by:
     //   - admin-panel/manager_settings.blade.php — each row's

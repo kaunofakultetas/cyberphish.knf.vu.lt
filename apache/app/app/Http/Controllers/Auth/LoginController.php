@@ -170,16 +170,9 @@ class LoginController extends BaseController
     // the right password included — goes back to the form
     // with auth.throttle in the session's language until
     // fifteen minutes after the first refusal. A sign-in
-    // clears the count.
-    //
-    // Known bug (low): the refusal goes through intended()
-    // (LoginController.php:217), so a visitor whom a member
-    // page sent to the form is sent back to that page, which
-    // bounces them to the form again — and the flashed error
-    // is spent on the bounce: the form comes back without a
-    // word. Fix: answer the refusal with a plain redirect to
-    // the login form.
-    // Pinned as login-error-lost.
+    // clears the count. A refusal goes straight back to the
+    // form with its error; the page that asked for a sign-in
+    // stays parked in the session for the next try.
     //
     // Used by:
     //   - auth/login.blade.php — the login form posts here
@@ -214,7 +207,7 @@ class LoginController extends BaseController
 
         $this->incrementLoginAttempts($request);
 
-        return redirect()->intended(route('login'))->withErrors([__('main.auth_failed')]);
+        return redirect(route('login'))->withErrors([__('main.auth_failed')]);
     }
 
 
@@ -296,7 +289,7 @@ class LoginController extends BaseController
     // session guard keeps for remember-me, and the guard's
     // logout replaces a non-empty one with a random string.
     // A member still signed in elsewhere who signs out there
-    // after asking for a link (LoginController.php:321) kills
+    // after asking for a link (LoginController.php:314) kills
     // the link before it is opened. Fix: keep the reset token
     // in a column of its own.
     // Pinned as reset-link-logout.
@@ -342,10 +335,11 @@ class LoginController extends BaseController
     // otherwise. A new 12-character password from
     // random_string goes to the member in a SendNewPass mail
     // and replaces the password hash, the token is used up,
-    // and the login form shows new_pass_emailed — through
-    // intended(), the same detour as login's refusal. Opening
-    // the link is all it takes, there is no form. A signed-in
-    // member is sent home by guest:mem and the token stays.
+    // and the login form shows new_pass_emailed — the form
+    // itself, even when a member page parked another
+    // destination in the session. Opening the link is all it
+    // takes, there is no form. A signed-in member is sent
+    // home by guest:mem and the token stays.
     //
     // Used by:
     //   - SendRemindLink — the link in the password-reset mail
@@ -362,6 +356,6 @@ class LoginController extends BaseController
 
         Members::where('remember_token', '=', $reset_token)->update(['password'=>Hash::make($new_pass), 'remember_token'=>'']);
 
-        return redirect()->intended(route('login'))->withSuccess(__('main.new_pass_emailed'));
+        return redirect(route('login'))->withSuccess(__('main.new_pass_emailed'));
     }
 }

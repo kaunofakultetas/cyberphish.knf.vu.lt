@@ -8,7 +8,8 @@
 //  (status 1) and is used up; an unknown token changes
 //  nothing, and neither does a token of blanks, which MySQL
 //  would match against every emptied token. Every answer
-//  sends the visitor to the login form.
+//  sends the visitor to the login form — the form itself,
+//  even when a member page parked another destination.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -152,5 +153,32 @@ class VerificationTest extends FeatureTestCase
             ->assertSessionMissing('success');
 
         $this->assertSame(0, Members::find($deactivated->id)->status);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testVerificationGreetsAVisitorSentFromAMemberPage
+    // -----------------------------------------------------------
+    //
+    // A visitor whom a member page sent to the login form
+    // earlier — the page is parked in the session — still
+    // lands on the form after the link, with the greeting.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testVerificationGreetsAVisitorSentFromAMemberPage(): void
+    {
+        $this->world->member(['status' => 0, 'verify_token' => self::TOKEN]);
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+
+        $this->get('/verify/' . self::TOKEN)
+            ->assertRedirect('/login')
+            ->assertSessionHas('success', __('main.user_verified'));
     }
 }

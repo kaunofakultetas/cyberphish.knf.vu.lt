@@ -40,6 +40,7 @@ use App\Models\ScenariosOptions;
 use App\Models\ScenariosUsers;
 use App\Models\ScenariosUsersOptions;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 
 
@@ -202,19 +203,13 @@ class SimulationsController extends BaseController
     // steps in rows 58 to 141, saves it all and redirects
     // back to the page it came from, on the language's tab,
     // with "Imported!". Main admins only (auth.admin:man,
-    // perms).
-    //
-    // Known bug (medium): nothing runs in a transaction, and
-    // two mistakes of the sheet surface only after the
-    // simulation row is saved (SimulationsController.php:292):
-    // a category or attribute marked Yes whose name no row
-    // has saves a null id into a NOT NULL column, and a first
-    // step deeper than level 1 reads an undefined $option_id.
-    // Either stops the import with a 500 and leaves a
-    // half-imported simulation behind. Fix: check the names
-    // and the levels before saving, and save inside
-    // DB::transaction.
-    // Pinned as simulation-import-partial.
+    // perms). The categories and attributes are looked up by
+    // name in the posted language only. A sheet that marks a
+    // category or attribute the language has no row of, or
+    // whose first step is deeper than level 1, goes back with
+    // an error before anything is saved, and the saves run in
+    // one transaction, so no import leaves half a simulation
+    // behind.
     //
     // Used by:
     //   - admin-panel/dialog/simulation_import.blade.php — the
@@ -269,17 +264,30 @@ class SimulationsController extends BaseController
         $attributes = $spreadsheet->getActiveSheet()->rangeToArray('E34:E53', NULL, TRUE, TRUE, TRUE);
         $attributes_selected = $spreadsheet->getActiveSheet()->rangeToArray('D34:D53', NULL, TRUE, TRUE, TRUE);
 
-        $cats = $this->get_xlsx_categories($categories_selected, $categories);
-        $attrs = $this->get_xlsx_attrs($attributes_selected, $attributes);
+        $cats = $this->get_xlsx_categories($categories_selected, $categories, $lang_id);
+        $attrs = $this->get_xlsx_attrs($attributes_selected, $attributes, $lang_id);
 
         $questionsx = $spreadsheet->getActiveSheet()->rangeToArray('A58:H141', NULL, TRUE, TRUE, TRUE);
 
         $questions = $this->xlsx_process_questions($questionsx);
 
 
-        // STEP 3: save the simulation, then its category and
+        // STEP 3: refuse the sheet before saving anything when a
+        // marked name has no row in the language or the steps
+        // do not start on level 1, then save it all in one
+        // transaction: the simulation, its category and
         // attribute links
-        // ==================================================
+        // ======================================================
+        if(in_array(null, $cats, true) || in_array(null, $attrs, true)){
+            return back()->withErrors("A category or attribute marked Yes does not exist in this language!");
+        }
+
+        if(count($questions) > 0 && reset($questions)['level'] != 1){
+            return back()->withErrors("The first step must be on level 1!");
+        }
+
+        DB::beginTransaction();
+
         $addScenario = new Scenarios;
         $addScenario->lang_id = $lang_id;
         $addScenario->descr = $descr;
@@ -355,6 +363,8 @@ class SimulationsController extends BaseController
             $prev_parent_options[$val['level']][] = $option_id;
 
         }
+
+        DB::commit();
 
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Imported!");
     }
@@ -525,35 +535,21 @@ class SimulationsController extends BaseController
     // categories_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/admin_simulations/categores/delete/{uid}
+    // POST /admin-panel/admin_simulations/categores/delete/{uid}
     //
     // Removes the category's simulation links
     // (bei_scenarios_in_category) and the category, then
     // redirects back to the page the request came from, on
     // the category's language tab, with "Removed!" — the
     // route spells "categores" that way. A simulation whose
-    // only category this was is left in none, and its start
-    // page on the member side is then a 500
-    // (simulation-without-category). Main admins only
+    // only category this was is left in none; its start page
+    // on the member side still opens. Main admins only
     // (auth.admin:man, perms).
     //
-    // Known bug (medium): the category goes on a plain GET
-    // (SimulationsController.php:564), so a link a signed-in
-    // admin opens deletes it; pinned as admin-get-deletes.
-    // Fix: a POST route, posted from a form that carries the
-    // CSRF token.
-    //
-    // Known bug (low): the delete icon meant to call this
-    // route (admin-panel/simulations_categories.blade.php:51)
-    // links to /admin-panel/simulations/categores/delete/ —
-    // the admin_ of the path is missing — so it lands on a
-    // 404 and the panel cannot delete a category. Fix: link
-    // to admin_simulations/categores/delete in the view.
-    // Pinned as simulation-delete-links.
-    //
     // Used by:
-    //   - nothing reaches it from the panel at the moment, see
-    //     the second note
+    //   - admin-panel/simulations_categories.blade.php — the
+    //     delete icon of each category, after Confirm_Dialog
+    //     (admn.js)
     // -----------------------------------------------------------
 
     public function categories_delete(Request $request, $uid)
@@ -733,7 +729,7 @@ class SimulationsController extends BaseController
     // attributes_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/admin_simulations/attributes/delete/{uid}
+    // POST /admin-panel/admin_simulations/attributes/delete/{uid}
     //
     // Removes the attribute's simulation links
     // (bei_scenarios_in_attributes) and the attribute, then
@@ -741,23 +737,10 @@ class SimulationsController extends BaseController
     // the attribute's language tab, with "Removed!". Main
     // admins only (auth.admin:man, perms).
     //
-    // Known bug (medium): the attribute goes on a plain GET
-    // (SimulationsController.php:768), so a link a signed-in
-    // admin opens deletes it; pinned as admin-get-deletes.
-    // Fix: a POST route, posted from a form that carries the
-    // CSRF token.
-    //
-    // Known bug (low): the delete icon meant to call this
-    // route (admin-panel/simulations_attributes.blade.php:51)
-    // links to /admin-panel/simulations/attributes/delete/ —
-    // the admin_ of the path is missing — so it lands on a
-    // 404 and the panel cannot delete an attribute. Fix: link
-    // to admin_simulations/attributes/delete in the view.
-    // Pinned as simulation-delete-links.
-    //
     // Used by:
-    //   - nothing reaches it from the panel at the moment, see
-    //     the second note
+    //   - admin-panel/simulations_attributes.blade.php — the
+    //     delete icon of each attribute, after Confirm_Dialog
+    //     (admn.js)
     // -----------------------------------------------------------
 
     public function attributes_delete(Request $request, $uid)
@@ -781,24 +764,21 @@ class SimulationsController extends BaseController
     //
     // The ids of the categories a sheet marks: every cell of
     // column B that says exactly Yes adds the id of the
-    // category named in column C of its row, found by
-    // ScenariosCategory::IdByCategory. That lookup trims the
-    // name and matches it in any language — a name two
-    // languages share gives whichever row the database
-    // returns first — and gives nothing for a name no
-    // category has.
+    // category named in column C of its row, found in the
+    // import's language by ScenariosCategory::IdByCategory —
+    // null for a name the language has no category of.
     //
     // Used by:
     //   - simulations_import (above)
     // -----------------------------------------------------------
 
-    public static function get_xlsx_categories($selected, $categories)
+    public static function get_xlsx_categories($selected, $categories, $lang_id)
     {
         $items = [];
         foreach($selected as $k => $v){
 
             if($v['B'] =="Yes"){
-                $items[] = ScenariosCategory::IdByCategory($categories[$k]['C']);
+                $items[] = ScenariosCategory::IdByCategory($categories[$k]['C'], $lang_id);
             }
         }
 
@@ -816,22 +796,21 @@ class SimulationsController extends BaseController
     //
     // The ids of the attributes a sheet marks: every cell of
     // column D that says exactly Yes adds the id of the
-    // attribute named in column E of its row, found by
-    // ScenariosAttributes::IdByAttr — which, like the
-    // category lookup, trims the name, matches it in any
-    // language and gives nothing for a name no attribute has.
+    // attribute named in column E of its row, found in the
+    // import's language by ScenariosAttributes::IdByAttr —
+    // null for a name the language has no attribute of.
     //
     // Used by:
     //   - simulations_import (above)
     // -----------------------------------------------------------
 
-    public static function get_xlsx_attrs($selected, $attrs)
+    public static function get_xlsx_attrs($selected, $attrs, $lang_id)
     {
         $items = [];
         foreach($selected as $k => $v){
 
             if($v['D'] =="Yes"){
-                $items[] = ScenariosAttributes::IdByAttr($attrs[$k]['E']);
+                $items[] = ScenariosAttributes::IdByAttr($attrs[$k]['E'], $lang_id);
             }
         }
 
@@ -928,7 +907,7 @@ class SimulationsController extends BaseController
     // simulation_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/admin_simulations/delete/{uid}
+    // POST /admin-panel/admin_simulations/delete/{uid}
     //
     // Removes the simulation with everything that hangs off
     // it — its category and attribute links, its steps, the
@@ -936,12 +915,6 @@ class SimulationsController extends BaseController
     // redirects back to the page the request came from, on
     // the simulation's language tab, with "Removed!". Main
     // admins only (auth.admin:man, perms).
-    //
-    // Known bug (medium): all of it goes on a plain GET
-    // (SimulationsController.php:961), so a link a signed-in
-    // admin opens deletes the simulation and the members'
-    // runs; pinned as admin-get-deletes. Fix: a POST route,
-    // posted from a form that carries the CSRF token.
     //
     // Used by:
     //   - admin-panel/simulations.blade.php — the delete icon
@@ -1011,15 +984,9 @@ class SimulationsController extends BaseController
     // Saves the edit page: the description, and the situation
     // and feedback of every step posted, found by the step id
     // its field names carry — whichever simulation the step
-    // belongs to. Main admins only (auth.admin:man, perms).
-    // Answers back with "Updated!".
-    //
-    // Known bug (low): the description is saved only when the
-    // form posted steps (SimulationsController.php:1039), so
-    // for a simulation without steps the edit is dropped
-    // while the page still says "Updated!". Fix: save the
-    // description outside that check.
-    // Pinned as simulation-update-descr.
+    // belongs to. A simulation without steps saves its
+    // description all the same. Main admins only
+    // (auth.admin:man, perms). Answers back with "Updated!".
     //
     // Used by:
     //   - admin-panel/simulations_edit.blade.php — the edit
@@ -1034,9 +1001,9 @@ class SimulationsController extends BaseController
 
         $feedback = $request->get('feedback');
 
-        if(is_array($options) && count($options)>0){
+        Scenarios::where(['id'=>$uid])->update(['descr'=>$descr]);
 
-            Scenarios::where(['id'=>$uid])->update(['descr'=>$descr]);
+        if(is_array($options) && count($options)>0){
 
             foreach($options as $k => $v){
 

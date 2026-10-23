@@ -151,16 +151,10 @@ class AdminLoginController extends Controller
     // the right password included — goes back to the form
     // with auth.throttle, in English like the rest of the
     // panel, until fifteen minutes after the first failure. A
-    // sign-in clears the count.
-    //
-    // Known bug (low): both answers go through Laravel's
-    // intended redirect (AdminLoginController.php:189, 195),
-    // which first takes the page auth.admin parked in the
-    // session when it sent the visitor here. A failed attempt
-    // goes to that page, which sends the visitor straight
-    // back, and the failure message is lost on the way. Fix:
-    // answer a failure with a plain redirect to the form.
-    // Pinned as admin-login-error-lost.
+    // sign-in clears the count. A success goes to the panel
+    // page auth.admin parked in the session, if any; a
+    // failure goes straight back to the form, which keeps the
+    // parked page for the next try.
     //
     // Used by:
     //   - admin-panel/auth/login.blade.php — the form
@@ -192,7 +186,7 @@ class AdminLoginController extends Controller
 
         $this->incrementLoginAttempts($request);
 
-        return redirect()->intended(route('admin_login'))->withErrors([__('auth.failed')]);
+        return redirect(route('admin_login'))->withErrors([__('auth.failed')]);
     }
 
 

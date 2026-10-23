@@ -6,10 +6,12 @@
 //  The home page with its about text, the news list and
 //  articles, the information pages, the two public ranking
 //  tables and the language switch — the parts of the site a
-//  visitor sees without an account. A ranking shows each
-//  member's badges once, in the order earned, and costs the
-//  same queries however many members it lists. The home
-//  page's
+//  visitor sees without an account. A language the about
+//  text has no entry for gets an empty about block, and the
+//  news list's page links lead to its pages. A ranking shows
+//  each member's badges once, in the order earned, and costs
+//  the same queries however many members it lists. No
+//  response carries a CORS header. The home page's
 //  latest-news section is switched off: welcome.blade.php
 //  keeps it inside a Blade comment, though HomeController
 //  still loads the three latest articles for it.
@@ -130,6 +132,31 @@ class PublicPagesTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testHomePageOpensInALanguageWithoutAboutText
+    // -----------------------------------------------------------
+    //
+    // A language the saved about text has no entry for — one
+    // added after the text was last saved — gets the home page
+    // with an empty about block.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHomePageOpensInALanguageWithoutAboutText(): void
+    {
+        $this->world->setting(1, 'about', json_encode([$this->en => ['descr' => 'Training against phishing', 'link' => '']]));
+        $this->get('/lang/lt')->assertRedirect('/');
+
+        $this->get('/')->assertOk()->assertDontSee('Training against phishing');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testNewsListShowsTheNewsOfTheLanguage
     // -----------------------------------------------------------
     //
@@ -172,6 +199,34 @@ class PublicPagesTest extends FeatureTestCase
 
         $this->get('/en/news')->assertSee('Article number 12')->assertDontSee('Article number 13');
         $this->get('/en/news?page=2')->assertSee('Article number 13')->assertDontSee('Article number 12');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewsPageLinkOpensPageTwo
+    // -----------------------------------------------------------
+    //
+    // The page links under the list lead back to the list of
+    // the language — the link to page two opens page two, with
+    // the thirteenth article.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsPageLinkOpensPageTwo(): void
+    {
+        for ($i = 1; $i <= 13; $i++) {
+            $this->world->news($this->en, ['title' => sprintf('Article number %02d', $i)]);
+        }
+        $html = $this->get('/en/news')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#href="([^"]*[?&]page=2)"#', $html, $link), 'the list has no link to page two');
+
+        $this->get($link[1])->assertOk()->assertSee('Article number 13');
     }
 
 
@@ -487,6 +542,31 @@ class PublicPagesTest extends FeatureTestCase
     public function testUnknownLanguageInTheUrlFallsBackToTheSession(): void
     {
         $this->get('/xx/news')->assertOk()->assertSessionHas('lang', 'en');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResponsesDoNotInviteEveryOrigin
+    // -----------------------------------------------------------
+    //
+    // No response names an allowed origin or method: the
+    // scripts of another site get no CORS permission to read
+    // the pages. The no-cache Cache-Control stays.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResponsesDoNotInviteEveryOrigin(): void
+    {
+        $this->get('/')
+            ->assertHeaderMissing('Access-Control-Allow-Origin')
+            ->assertHeaderMissing('Access-Control-Allow-Methods')
+            ->assertHeader('Cache-Control', 'must-revalidate, no-cache, private');
     }
 
 

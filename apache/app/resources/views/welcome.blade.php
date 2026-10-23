@@ -19,9 +19,9 @@
 <section class="jumbotron text-center bg-white">
         <div class="container">
           <h1 class="jumbotron-heading cs_heading">{{ __('main.about_cyberphish') }}</h1><br>
-          <p class="lead text-muted">{{ is_null($about) ? '' : $about[$lang_id]['descr'] }}</p>
+          <p class="lead text-muted">{{ $about[$lang_id]['descr'] ?? '' }}</p>
           <p>
-            <a href="{{ is_null($about) ? '' : $about[$lang_id]['link'] }}" class="btn my-3 cs3 col-lg-2 col-md-6">{{ __('main.more_about_us') }}</a>
+            <a href="{{ $about[$lang_id]['link'] ?? '' }}" class="btn my-3 cs3 col-lg-2 col-md-6">{{ __('main.more_about_us') }}</a>
           </p>
         </div>
       </section>

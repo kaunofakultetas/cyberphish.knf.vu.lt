@@ -194,7 +194,8 @@ class KnowledgeController extends BaseController
     // self-evaluation import: blocks cut at "::", a question
     // line whose text follows its first backslash-colon (up
     // to the next one), "=" before a correct option and "~"
-    // before a wrong one, other lines skipped. Only a line
+    // before a wrong one — the option is everything after
+    // its marker — other lines skipped. Only a line
     // starting with Q opens a question here, not the K, J or
     // Greek epsilon the self-evaluation import also takes;
     // options carry no points. Back with "Questions
@@ -207,13 +208,6 @@ class KnowledgeController extends BaseController
     // was stored meets an undefined $addQ. A block without a
     // Q line files its options under the question of an
     // earlier block.
-    //
-    // Known bug (low): an option's marker is taken out with
-    // str_replace (KnowledgeController.php:284 and 298),
-    // which drops every "=" or "~" of the line, not only the
-    // first, so an address with a query string loses its
-    // "=" signs. Fix: cut the first character only.
-    // Pinned as import-markers.
     //
     // Used by:
     //   - admin-panel/dialog/knowledge.blade.php — the import
@@ -279,9 +273,8 @@ class KnowledgeController extends BaseController
 
                         if($vv1[0] == '='){
 
-                            // A correct option; str_replace takes out
-                            // every "=" of the line, not only the marker
-                            $answer = trim(str_replace("=","", $vv1));
+                            // A correct option: the text after the marker
+                            $answer = trim(substr($vv1, 1));
 
                             $addOption = new KnowledgeOption;
                             $addOption->question_id = $addQ->id;
@@ -293,9 +286,8 @@ class KnowledgeController extends BaseController
 
                         if($vv1[0] == '~'){
 
-                            // A wrong option; every "~" of the line goes
-                            // the same way
-                            $answer = trim(str_replace("~","", $vv1));
+                            // A wrong option, the same way
+                            $answer = trim(substr($vv1, 1));
 
                             $addOption = new KnowledgeOption;
                             $addOption->question_id = $addQ->id;
@@ -327,7 +319,7 @@ class KnowledgeController extends BaseController
     // question_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/lm/knowledge_test/delete/{uid}
+    // POST /admin-panel/lm/knowledge_test/delete/{uid}
     //
     // Deletes the question's options, then the question, and
     // goes back with "Question deleted!". The members'
@@ -335,11 +327,6 @@ class KnowledgeController extends BaseController
     // bei_users_knowledge_options, and their attempts keep
     // its id in their question sets. Main admins only
     // (auth.admin:man, perms).
-    //
-    // Known bug (medium): a plain GET reaches the delete at
-    // KnowledgeController.php:352, so a link a signed-in
-    // admin opens is enough. Pinned as admin-get-deletes.
-    // Fix: a POST route behind the CSRF check.
     //
     // Used by:
     //   - admin-panel/knowledge.blade.php — the delete icon of
@@ -398,15 +385,10 @@ class KnowledgeController extends BaseController
     // Saves the edit page: the question's text, then every
     // posted option, keyed by its id, with its text and
     // correctness. Nothing checks that the options belong to
-    // this question. Back with "Updated!". Main admins only
-    // (auth.admin:man, perms).
-    //
-    // Known bug (low): with no options posted nothing is
-    // saved (KnowledgeController.php:424), not even the text,
-    // and the page still says "Updated!", so a question the
-    // import left without options cannot be edited. Fix:
-    // save the question before the options check.
-    // Pinned as question-update-no-options.
+    // this question. A question without options — an import
+    // block can leave one — saves its text all the same. Back
+    // with "Updated!". Main admins only (auth.admin:man,
+    // perms).
     //
     // Used by:
     //   - admin-panel/knowledge_edit.blade.php — the question
@@ -421,9 +403,9 @@ class KnowledgeController extends BaseController
 
         $correct = $request->get('correct');
 
-        if(is_array($answers) && count($answers)>0){
+        KnowledgeTest::where(['id'=>$uid])->update(['question'=>$question]);
 
-            KnowledgeTest::where(['id'=>$uid])->update(['question'=>$question]);
+        if(is_array($answers) && count($answers)>0){
 
             foreach($answers as $k => $v){
 

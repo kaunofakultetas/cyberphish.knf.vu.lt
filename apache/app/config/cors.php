@@ -7,14 +7,12 @@
 //  fruitcake/laravel-cors package went into the framework —
 //  which sits in the global stack of app/Http/Kernel.php
 //  but acts only on the paths listed here: api/*, where
-//  routes/api.php registers no route. The CORS headers the
-//  site's responses actually carry come from the app's own
-//  Cors middleware (app/Http/Middleware/Cors.php), further
-//  down the same stack: Access-Control-Allow-Origin and
-//  Access-Control-Allow-Methods set to * on every response,
-//  whatever this file says. In production the endpoint
-//  answers a request with a foreign Origin with a 403
-//  before Apache sees it.
+//  routes/api.php registers no route, so no response of the
+//  site carries a CORS header — the app's own Cors
+//  middleware (app/Http/Middleware/Cors.php) sets only
+//  Cache-Control. In production the endpoint answers a
+//  request with a foreign Origin with a 403 before Apache
+//  sees it.
 //
 //  Changed from the stock file: the dc-api.adobe.io entries
 //  beside * in allowed_origins. They change nothing — *

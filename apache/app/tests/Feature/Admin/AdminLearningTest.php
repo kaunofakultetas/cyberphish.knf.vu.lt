@@ -12,9 +12,15 @@
 //  blocks separated by "::", a question line "Q\: text",
 //  "=" before a correct option and "~" before a wrong one.
 //  A self-evaluation question's correct options share 100
-//  points. A file's delete link opened twice is harmless.
-//  The Greek import and the lesson that cannot be deleted
-//  are pinned in AdminDefectsTest.
+//  points; a Greek question line is recognised, an option
+//  keeps every "=" and "~" after its marker, and a question
+//  without options still saves its text. A lesson goes
+//  with its file rows, its file gone from disk or not; a
+//  category with questions is refused. Deletes redirect to
+//  the row's language tab, work on a read-only upload
+//  folder, and a file's delete link opened twice is
+//  harmless. A file posted without its Embed box is listed
+//  for download, and a post without a file gets an error.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -117,7 +123,7 @@ class AdminLearningTest extends FeatureTestCase
         $this->assertSame('Manipulation', DB::table('bei_lm_category')->where('id', $id)->value('name'));
 
         $lesson = $this->world->lmContent($id, $this->en);
-        $this->admin()->from('/admin-panel/lm/categories')->get("/admin-panel/lm/categores/delete/$id");
+        $this->admin()->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$id");
         $this->assertFalse(DB::table('bei_lm_category')->where('id', $id)->exists());
         $this->assertNull(DB::table('bei_lm_content')->where('id', $lesson)->value('cat_id'));
     }
@@ -162,9 +168,97 @@ class AdminLearningTest extends FeatureTestCase
         $this->get("/en/learn/spotting-fake-senders/{$lesson->id}")->assertSee('then the links');
 
         $this->world->lessonDone($this->world->member()->id, $lesson->id);
-        $this->admin()->from('/admin-panel/lm/content')->get("/admin-panel/lm/content_delete/{$lesson->id}");
+        $this->admin()->from('/admin-panel/lm/content')->post("/admin-panel/lm/content_delete/{$lesson->id}");
         $this->assertFalse(DB::table('bei_lm_content')->where('id', $lesson->id)->exists());
         $this->assertFalse(DB::table('bei_lm_users')->where('content_id', $lesson->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLessonWithAMissingFileCanBeDeleted
+    // -----------------------------------------------------------
+    //
+    // A lesson whose file is already gone from disk is deleted
+    // with its file rows.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLessonWithAMissingFileCanBeDeleted(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+        $this->world->lmFile($lesson, ['file_name' => 'lm/already-gone.pdf']);
+
+        $this->admin()->from('/admin-panel/lm/content')->post("/admin-panel/lm/content_delete/$lesson");
+
+        $this->assertFalse(DB::table('bei_lm_content')->where('id', $lesson)->exists());
+        $this->assertFalse(DB::table('bei_lm_content_files')->where('content_id', $lesson)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCategoryWithQuestionsIsNotDeleted
+    // -----------------------------------------------------------
+    //
+    // A category that still holds self-evaluation or
+    // knowledge-test questions is refused with a message, and
+    // keeps them: they have no foreign key to it and would
+    // outlive it unlisted.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCategoryWithQuestionsIsNotDeleted(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $this->world->selfEvalQuestion($category, [['Report the mail', true, 100], ['Answer the mail', false, 0]]);
+        $this->world->knowledgeQuestion($category, [['Report the mail', true], ['Answer the mail', false]]);
+
+        $this->admin()->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$category")->assertSessionHasErrors();
+
+        $this->assertTrue(DB::table('bei_lm_category')->where('id', $category)->exists());
+        $this->assertSame(1, DB::table('bei_selfeval_question')->where('cat_id', $category)->count());
+        $this->assertSame(1, DB::table('bei_knowledge_test')->where('cat_id', $category)->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletesReturnToTheLanguageTab
+    // -----------------------------------------------------------
+    //
+    // The lessons and categories pages name a tab by its
+    // language id, and both deletes redirect to the tab of the
+    // deleted row's language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletesReturnToTheLanguageTab(): void
+    {
+        // Ids past English's own: a row with English's id would
+        // hide a mix-up
+        $category = $this->world->lmCategory($this->en, ['id' => max($this->world->nextId('bei_lm_category'), $this->en + 1)]);
+        $lesson = $this->world->lmContent($category, $this->en, ['id' => max($this->world->nextId('bei_lm_content'), $this->en + 1)]);
+
+        $this->admin()->from('/admin-panel/lm/content')->post("/admin-panel/lm/content_delete/$lesson")
+            ->assertRedirect("/admin-panel/lm/content#a{$this->en}");
+        $this->admin()->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$category")
+            ->assertRedirect("/admin-panel/lm/categories#a{$this->en}");
     }
 
 
@@ -197,6 +291,66 @@ class AdminLearningTest extends FeatureTestCase
         $file = DB::table('bei_lm_content_files')->where('content_id', $lesson)->first();
         $this->assertMatchesRegularExpression('#^lm/[A-Za-z0-9]{40}\.pdf$#', $file->file_name);
         $this->assertFileExists(public_path('upload/' . $file->file_name));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFileWithoutEmbedIsListedForDownload
+    // -----------------------------------------------------------
+    //
+    // A file posted with the Embed box unticked — the form then
+    // posts no embed at all — is stored with embed 0 and
+    // listed on the lesson page for download.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFileWithoutEmbedIsListedForDownload(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->post('/admin-panel/lm/file/create', [
+            'uid'  => $lesson,
+            'name' => 'Checklist for staff',
+            'doc'  => $this->uploadedFile('checklist.pdf', "%PDF-1.4\n%test\n"),
+        ])->assertSessionHas('success');
+
+        $this->assertEquals(0, DB::table('bei_lm_content_files')->where('content_id', $lesson)->value('embed'));
+        $this->get("/en/learn/lesson/$lesson")->assertSee('Checklist for staff');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFilePostWithoutAFileGetsAnError
+    // -----------------------------------------------------------
+    //
+    // A post without a usable file — none chosen, or one PHP
+    // dropped for its size — goes back with an error, not
+    // "Created!", and stores nothing.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFilePostWithoutAFileGetsAnError(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->post('/admin-panel/lm/file/create', [
+            'uid'  => $lesson,
+            'name' => 'Checklist for staff',
+        ])->assertSessionMissing('success')->assertSessionHasErrors();
+
+        $this->assertFalse(DB::table('bei_lm_content_files')->where('content_id', $lesson)->exists());
     }
 
 
@@ -250,10 +404,10 @@ class AdminLearningTest extends FeatureTestCase
     {
         $lesson = $this->world->lmContent($this->category, $this->en);
         $file = $this->world->lmFile($lesson);
-        $this->admin()->from("/admin-panel/lm/files/$lesson")->get("/admin-panel/lm/files/delete/$file");
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->post("/admin-panel/lm/files/delete/$file");
         $this->assertFalse(DB::table('bei_lm_content_files')->where('id', $file)->exists());
 
-        $this->admin()->from("/admin-panel/lm/files/$lesson")->get("/admin-panel/lm/files/delete/$file")
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->post("/admin-panel/lm/files/delete/$file")
             ->assertRedirect("/admin-panel/lm/files/$lesson")
             ->assertSessionHas('success');
     }
@@ -297,6 +451,68 @@ class AdminLearningTest extends FeatureTestCase
             ['A sender domain that does not match', 1, 50.0],
             ['Your name in the greeting', 0, 0.0],
         ], $this->optionRows('bei_selfeval_option', $questions[1]->id, true));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testGreekQuestionsAreImported
+    // -----------------------------------------------------------
+    //
+    // A question line opened by the Greek capital epsilon — two
+    // bytes in UTF-8 — is recognised like a Q line.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testGreekQuestionsAreImported(): void
+    {
+        $category = $this->world->lmCategory($this->world->language('gr'));
+        $file = $this->uploadedFile('questions.txt', "::\nΕ\\: Ποιος σύνδεσμος είναι ασφαλής;\n=Αυτός που πληκτρολόγησες\n~Ο σύνδεσμος του email\n");
+
+        $this->admin()->from("/admin-panel/lm/self_eval/$category")
+            ->post('/admin-panel/lm/self_eval/import', ['cat_id' => $category, 'doc' => $file]);
+
+        $this->assertSame(1, DB::table('bei_selfeval_question')->where('cat_id', $category)->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testImportedOptionsKeepTheirText
+    // -----------------------------------------------------------
+    //
+    // Both imports cut an option's marker only: an address with
+    // a query string or a tilde in its path is stored exactly
+    // as written after the marker.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testImportedOptionsKeepTheirText(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $right = 'https://portal.example.test/login?team=staff';
+        $wrong = 'https://portal-example.test/~login';
+        $questions = "::\nQ\\: Which link opens the staff portal?\n=$right\n~$wrong\n";
+
+        $this->admin()->from("/admin-panel/lm/self_eval/$category")
+            ->post('/admin-panel/lm/self_eval/import', ['cat_id' => $category, 'doc' => $this->uploadedFile('questions.txt', $questions)]);
+        $this->admin()->from("/admin-panel/lm/knowledge_test/$category")
+            ->post('/admin-panel/lm/knowledge_test/import', ['cat_id' => $category, 'doc' => $this->uploadedFile('questions.txt', $questions)]);
+
+        $selfEval = DB::table('bei_selfeval_question')->where('cat_id', $category)->value('id');
+        $knowledge = DB::table('bei_knowledge_test')->where('cat_id', $category)->value('id');
+        $this->assertSame([$right, $wrong], DB::table('bei_selfeval_option')->where('question_id', $selfEval)->orderBy('id')->pluck('option')->all());
+        $this->assertSame([$right, $wrong], DB::table('bei_knowledge_option')->where('question_id', $knowledge)->orderBy('id')->pluck('option')->all());
     }
 
 
@@ -366,7 +582,7 @@ class AdminLearningTest extends FeatureTestCase
         $this->assertEquals(80, DB::table('bei_selfeval_option')->where('id', $right)->value('points'));
 
         $this->admin()->from("/admin-panel/lm/self_eval/{$this->category}")
-            ->get("/admin-panel/lm/self_eval/delete/{$question['question']}");
+            ->post("/admin-panel/lm/self_eval/delete/{$question['question']}");
         $this->assertFalse(DB::table('bei_selfeval_question')->where('id', $question['question'])->exists());
         $this->assertFalse(DB::table('bei_selfeval_option')->where('question_id', $question['question'])->exists());
     }
@@ -400,7 +616,7 @@ class AdminLearningTest extends FeatureTestCase
         $this->assertEquals(1, DB::table('bei_knowledge_option')->where('id', $wrong)->value('correct'));
 
         $this->admin()->from("/admin-panel/lm/knowledge_test/{$this->category}")
-            ->get("/admin-panel/lm/knowledge_test/delete/{$question['question']}");
+            ->post("/admin-panel/lm/knowledge_test/delete/{$question['question']}");
         $this->assertFalse(DB::table('bei_knowledge_test')->where('id', $question['question'])->exists());
         $this->assertFalse(DB::table('bei_knowledge_option')->where('question_id', $question['question'])->exists());
     }
@@ -426,6 +642,82 @@ class AdminLearningTest extends FeatureTestCase
     public function testQuestionFormPathIsNotFound(): void
     {
         $this->admin()->get("/admin-panel/lm/self_eval/question_new/{$this->category}")->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testQuestionWithoutOptionsIsSaved
+    // -----------------------------------------------------------
+    //
+    // A question without options — an import block with a
+    // question line but no option lines leaves one — saves
+    // its edited text in both forms.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionWithoutOptionsIsSaved(): void
+    {
+        $selfEval = $this->world->selfEvalQuestion($this->category, []);
+        $knowledge = $this->world->knowledgeQuestion($this->category, []);
+        $text = 'Who may ask for your password?';
+
+        $this->admin()->from("/admin-panel/lm/self_eval/edit/{$selfEval['question']}")
+            ->post("/admin-panel/lm/self_eval/update/{$selfEval['question']}", ['q' => $text, 'q_type' => 1])
+            ->assertSessionHas('success', 'Updated!');
+        $this->admin()->from("/admin-panel/lm/knowledge_test/edit/{$knowledge['question']}")
+            ->post("/admin-panel/lm/knowledge_test/update/{$knowledge['question']}", ['q' => $text])
+            ->assertSessionHas('success', 'Updated!');
+
+        $this->assertSame($text, DB::table('bei_selfeval_question')->where('id', $selfEval['question'])->value('question'));
+        $this->assertSame($text, DB::table('bei_knowledge_test')->where('id', $knowledge['question'])->value('question'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletesWorkOnAReadOnlyUploadFolder
+    // -----------------------------------------------------------
+    //
+    // Production mounts the upload folder read-only, made so
+    // here for the test: deleting a lesson file and deleting
+    // a lesson with files both remove their rows — the files
+    // stay where the mount keeps them.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletesWorkOnAReadOnlyUploadFolder(): void
+    {
+        $kept = $this->world->lmContent($this->category, $this->en);
+        $gone = $this->world->lmContent($this->category, $this->en);
+        $file = $this->world->lmFile($kept, ['file_name' => 'lm/readonly-a.pdf']);
+        $this->world->lmFile($gone, ['file_name' => 'lm/readonly-b.pdf']);
+        $folder = public_path('upload/lm');
+        @mkdir($folder, 0755, true);
+        file_put_contents("$folder/readonly-a.pdf", '%PDF-1.4');
+        file_put_contents("$folder/readonly-b.pdf", '%PDF-1.4');
+        chmod($folder, 0555);
+        try {
+            $this->admin()->from("/admin-panel/lm/files/$kept")->post("/admin-panel/lm/files/delete/$file")->assertRedirect();
+            $this->admin()->from('/admin-panel/lm/content')->post("/admin-panel/lm/content_delete/$gone")->assertRedirect();
+        } finally {
+            chmod($folder, 0755);
+            @unlink("$folder/readonly-a.pdf");
+            @unlink("$folder/readonly-b.pdf");
+        }
+
+        $this->assertFalse(DB::table('bei_lm_content_files')->where('id', $file)->exists());
+        $this->assertFalse(DB::table('bei_lm_content')->where('id', $gone)->exists());
     }
 
 

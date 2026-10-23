@@ -8,14 +8,6 @@
 //  en/main.php. A few keys appear twice; PHP keeps the later
 //  entry.
 //
-//  Known bug (low): three strings say the wrong thing:
-//  change_username2 (main.php:50), the dashboard's user name
-//  button, ends in a stray 2, and pass_updated and
-//  pass_unavailable (main.php:87, 88) say the password was
-//  updated or is unavailable, though they answer the user
-//  name change. Fix: translate the English lines.
-//  Pinned as ee-strings.
-//
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
 //      the site is in Estonian
@@ -47,7 +39,7 @@ return [
     'repeat_password' => 'Korda uut parooli',
     'change_password' => 'Muuda salasõna',
     'change_username' => 'Muuda kasutajanime',
-    'change_username2' => 'Muuda kasutajanime2',
+    'change_username2' => 'Muuda kasutajanime',
     'home'=>'Kodu',
     'learning_material'=>'Õppematerjal',
     'contact'=>'Võta ühendust',
@@ -81,11 +73,12 @@ return [
     'curr_new_same'=>'Praegune ja uus parool on samad',
     'new_pass_not_match'=>'Uued paroolid ei ühti',
     'pass_too_short'=>'Parool on liiga lühike',
+    'pass_too_long'=>'Parool on liiga pikk',
     'pass_changed'=>'Parool muudetud',
     // Despite their keys, these two answer the user name
     // change (ManagerMainController::change_username)
-    'pass_updated'=>'Parool uuendatud',
-    'pass_unavailable'=>'Parool ei ole saadaval',
+    'pass_updated'=>'Kasutajanimi uuendatud',
+    'pass_unavailable'=>'Kasutajanimi ei ole saadaval',
     'auth_failed'=>'Vale email ja/või parool',
     'forgot_pass_msg'=>                                     'Kui meie andmebaasis on meiliaadress, saate lähtestamise lingi.',
     'new_pass_emailed'=>'Saatsime teile meili teel uue parooli',
@@ -106,7 +99,7 @@ return [
     'ended'=>'Lõppenud',
     'points'=>'Punktid',
     'next'=>'Edasi',
-    'no_questions'=>'Küsimusi ei ole',
+    'no_selfeval_questions'=>'Selles kategoorias ei ole küsimusi!',
     'self_eval_ranks'=>'Enesehindamise astmed',
     'nobody'=>'Mitte keegi',
     'username'=>'Kasutajanimi',

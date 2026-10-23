@@ -43,9 +43,9 @@
                             <td>{{ $value['email'] }}</td>
                             <td>
                             @if($value['status'] == 1)
-                            <a href="{{ env('APP_URL') }}/admin-panel/settings/manager/status/2/{{ $value['id'] }}"><span class="badge badge-success">Enabled</span></a>
+                            <a href="#" onClick="Post_To('{{ env('APP_URL') }}/admin-panel/settings/manager/status/2/{{ $value['id'] }}'); return false;"><span class="badge badge-success">Enabled</span></a>
                             @else
-                            <a href="{{ env('APP_URL') }}/admin-panel/settings/manager/status/1/{{ $value['id'] }}"><span class="badge badge-danger">Disabled</span></a>
+                            <a href="#" onClick="Post_To('{{ env('APP_URL') }}/admin-panel/settings/manager/status/1/{{ $value['id'] }}'); return false;"><span class="badge badge-danger">Disabled</span></a>
                             @endif
                             </td>
 

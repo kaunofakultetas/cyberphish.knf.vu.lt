@@ -181,22 +181,18 @@ class ManagerMainController extends BaseController
     // POST /admin-panel/change-pass
     //
     // Changes the signed-in manager's password. It refuses,
-    // each time with a main.msg_* message, a wrong
-    // current password, a new one equal to it, a repeat that
-    // differs and a new one under 6 characters — the minimum
-    // the admin login asks for too; then it stores the new
-    // hash and answers back with main.msg_pass_changed.
+    // each time with the member side's message for it —
+    // curr_pass_wrong, curr_new_same, new_pass_not_match,
+    // pass_too_short — a wrong current password, a new one
+    // equal to it, a repeat that differs and a new one under
+    // 6 characters — the minimum the admin login asks for
+    // too; then it stores the new hash and answers back with
+    // pass_changed.
     // Auth::user() and Auth::id() are the manager because man
     // is the default guard. perms keeps the route to main
     // admins: for a country manager the dialog and this route
     // both answer 404, so a country manager cannot change
     // their password here.
-    //
-    // Known bug (low): no resources/lang file defines the five
-    // main.msg_* keys (ManagerMainController.php:211, 216, 221,
-    // 231, 237), so the dialog shows the raw key names instead
-    // of a message. Fix: add the keys to the main.php files.
-    // Pinned as admin-pass-messages.
     //
     // Used by:
     //   - admin-panel/dialog/changepass.blade.php — the
@@ -208,17 +204,17 @@ class ManagerMainController extends BaseController
     {
         if (!(Hash::check($request->get('password'), Auth::user()->password))) {
 
-            return redirect()->back()->withErrors(__('main.msg_current_pass_wrong'));
+            return redirect()->back()->withErrors(__('main.curr_pass_wrong'));
         }
 
         if(strcmp($request->get('password'), $request->get('newpass')) == 0){
 
-            return redirect()->back()->withErrors(__('main.msg_current_new_same'));
+            return redirect()->back()->withErrors(__('main.curr_new_same'));
         }
 
         if(strcmp($request->get('newpass'), $request->get('renewpass')) <> 0){
 
-            return redirect()->back()->withErrors(__('main.msg_new_pass_dont_match'));
+            return redirect()->back()->withErrors(__('main.new_pass_not_match'));
         }
 
         $validator = Validator::make($request->all(), [
@@ -228,13 +224,13 @@ class ManagerMainController extends BaseController
 
         if($validator->fails()){
 
-            return redirect()->back()->withErrors(__('main.msg_pass_too_short', ['length'=>6]));
+            return redirect()->back()->withErrors(__('main.pass_too_short'));
 
         }
 
         Managers::where('id', Auth::id())->update(['password' => Hash::make($request->get('newpass'))]);
 
-        return redirect()->back()->withSuccess(__('main.msg_pass_changed'));
+        return redirect()->back()->withSuccess(__('main.pass_changed'));
     }
 
 

@@ -11,7 +11,10 @@
 //  new random password and uses the token up. The link is
 //  built from APP_URL whatever host the request claimed,
 //  and a blank token is refused, as the verification link
-//  refuses one (VerificationTest).
+//  refuses one (VerificationTest). The tokens and the new
+//  password come from a cryptographic generator, and the
+//  message after the link reaches the login form even when
+//  a member page parked another destination.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -20,6 +23,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Http\Controllers\SettingsController;
 use App\Mail\SendNewPass;
 use App\Mail\SendRemindLink;
 use App\Models\Members;
@@ -303,6 +307,65 @@ class PasswordResetTest extends FeatureTestCase
         $this->assertTrue(Hash::check(World::PASSWORD, Members::find($first->id)->password));
         $this->assertTrue(Hash::check(World::PASSWORD, Members::find($second->id)->password));
         Mail::assertNothingSent();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewPasswordMessageReachesAVisitorSentFromAMemberPage
+    // -----------------------------------------------------------
+    //
+    // A visitor whom a member page sent to the login form
+    // earlier — the page is parked in the session — still
+    // lands on the form after the link, with new_pass_emailed.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewPasswordMessageReachesAVisitorSentFromAMemberPage(): void
+    {
+        $this->world->member(['remember_token' => self::TOKEN]);
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+
+        $this->get('/reset/' . self::TOKEN)
+            ->assertRedirect('/login')
+            ->assertSessionHas('success', __('main.new_pass_emailed'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTokensDoNotFollowTheMersenneTwistersSeed
+    // -----------------------------------------------------------
+    //
+    // SettingsController::random_string — the reset and
+    // verification tokens, the mailed new passwords, the
+    // attempt ids — draws from PHP's cryptographic generator:
+    // seeding the Mersenne Twister the same twice does not
+    // repeat a token.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTokensDoNotFollowTheMersenneTwistersSeed(): void
+    {
+        mt_srand(20261023);
+        $first = SettingsController::random_string(50);
+        mt_srand(20261023);
+        $second = SettingsController::random_string(50);
+        // A random seed again for the tests that follow
+        mt_srand();
+
+        $this->assertNotSame($first, $second);
+        $this->assertMatchesRegularExpression('/^[0-9a-zA-Z]{50}$/', $first);
     }
 
 

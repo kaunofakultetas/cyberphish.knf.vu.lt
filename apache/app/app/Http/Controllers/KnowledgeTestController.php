@@ -176,15 +176,11 @@ class KnowledgeTestController extends BaseController
     // result of 0. A member with three attempts in the
     // language — the tries the page offers — is sent back to
     // the test page, so a start posted by hand draws no
-    // fourth.
-    //
-    // Known bug (low): the language's limits are used
-    // unchecked (KnowledgeTestController.php:216), so a
+    // fourth. So is a start that finds nothing to draw: a
     // language missing from settings row 3 — its first
-    // category added after the limits were last saved — or a
-    // site without the row makes every start a 500. Fix:
-    // treat a missing entry as nothing to draw.
-    // Pinned as knowledge-limits-missing.
+    // category added after the limits were last saved — or
+    // limits whose categories hold no question; no attempt is
+    // stored then.
     //
     // Used by:
     //   - knowledge_test.blade.php — the start form
@@ -213,7 +209,7 @@ class KnowledgeTestController extends BaseController
 
             $knowledge_limits = json_decode(Settings::where(['id'=>3])->get()->pluck('val1')->first(),1);
 
-            $lang_limits = $knowledge_limits[Langs::getLangId($lang)];
+            $lang_limits = $knowledge_limits[Langs::getLangId($lang)] ?? [];
 
             $q = []; $qq = [];
 
@@ -223,6 +219,10 @@ class KnowledgeTestController extends BaseController
 
                 $q = array_merge($q, $questions);
 
+            }
+
+            if(count($q) == 0){
+                return redirect('/'.$lang.'/knowledge_test');
             }
 
 
@@ -307,20 +307,13 @@ class KnowledgeTestController extends BaseController
     // share answered so far; the question's id goes into the
     // form as a double MD5 hash. Once none is left an open
     // attempt closes — finished, ended now, the result from
-    // calculate_results — and when it is the member's first
-    // finished attempt and passed (above 74),
-    // badge_final_test is awarded with a flash message. A
-    // finished attempt keeps its end date, the date the
-    // certificate prints, and its result. The page is
-    // knowledge_progress.blade.php either way.
-    //
-    // Known bug (low): the badge check counts the member's
-    // finished attempts in every language
-    // (KnowledgeTestController.php:391), so a pass on a later
-    // try, or a first pass in a second language, never earns
-    // badge_final_test. Fix: award it for any pass in the
-    // language — save_badge already refuses a second copy.
-    // Pinned as knowledge-badge-later-pass.
+    // calculate_results — and a pass (above 74) earns
+    // badge_final_test of the language, whichever try it is,
+    // with a message on this page when the badge is new
+    // (save_badge refuses a second copy). A finished attempt
+    // keeps its end date, the date the certificate prints,
+    // and its result. The page is knowledge_progress.blade.php
+    // either way.
     //
     // Used by:
     //   - index, start, progress_save (this class) — their
@@ -386,20 +379,12 @@ class KnowledgeTestController extends BaseController
 
             KnowledgeUserTest::where(['id'=>$id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date('Y-m-d H:i:s'), 'results'=>$results]);
 
-            // badge_final_test needs the first finished attempt,
-            // counted over every language (see the banner)
-            $finished_num = KnowledgeUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'finished'=>1])->count();
+            if($results > 74){
 
-            if($finished_num == 1){
+                $a = Badges::save_badge($lang_id, 'badge_final_test');
 
-                if($results > 74){
-
-                    $a = Badges::save_badge($lang_id, 'badge_final_test');
-
-                    if($a == true){
-                        $request->session()->now('success', __('main.new_badge'));
-                    }
-
+                if($a == true){
+                    $request->session()->now('success', __('main.new_badge'));
                 }
 
             }
@@ -530,23 +515,11 @@ class KnowledgeTestController extends BaseController
     // -----------------------------------------------------------
     //
     // The result of an attempt as a whole percentage: the
-    // signed-in member's correct answer rows for it over all
-    // of their answer rows for it, rounded.
-    //
-    // Known bug (high): the result counts answer rows, not
-    // questions (KnowledgeTestController.php:562). A question
-    // answered with no option leaves no row and drops out, so
-    // one right answer and two skipped questions score 100.
-    // Pinned as knowledge-skipped-answers. Fix: divide the
-    // questions answered right by the questions drawn.
-    //
-    // Known bug (medium): with no answer rows at all the
-    // division is by zero (KnowledgeTestController.php:562) —
-    // a 500 on the progress page; the attempt never closes,
-    // and the test page keeps sending the member back into
-    // it, so the test is closed to them for good. Pinned as
-    // knowledge-all-skipped. Fix: a result of 0 when there is
-    // nothing to count.
+    // signed-in member's correct answer rows for it — one at
+    // most per question — over the questions the attempt
+    // drew, rounded. A question answered with no option left
+    // no row and counts as wrong, so skipping every question
+    // scores 0; an attempt that drew nothing scores 0 too.
     //
     // Used by:
     //   - progress (above) — whenever it finds every question
@@ -555,13 +528,15 @@ class KnowledgeTestController extends BaseController
 
     public static function calculate_results($test_id)
     {
-        $total_questions = KnowledgeUserOptions::where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id()])->count();
+        $total_questions = count(KnowledgeUserTest::getQIds($test_id) ?? []);
 
         $correct_questions = KnowledgeUserOptions::where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'correct'=>1])->count();
 
-        $results = round($correct_questions * 100 / $total_questions);
+        if($total_questions == 0){
+            return 0;
+        }
 
-        return $results;
+        return round($correct_questions * 100 / $total_questions);
     }
 
 

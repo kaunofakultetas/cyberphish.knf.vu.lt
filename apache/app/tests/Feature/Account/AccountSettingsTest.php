@@ -9,12 +9,12 @@
 //  cp/change-username keeps names unique between members
 //  and within the column's 45 characters,
 //  cp/change-fullname takes the name printed on the
-//  certificate (at least 6 characters). Visitors are sent
+//  certificate (6 to 100 characters). Visitors are sent
 //  to the login form. The dashboard opens for a member of
 //  any country, one the questionnaire links do not know
-//  included. The defects of these forms are pinned in
-//  AccountDefectsTest — the full name's limit of 20
-//  characters among them.
+//  included. The Estonian strings of the user-name form
+//  speak of the user name. The defects of these forms are
+//  pinned in AccountDefectsTest.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -135,8 +135,8 @@ class AccountSettingsTest extends FeatureTestCase
     //
     // A wrong current password, a new password equal to the
     // current one, a repetition that differs, and a new
-    // password under 6 characters each get their message, and
-    // the password stays.
+    // password outside the login's 12 to 50 characters each
+    // get their message, and the password stays.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -147,7 +147,7 @@ class AccountSettingsTest extends FeatureTestCase
     {
         $this->changePassword($current, $new, $repeated)->assertSessionHasErrors();
 
-        $this->assertSame(__($message, ['length' => 6]), session('errors')->first());
+        $this->assertSame(__($message), session('errors')->first());
         $this->assertTrue(Hash::check(World::PASSWORD, Members::find($this->member->id)->password));
     }
 
@@ -173,7 +173,8 @@ class AccountSettingsTest extends FeatureTestCase
             'wrong current password' => ['Not-The-Password-1', self::NEW_PASSWORD, self::NEW_PASSWORD, 'main.curr_pass_wrong'],
             'new equals current'     => [World::PASSWORD, World::PASSWORD, World::PASSWORD, 'main.curr_new_same'],
             'repetition differs'     => [World::PASSWORD, self::NEW_PASSWORD, 'Something-Else-8', 'main.new_pass_not_match'],
-            'new under 6 characters' => [World::PASSWORD, 'abc', 'abc', 'main.pass_too_short'],
+            'new under 12 characters' => [World::PASSWORD, 'Eleven-Char', 'Eleven-Char', 'main.pass_too_short'],
+            'new over 50 characters'  => [World::PASSWORD, str_repeat('Long-', 10) . 'x', str_repeat('Long-', 10) . 'x', 'main.pass_too_long'],
         ];
     }
 
@@ -327,9 +328,8 @@ class AccountSettingsTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // A full name is stored for the certificate — here one
-    // latin1 can hold, of at most 20 characters, since the
-    // column's letters and the limit of 20 are pinned as
-    // defects (AccountDefectsTest).
+    // latin1 can hold, since the column's letters are pinned
+    // as a defect (AccountDefectsTest).
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -349,12 +349,37 @@ class AccountSettingsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLongFullNameIsStored
+    // -----------------------------------------------------------
+    //
+    // A name well past the 20 characters the form once
+    // stopped at is stored whole; the certificate makes it
+    // fit (CertificateTest).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLongFullNameIsStored(): void
+    {
+        $name = 'Annemarie Wilhelmina van der Westhuizen-Smith';
+
+        $this->submit('/cp/change-fullname', ['fullname' => $name])->assertSessionHas('success', __('main.updated'));
+
+        $this->assertSame($name, Members::find($this->member->id)->fullname);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testFullNameOutsideItsLengthIsRefused
     // -----------------------------------------------------------
     //
     // Under 6 characters, or over the form's 100, fails
-    // validation and the stored name stays empty. The
-    // server's limit of 20 is pinned as fullname-length.
+    // validation and the stored name stays empty.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -393,6 +418,47 @@ class AccountSettingsTest extends FeatureTestCase
         $member = $this->world->member(['country' => 9]);
 
         $this->signInMember($member)->get('/cp/dashboard')->assertOk();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEstonianUserNameFormSpeaksOfTheUserName
+    // -----------------------------------------------------------
+    //
+    // In Estonian the user-name button reads without a stray
+    // digit, and both answers of change_username — a rename
+    // and a name already taken — speak of the user name
+    // (kasutajanimi), not the password.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEstonianUserNameFormSpeaksOfTheUserName(): void
+    {
+        $this->world->language('ee');
+        $other = $this->world->member();
+        $this->signInMember($this->member)->withSession(['lang' => 'ee'])->from('/cp/dashboard');
+
+        // The first submit button after the user-name form's
+        // action is that form's own
+        $dashboard = $this->get('/cp/dashboard')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#cp/change-username".*?type="submit" value="([^"]*)"#s', $dashboard, $button), 'the dashboard has no user-name button');
+        $this->assertDoesNotMatchRegularExpression('/\d/', $button[1], "the button reads {$button[1]}");
+
+        $this->post('/cp/change-username', ['username' => 'Renamed' . $this->member->id])->assertSessionHas('success');
+        $renamed = session('success');
+        $this->post('/cp/change-username', ['username' => $other->username])->assertSessionHasErrors();
+        $taken = session('errors')->first();
+
+        foreach (['the rename' => $renamed, 'the taken name' => $taken] as $case => $answer) {
+            $this->assertStringContainsStringIgnoringCase('kasutaja', $answer, "$case answers $answer");
+            $this->assertStringNotContainsStringIgnoringCase('parool', $answer, "$case answers $answer");
+        }
     }
 
 

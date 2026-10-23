@@ -78,26 +78,20 @@ class ScenariosCategory extends Model
     // IdByCategory
     // -----------------------------------------------------------
     //
-    // The id of the category with that name, the spreadsheet
-    // cell's surrounding spaces trimmed off; null when no
-    // category has it, which the import passes on unchecked.
-    //
-    // Known bug (low): the name is matched across every
-    // language (ScenariosCategory.php:100), so where two
-    // languages share a category name, whichever row MySQL
-    // returns first wins, and an imported simulation can be
-    // filed under the other language's category. Fix: pass
-    // the import's language in and match lang_id too.
-    // Pinned as import-cross-language.
+    // The id of the category with that name in the language,
+    // the spreadsheet cell's surrounding spaces trimmed off;
+    // null when the language has no category of that name.
+    // Another language's category of the same name never
+    // answers.
     //
     // Used by:
     //   - Admin\SimulationsController::get_xlsx_categories —
     //     the categories ticked in an imported spreadsheet
     // -----------------------------------------------------------
 
-    public static function IdByCategory($name)
+    public static function IdByCategory($name, $lang_id)
     {
-        $id = ScenariosCategory::where(['name'=>trim($name)])->pluck('id')->first();
+        $id = ScenariosCategory::where(['name'=>trim($name), 'lang_id'=>$lang_id])->pluck('id')->first();
 
         return $id;
     }

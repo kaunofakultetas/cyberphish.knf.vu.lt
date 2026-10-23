@@ -8,12 +8,16 @@
 //  one by one in random order and stores the chosen
 //  options, and the FinishedSe middleware closes the
 //  attempt once as many questions are answered as settings
-//  row 2 asks for: every answer worth the question's best
+//  row 2 asks for, or every question of a category that has
+//  fewer: every answer worth the question's best
 //  option is added for a correct choice and taken away for
 //  a wrong one, never below zero. A question takes one
 //  answer, from its own options, each counted once, so a
 //  forged form scores no more than an honest one; a closed
-//  attempt keeps its end date. cp/se_r shows the result and
+//  attempt keeps its end date. Visiting the start page again
+//  resumes the open attempt. The first finished
+//  self-evaluation earns its badge, announced in the
+//  member's language. cp/se_r shows the result and
 //  cp/self-evaluation-history the member's attempts. An
 //  attempt is its member's alone.
 //
@@ -147,6 +151,33 @@ class SelfEvaluationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testRevisitingTheStartPageOpensNoSecondAttempt
+    // -----------------------------------------------------------
+    //
+    // A second visit of the start page while an attempt of the
+    // category is open — another click on the button, a
+    // browser's prefetch — resumes that attempt.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRevisitingTheStartPageOpensNoSecondAttempt(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+
+        $this->signInMember($this->member)->get("/en/self-evaluation-test/{$this->category}")
+            ->assertRedirect("/cp/se/$publicId/{$this->category}");
+
+        $this->assertSame(1, DB::table('bei_users_selfeval_test')->where(['user_id' => $this->member->id, 'cat_id' => $this->category])->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testAttemptAsksAQuestionOfTheCategory
     // -----------------------------------------------------------
     //
@@ -262,6 +293,105 @@ class SelfEvaluationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testAttemptClosesWhenTheCategoryRunsOutOfQuestions
+    // -----------------------------------------------------------
+    //
+    // An attempt three questions long in a category of two
+    // closes after the second answer: the page after it sends
+    // the member to the result.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAttemptClosesWhenTheCategoryRunsOutOfQuestions(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 3);
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+
+        $this->assertEquals(1, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('finished'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFirstFinishedSelfEvaluationEarnsTheBadge
+    // -----------------------------------------------------------
+    //
+    // The first self-evaluation that closes earns
+    // badge_self_evaluation_test, though an attempt in another
+    // category was opened before and left unanswered.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFirstFinishedSelfEvaluationEarnsTheBadge(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 1);
+        $otherCategory = $this->world->lmCategory($this->en);
+        $this->world->selfEvalQuestion($otherCategory, [['Right', true, 100], ['Wrong', false, 0]]);
+        $this->startSelfEvaluation($this->member, $otherCategory);
+
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")
+            ->assertRedirect("/cp/se_r/$publicId")
+            ->assertSessionHas('success', __('main.new_badge'));
+
+        $this->assertTrue(DB::table('bei_users_badges')->where(['user_id' => $this->member->id, 'name' => 'badge_self_evaluation_test'])->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewBadgeMessageIsInTheMembersLanguage
+    // -----------------------------------------------------------
+    //
+    // A member taking the self-evaluation in Lithuanian gets
+    // the new-badge message in Lithuanian, though FinishedSe
+    // runs before BaseController sets the request's locale.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewBadgeMessageIsInTheMembersLanguage(): void
+    {
+        $lt = $this->world->language('lt');
+        $this->world->setting(2, 'self_eval_pertime', null, null, 1);
+        $category = $this->world->lmCategory($lt);
+        $question = $this->world->selfEvalQuestion($category, [['Taip', true, 100], ['Ne', false, 0]]);
+        $configured = $this->app->getLocale();
+        $this->signInMember($this->member)->get("/lt/self-evaluation-test/$category")->assertRedirect();
+        $publicId = DB::table('bei_users_selfeval_test')->where('user_id', $this->member->id)->value('public_id');
+        $this->answerSelfEvaluation($this->member, $publicId, $category, $question['question'], [$question['options'][0]]);
+
+        // Every production request starts in the configured
+        // locale, while the test's app still holds the one the
+        // answer's request set
+        $this->app->setLocale($configured);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/$category")
+            ->assertRedirect("/cp/se_r/$publicId")
+            ->assertSessionHas('success', __('main.new_badge', [], 'lt'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testWrongAnswerTakesItsPointsAway
     // -----------------------------------------------------------
     //
@@ -338,6 +468,37 @@ class SelfEvaluationTest extends FeatureTestCase
         $this->signInMember($this->member)->get('/cp/self-evaluation-history')
             ->assertOk()
             ->assertSee("cp/se_r/$publicId", false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCategoryWithoutQuestionsSaysSo
+    // -----------------------------------------------------------
+    //
+    // A category with no question of its own gets its own
+    // text on the test page, no_selfeval_questions, and every
+    // language file defines the generic no_questions — the
+    // knowledge test's — once, so neither hides the other.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCategoryWithoutQuestionsSaysSo(): void
+    {
+        $empty = $this->world->lmCategory($this->en);
+        $publicId = $this->startSelfEvaluation($this->member, $empty);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/$empty")->assertOk()->assertSee(__('main.no_selfeval_questions'));
+
+        foreach (['en', 'lt', 'lv', 'ee', 'gr'] as $locale) {
+            $source = file_get_contents(resource_path("lang/$locale/main.php"));
+            $this->assertSame(1, preg_match_all("/^\\s*'no_questions'\\s*=>/m", $source), "$locale defines no_questions more than once");
+        }
     }
 
 

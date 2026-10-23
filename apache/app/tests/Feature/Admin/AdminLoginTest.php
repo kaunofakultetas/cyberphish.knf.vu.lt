@@ -9,9 +9,12 @@
 //  session gets the manager's main flag and country — main
 //  admins pass the Perms middleware, country managers see
 //  their country only. A wrong password, a switched-off
-//  manager and a member's account are refused, and ten
-//  wrong passwords for one email from one address lock that
-//  pair out for a while, the right password included.
+//  manager and a member's account are refused — back on
+//  the form with the message, even when a panel page sent
+//  the visitor there — and ten wrong passwords for one
+//  email from one address lock that pair out for a while,
+//  the right password included. The panel's password
+//  dialog answers in words.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -157,6 +160,33 @@ class AdminLoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testFailedAdminLoginShowsItsError
+    // -----------------------------------------------------------
+    //
+    // A failure that a panel page led to — auth.admin parked
+    // that page in the session — comes back to the form with
+    // its message, not to the parked page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFailedAdminLoginShowsItsError(): void
+    {
+        $admin = $this->world->manager();
+        $this->get('/admin-panel/dashboard')->assertRedirect('/admin-panel');
+
+        $this->signIn($admin->email, 'Wrong-Password-1')
+            ->assertRedirect('/admin-panel')
+            ->assertSessionHasErrors();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testTenWrongPasswordsLockTheAdminLogin
     // -----------------------------------------------------------
     //
@@ -273,6 +303,34 @@ class AdminLoginTest extends FeatureTestCase
         $this->signInManager($this->world->manager())->get('/admin-panel/logout')->assertRedirect('/admin-panel');
 
         $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordDialogAnswersInWords
+    // -----------------------------------------------------------
+    //
+    // The panel's password dialog refuses a wrong current
+    // password with the member side's message for it, not a
+    // raw main.msg_* key.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordDialogAnswersInWords(): void
+    {
+        $this->signInManager($this->world->manager())->from('/admin-panel/dashboard')->post('/admin-panel/change-pass', [
+            'password'  => 'Not-The-Password-1',
+            'newpass'   => 'Brand-New-Password-1',
+            'renewpass' => 'Brand-New-Password-1',
+        ])->assertSessionHasErrors();
+
+        $this->assertSame(__('main.curr_pass_wrong'), session('errors')->first());
     }
 
 

@@ -11,9 +11,12 @@
 //  the settings of SiteSettingsController — the about text
 //  (settings row 1), the self-evaluation length (row 2) and
 //  the knowledge-test limits (row 3), saved into the rows
-//  mysql/init.sql seeds. The news list, edit, delete and
-//  picture links never reach the panel — pinned in
-//  AdminDefectsTest.
+//  mysql/init.sql seeds — and the printout of every
+//  simulation, each with its own categories. A language
+//  name is unique and a language in use stays; an empty
+//  body is saved as one. The panel's news pages reach the
+//  panel, and removing a picture an article no longer has
+//  is harmless.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -102,8 +105,64 @@ class AdminContentTest extends FeatureTestCase
             ->post('/admin-panel/dialog/lang/update', ['uid' => $id, 'name' => 'Latvian', 'locale' => 'lv']);
         $this->assertSame('Latvian', DB::table('bei_lang')->where('id', $id)->value('name'));
 
-        $this->admin()->from('/admin-panel/settings/languages')->get("/admin-panel/settings/languages/delete/$id");
+        $this->admin()->from('/admin-panel/settings/languages')->post("/admin-panel/settings/languages/delete/$id");
         $this->assertFalse(DB::table('bei_lang')->where('id', $id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTakenLanguageNameIsRefused
+    // -----------------------------------------------------------
+    //
+    // A language name another language already has goes back
+    // to the languages page with an error.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTakenLanguageNameIsRefused(): void
+    {
+        $taken = DB::table('bei_lang')->where('id', $this->en)->value('name');
+
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post('/admin-panel/dialog/lang/create', ['name' => $taken, 'locale' => 'xx'])
+            ->assertRedirect('/admin-panel/settings/languages')
+            ->assertSessionHasErrors('name');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageStillInUseIsRefusedWithAMessage
+    // -----------------------------------------------------------
+    //
+    // A language that still has news, information pages or
+    // learning-material categories stays, and the languages
+    // page says why.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageStillInUseIsRefusedWithAMessage(): void
+    {
+        $latvian = $this->world->language('lv');
+        $this->world->news($latvian);
+
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post("/admin-panel/settings/languages/delete/$latvian")
+            ->assertRedirect('/admin-panel/settings/languages')
+            ->assertSessionHasErrors();
+
+        $this->assertTrue(DB::table('bei_lang')->where('id', $latvian)->exists());
     }
 
 
@@ -196,6 +255,87 @@ class AdminContentTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testNewsWithAnEmptyBodyIsSaved
+    // -----------------------------------------------------------
+    //
+    // An article saved with an empty editor — NULL by the time
+    // it arrives — is stored with an empty body.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsWithAnEmptyBodyIsSaved(): void
+    {
+        $this->admin()->from('/admin-panel/news')->post('/admin-panel/news/create', [
+            'title'   => 'Headline only',
+            'content' => '',
+            'lang_id' => $this->en,
+        ])->assertRedirect();
+
+        $this->assertSame('', DB::table('bei_news')->where('title', 'Headline only')->value('content'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewsPagesOfThePanelReachThePanel
+    // -----------------------------------------------------------
+    //
+    // The public {lang}/news routes no longer answer the panel's
+    // news pages: a visitor is sent to the admin login, and the
+    // panel's delete deletes.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsPagesOfThePanelReachThePanel(): void
+    {
+        $article = $this->world->news($this->en);
+
+        $this->get('/admin-panel/news')->assertRedirect('/admin-panel');
+        $this->admin()->from('/admin-panel/news')->post("/admin-panel/news/delete/$article");
+
+        $this->assertFalse(DB::table('bei_news')->where('id', $article)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRemovingAMissingPictureIsHarmless
+    // -----------------------------------------------------------
+    //
+    // Removing the picture of an article that has none — a
+    // second click, a stale form — goes back to the form; the
+    // picture folder itself is never unlinked.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRemovingAMissingPictureIsHarmless(): void
+    {
+        $article = $this->world->news($this->en, ['feat_img' => null]);
+
+        $this->admin()->from("/admin-panel/news/edit/$article")->post("/admin-panel/news/delete_picture/$article")
+            ->assertRedirect("/admin-panel/news/edit/$article");
+
+        $this->assertDirectoryExists(storage_path('app/public'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testNewsIsEdited
     // -----------------------------------------------------------
     //
@@ -254,8 +394,38 @@ class AdminContentTest extends FeatureTestCase
         ]);
         $this->get("/en/page/cookie-policy/{$page->id}")->assertSee('Only the session cookie.');
 
-        $this->admin()->from('/admin-panel/information')->get("/admin-panel/information/delete/{$page->id}");
+        $this->admin()->from('/admin-panel/information')->post("/admin-panel/information/delete/{$page->id}");
         $this->assertFalse(DB::table('bei_information')->where('id', $page->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewInformationPageReturnsToTheList
+    // -----------------------------------------------------------
+    //
+    // A new information page lands the admin on the list of
+    // pages, even when a member page is parked in the session
+    // from an earlier visit.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewInformationPageReturnsToTheList(): void
+    {
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+
+        $this->admin()->from('/admin-panel/information/new')->post('/admin-panel/information/create', [
+            'title'   => 'Opening hours',
+            'content' => '<p>Weekdays from nine to five</p>',
+            'lang_id' => $this->en,
+        ])->assertRedirect('/admin-panel/information');
+
+        $this->assertTrue(DB::table('bei_information')->where('title', 'Opening hours')->exists());
     }
 
 
@@ -292,6 +462,42 @@ class AdminContentTest extends FeatureTestCase
         $this->assertEquals(4, DB::table('bei_settings')->where('id', 2)->value('val3'));
         $limits = json_decode(DB::table('bei_settings')->where('id', 3)->value('val1'), true);
         $this->assertEquals(5, $limits[$this->en][$category]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEachScenarioOfThePrintoutShowsItsOwnCategories
+    // -----------------------------------------------------------
+    //
+    // The printout of every simulation shows under each
+    // scenario its own categories and attributes, not those
+    // of the language's last scenario.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEachScenarioOfThePrintoutShowsItsOwnCategories(): void
+    {
+        $smishing = $this->world->scenarioCategory($this->en, ['name' => 'Smishing']);
+        $curiosity = $this->world->scenarioAttribute($this->en, ['name' => 'Curiosity']);
+        $vishing = $this->world->scenarioCategory($this->en, ['name' => 'Vishing']);
+        $authority = $this->world->scenarioAttribute($this->en, ['name' => 'Authority']);
+        $this->world->scenario($this->en, ['descr' => 'A parcel notice by text message'], [$smishing], [$curiosity]);
+        $this->world->scenario($this->en, ['descr' => 'A call from the bank'], [$vishing], [$authority]);
+
+        $page = $this->admin()->get('/admin-panel/settings/simulations_download_pdf')->assertOk()->getContent();
+
+        // The printout lists a language's scenarios by id, so
+        // the page above the second one holds the first one
+        $firstScenario = strstr($page, 'A call from the bank', true);
+        $this->assertStringContainsString('Smishing', $firstScenario);
+        $this->assertStringContainsString('Curiosity', $firstScenario);
+        $this->assertStringNotContainsString('Vishing', $firstScenario);
     }
 
 

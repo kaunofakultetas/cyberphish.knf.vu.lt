@@ -32,8 +32,30 @@ function Confirm_Dialog(URL){
 	
 	if (confirm("You sure?")) {
 			
-		window.location.href = URL;
+		Post_To(URL);
 				
 	}	 
 	   
+}
+
+
+
+// Sends a POST to the URL with the page's CSRF token, from the
+// csrf-token meta tag of the panel's layout: the panel's
+// deletes and status changes refuse a plain GET
+function Post_To(URL){
+
+	var form = document.createElement('form');
+	form.method = 'POST';
+	form.action = URL;
+
+	var token = document.createElement('input');
+	token.type = 'hidden';
+	token.name = '_token';
+	token.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+	form.appendChild(token);
+
+	document.body.appendChild(form);
+	form.submit();
+
 }

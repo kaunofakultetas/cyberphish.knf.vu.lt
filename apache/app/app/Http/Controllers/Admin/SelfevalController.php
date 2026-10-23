@@ -192,8 +192,11 @@ class SelfevalController extends BaseController
     // Greek capital epsilon — the initial of the word for
     // question in the site's languages — opens a question
     // whose text follows its first backslash-colon, up to
-    // the next one; a line starting with "=" is a correct
-    // option, "~" a wrong one, and other lines are skipped.
+    // the next one — the first character is compared whole,
+    // so the two-byte epsilon matches too; a line starting
+    // with "=" is a correct option, "~" a wrong one, its text
+    // everything after that marker, and other lines are
+    // skipped.
     // One correct option makes a single-choice question
     // (q_type 1), more make a multiple-choice one (2); the
     // correct options share 100 points and the wrong ones
@@ -207,21 +210,6 @@ class SelfevalController extends BaseController
     // was stored meets an undefined $addQ. A block whose
     // question line is not recognised files its options and
     // its type under the question of an earlier block.
-    //
-    // Known bug (medium): the first byte of a line is
-    // compared with the Greek capital epsilon, two bytes in
-    // UTF-8 (SelfevalController.php:260), so a Greek
-    // question line never matches: its options land on an
-    // earlier block's question, or the import fails as
-    // above. Pinned as selfeval-greek-import. Fix: compare
-    // the line's first character, taken with mb_substr.
-    //
-    // Known bug (low): an option's marker is taken out with
-    // str_replace (SelfevalController.php:306 and 321),
-    // which drops every "=" or "~" of the line, not only the
-    // first, so an address with a query string loses its
-    // "=" signs. Fix: cut the first character only.
-    // Pinned as import-markers.
     //
     // Used by:
     //   - admin-panel/dialog/self_eval.blade.php — the import
@@ -255,9 +243,7 @@ class SelfevalController extends BaseController
 
                     if(!empty($vv)){
 
-                        // One byte against the two-byte Greek epsilon:
-                        // that test never matches (selfeval-greek-import)
-                        if($vv[0] == 'Q' || $vv[0] == 'K' || $vv[0] == 'Ε' || trim($vv[0]) == 'J'){
+                        if($vv[0] == 'Q' || $vv[0] == 'K' || mb_substr($vv, 0, 1) == 'Ε' || trim($vv[0]) == 'J'){
 
                             $addQ = new SelfEval;
                             $question = explode('\:', $vv);
@@ -301,9 +287,8 @@ class SelfevalController extends BaseController
 
                         if($vv1[0] == '='){
 
-                            // A correct option; str_replace takes out
-                            // every "=" of the line, not only the marker
-                            $answer = trim(str_replace("=","", $vv1));
+                            // A correct option: the text after the marker
+                            $answer = trim(substr($vv1, 1));
 
                             $addOption = new SelfEvalOption;
                             $addOption->question_id = $addQ->id;
@@ -316,9 +301,8 @@ class SelfevalController extends BaseController
 
                         if($vv1[0] == '~'){
 
-                            // A wrong option; every "~" of the line goes
-                            // the same way
-                            $answer = trim(str_replace("~","", $vv1));
+                            // A wrong option, the same way
+                            $answer = trim(substr($vv1, 1));
 
                             $addOption = new SelfEvalOption;
                             $addOption->question_id = $addQ->id;
@@ -351,17 +335,12 @@ class SelfevalController extends BaseController
     // question_delete
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/lm/self_eval/delete/{uid}
+    // POST /admin-panel/lm/self_eval/delete/{uid}
     //
     // Deletes the question's options, then the question, and
     // goes back with "Question deleted!". The members'
     // recorded answers to it stay in bei_users_selfeval.
     // Main admins only (auth.admin:man, perms).
-    //
-    // Known bug (medium): a plain GET reaches the delete at
-    // SelfevalController.php:374, so a link a signed-in admin
-    // opens is enough. Pinned as admin-get-deletes. Fix: a
-    // POST route behind the CSRF check.
     //
     // Used by:
     //   - admin-panel/self_eval.blade.php — the delete icon of
@@ -423,15 +402,10 @@ class SelfevalController extends BaseController
     // Saves the edit page: the question's text and type,
     // then every posted option, keyed by its id, with its
     // text, correctness and points. Nothing checks that the
-    // options belong to this question. Back with "Updated!".
-    // Main admins only (auth.admin:man, perms).
-    //
-    // Known bug (low): with no options posted nothing is
-    // saved (SelfevalController.php:451), not even the text,
-    // and the page still says "Updated!", so a question the
-    // import left without options cannot be edited. Fix:
-    // save the question before the options check.
-    // Pinned as question-update-no-options.
+    // options belong to this question. A question without
+    // options — an import block can leave one — saves its
+    // text and type all the same. Back with "Updated!". Main
+    // admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/self_eval_edit.blade.php — the question
@@ -448,9 +422,9 @@ class SelfevalController extends BaseController
 
         $points = $request->get('points');
 
-        if(is_array($answers) && count($answers)>0){
+        SelfEval::where(['id'=>$uid])->update(['question'=>$question, 'q_type'=>$request->get('q_type')]);
 
-            SelfEval::where(['id'=>$uid])->update(['question'=>$question, 'q_type'=>$request->get('q_type')]);
+        if(is_array($answers) && count($answers)>0){
 
             foreach($answers as $k => $v){
 
