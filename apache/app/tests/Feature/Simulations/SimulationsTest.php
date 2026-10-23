@@ -7,14 +7,15 @@
 //  language, the simulations of a category, a simulation's
 //  start page, and a run — POST simulation_progress starts
 //  it, each step offers the choices hanging under the
-//  previous choice, and the run ends when a choice has
-//  nothing under it: its points are added up, the result is
-//  mailed, and finishing every simulation of the language
-//  earns badge_all_simulations. In step-by-step mode (type
-//  1) each choice's feedback shows at the next step, in
-//  summary mode (type 2) all of it at the end. A run is its
-//  member's alone. The defects are pinned in
-//  SimulationDefectsTest.
+//  previous choice — only those count — and the run ends
+//  when a choice has nothing under it: its points are added
+//  up, the result is mailed once, and finishing every
+//  simulation of the language earns badge_all_simulations.
+//  In step-by-step mode (type 1) each choice's feedback
+//  shows at the next step, in summary mode (type 2) all of
+//  it at the end. A run is its member's alone, and a
+//  simulation of another language a 404. The defects are
+//  pinned in SimulationDefectsTest.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -472,5 +473,88 @@ class SimulationsTest extends FeatureTestCase
             ->assertSee('Finance clerk')
             ->assertSee('250')
             ->assertSee("en/simulation/progress/$publicId", false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSimulationOfAnotherLanguageIsNotFound
+    // -----------------------------------------------------------
+    //
+    // A Lithuanian simulation opened under the English site is
+    // a 404.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationOfAnotherLanguageIsNotFound(): void
+    {
+        $lt = $this->world->language('lt');
+        $lithuanian = $this->world->scenario($lt, [], [$this->world->scenarioCategory($lt)]);
+
+        $this->signInMember($this->member)->get("/en/simulation/$lithuanian")->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRunNeverScoresAboveItsBestPath
+    // -----------------------------------------------------------
+    //
+    // Only a choice the current step offers is recorded:
+    // checking three times, choosing pay from the other branch
+    // on the way, then reporting ends the run with the 300
+    // points of its best path.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRunNeverScoresAboveItsBestPath(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        foreach ([$this->check, $this->check, $this->pay, $this->check, $this->report] as $option) {
+            $this->chooseSimulationOption($this->member, $publicId, $option);
+        }
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+
+        $this->assertEquals(300, DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('points'));
+        $this->assertSame(2, DB::table('bei_users_scenarios_options')->where('user_scenario_public_id', $publicId)->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFinishedRunMailsItsResultOnce
+    // -----------------------------------------------------------
+    //
+    // The visit that closes the run mails its result; a
+    // reload of the end page, or a visit from the history,
+    // mails nothing more.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedRunMailsItsResultOnce(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+
+        Mail::assertSent(SimulationsResults::class, 1);
     }
 }

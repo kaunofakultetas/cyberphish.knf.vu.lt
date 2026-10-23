@@ -7,13 +7,15 @@
 //  (KnowledgeTestController): POST knowledge_start draws
 //  the questions settings row 3 asks for — so many per
 //  learning-material category — into a new attempt, or
-//  resumes the open one; the progress page asks the
-//  unanswered questions one by one, and once all are
-//  answered it closes the attempt with the share of correct
-//  answers as its result. A result above 74 passes, earns
-//  badge_final_test with the first finished attempt, and
-//  unlocks the certificate (CertificateTest). The scoring
-//  defects are pinned in KnowledgeDefectsTest.
+//  resumes the open one, and draws none after three tries;
+//  the progress page asks the unanswered questions one by
+//  one, for the member's own attempt only, and once all are
+//  answered it closes the attempt for good, with the share
+//  of correct answers as its result. Each answer counts
+//  once, under its question's category. A result above 74
+//  passes, earns badge_final_test with the first finished
+//  attempt, and unlocks the certificate (CertificateTest).
+//  The scoring defects are pinned in KnowledgeDefectsTest.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -68,9 +70,7 @@ class KnowledgeExamTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // The category "Phishing basics", its three questions, the
-    // limits drawing all three, and a member; the next attempt
-    // ids are covered the way production's are
-    // (World::coverKnowledgeAttempts).
+    // limits drawing all three, and a member.
     //
     // Used by:
     //   - PHPUnit, before every test
@@ -85,7 +85,6 @@ class KnowledgeExamTest extends FeatureTestCase
             $this->questions[] = $this->world->knowledgeQuestion($this->category, [['Right', true], ['Wrong', false], ['Also wrong', false]]);
         }
         $this->world->knowledgeLimits([$this->en => [$this->category => 3]]);
-        $this->world->coverKnowledgeAttempts(3);
         $this->member = $this->world->member();
     }
 
@@ -399,6 +398,183 @@ class KnowledgeExamTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testFourthAttemptIsRefused
+    // -----------------------------------------------------------
+    //
+    // knowledge_test.blade.php hides the start form after three
+    // tries, and start refuses a fourth posted by hand too: the
+    // member goes back to the test page and no attempt is
+    // drawn.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFourthAttemptIsRefused(): void
+    {
+        for ($try = 0; $try < 3; $try++) {
+            $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 40]);
+        }
+
+        $this->signInMember($this->member)->post('/en/knowledge_start')->assertRedirect('/en/knowledge_test');
+
+        $this->assertSame(3, DB::table('bei_users_knowledge_test')->where('user_id', $this->member->id)->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUnknownAttemptIsNotFound
+    // -----------------------------------------------------------
+    //
+    // A public id no attempt has is a 404.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUnknownAttemptIsNotFound(): void
+    {
+        $this->signInMember($this->member)->get('/en/knowledge_test/progress/no-such-attempt')->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnotherMembersAttemptIsNotFound
+    // -----------------------------------------------------------
+    //
+    // The public id alone opens nothing: a second member who
+    // has it gets a 404 for the page and for an answer, and
+    // the attempt takes no answer row.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnotherMembersAttemptIsNotFound(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+        $stranger = $this->world->member();
+        $question = $this->questions[0];
+
+        $this->signInMember($stranger)->get("/en/knowledge_test/progress/$publicId")->assertNotFound();
+        $this->answerKnowledgeQuestion($stranger, $publicId, $question['question'], [$question['options'][0]])->assertNotFound();
+
+        $this->assertFalse(DB::table('bei_users_knowledge_options')->where('public_id', $publicId)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerIsFiledUnderItsQuestionsCategory
+    // -----------------------------------------------------------
+    //
+    // An answer is filed under its own question's category,
+    // whatever the attempt's id. The answer's category used to
+    // be looked up by the attempt's id, which broke answering
+    // once attempt ids passed the question ids; here the
+    // attempt gets an id no question has.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerIsFiledUnderItsQuestionsCategory(): void
+    {
+        // Moves the attempt counter past any id an existing
+        // question has
+        $other = $this->world->member();
+        do {
+            $this->world->knowledgeAttempt($other->id, $this->en);
+        } while (DB::table('bei_knowledge_test')->where('id', $this->world->nextId('bei_users_knowledge_test'))->exists());
+        $publicId = $this->startKnowledgeTest($this->member);
+        $question = $this->questions[0];
+
+        $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][0]])
+            ->assertRedirect("/en/knowledge_test/progress/$publicId");
+
+        $this->assertEquals(
+            $this->category,
+            DB::table('bei_users_knowledge_options')->where('public_id', $publicId)->value('cat_id')
+        );
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRepeatedOptionCountsOnce
+    // -----------------------------------------------------------
+    //
+    // A question takes one answer, from an option of its own:
+    // the correct option posted eight times for the first
+    // question and wrong answers for the other two score one
+    // of three, 33 — a fail.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRepeatedOptionCountsOnce(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+        $first = $this->questions[0];
+        $this->answerKnowledgeQuestion($this->member, $publicId, $first['question'], array_fill(0, 8, $first['options'][0]));
+        foreach (array_slice($this->questions, 1) as $question) {
+            $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][1]]);
+        }
+        $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
+
+        $this->assertEquals(33, $this->attemptRow($publicId)->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFinishedAttemptStaysClosed
+    // -----------------------------------------------------------
+    //
+    // A closed attempt keeps its end date — the date the
+    // certificate prints — and its result when its progress
+    // page is opened again.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedAttemptStaysClosed(): void
+    {
+        $publicId = $this->finishWith([0, 0, 0]);
+        DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->update(['ended' => '2020-01-01 00:00:00']);
+
+        $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
+
+        $row = $this->attemptRow($publicId);
+        $this->assertSame('2020-01-01 00:00:00', $row->ended, 'the visit moved the end date');
+        $this->assertEquals(100, $row->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // finishWith
     // -----------------------------------------------------------
     //
@@ -409,6 +585,7 @@ class KnowledgeExamTest extends FeatureTestCase
     //
     // Used by:
     //   - the result tests of this class
+    //   - testFinishedAttemptStaysClosed (above)
     // -----------------------------------------------------------
 
     private function finishWith(array $positions): string
@@ -436,8 +613,9 @@ class KnowledgeExamTest extends FeatureTestCase
     //   - testStartDrawsTheQuestionsTheSettingsAsk,
     //     testLimitDrawsOnlyThatMany,
     //     testAnswerMarksTheQuestionAndRecordsTheChoice,
-    //     testThreeRightAnswersPass, testTwoRightOfThreeFail
-    //     (above)
+    //     testThreeRightAnswersPass, testTwoRightOfThreeFail,
+    //     testRepeatedOptionCountsOnce,
+    //     testFinishedAttemptStaysClosed (above)
     // -----------------------------------------------------------
 
     private function attemptRow(string $publicId): \stdClass

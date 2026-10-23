@@ -4,16 +4,19 @@
 //  [*] en/auth — Laravel's sign-in messages, in English
 //
 //  Laravel's stock auth file: failed for credentials that
-//  match no account, throttle for too many attempts. Only
-//  failed ever shows, as the error of a failed sign-in to the
-//  panel — the member login answers with main.auth_failed
-//  instead, and throttle belongs to ThrottlesLogins, which
-//  neither login calls.
+//  match no account, throttle for too many attempts. failed
+//  shows as the error of a failed sign-in to the panel — the
+//  member login answers with main.auth_failed instead — and
+//  throttle once ThrottlesLogins locks either login: always
+//  on the panel, which runs in English whatever the
+//  session's language, and on the member login of an
+//  English session.
 //
 //  Used by:
 //    - AdminLoginController::login — the panel's sign-in
-//      error
-//    - AdminLoginTest (tests/Feature/Admin/) — expects it
+//      error and its lockout
+//    - LoginController::login — its lockout
+//    - AdminLoginTest (tests/Feature/Admin/) — expects failed
 // -----------------------------------------------------------
 
 

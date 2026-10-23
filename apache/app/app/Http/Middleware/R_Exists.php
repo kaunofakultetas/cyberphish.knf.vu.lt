@@ -99,15 +99,9 @@ class R_Exists
     // request through when it finds the row, 404 otherwise.
     // A kind outside the five falls through every branch and
     // returns no response at all; every route names one of
-    // the five.
-    //
-    // Known bug (low): sim_id checks only that the simulation
-    // exists, in any language (R_Exists.php:164);
-    // SimulationsController::simulation_start then looks it up
-    // in the page's language and fails on a simulation of
-    // another — a 500 where a 404 belongs (pinned as
-    // simulation-other-language). Fix: check the language
-    // here, or answer 404 there.
+    // the five. sim_id finds a simulation of any language;
+    // SimulationsController::simulation_start answers one of
+    // another language with its own 404.
     //
     // Used by:
     //   - Laravel's router, on the routes in the class banner

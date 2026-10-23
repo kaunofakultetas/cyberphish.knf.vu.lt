@@ -66,25 +66,17 @@ class SettingsController extends Controller
     // getUserIP
     // -----------------------------------------------------------
     //
-    // The visitor's address as the app records it: the
-    // Client-IP header when it holds a valid address, else
-    // X-Forwarded-For when it holds exactly one, else
-    // REMOTE_ADDR. A CF-Connecting-IP header beats them all —
-    // it is first copied over HTTP_CLIENT_IP and over
-    // REMOTE_ADDR itself, so it also changes what REMOTE_ADDR
-    // says for the rest of the request. It reads $_SERVER,
-    // not Laravel's request, which is why the tests set
-    // REMOTE_ADDR by hand.
-    //
-    // Known bug (low): CF-Connecting-IP and Client-IP are
-    // headers any client can send, and no Cloudflare stands in
-    // front of the site to overwrite them
-    // (SettingsController.php:99 and :109), so a client picks
-    // the address stored as its member's last_ip and the one
-    // BlockIpMiddleware checks — its block list is empty
-    // today; pinned as client-ip-header. Fix: record the
-    // address Apache resolved, REMOTE_ADDR, and ignore these
-    // headers.
+    // The visitor's address as the app records it:
+    // REMOTE_ADDR, the address Apache resolved. mod_remoteip
+    // takes it from X-Forwarded-For only when the request
+    // comes from a trusted proxy, the Caddy endpoint
+    // (000-default.conf). Headers a client sends itself —
+    // Client-IP, CF-Connecting-IP (no Cloudflare stands in
+    // front of the site), an X-Forwarded-For of its own — are
+    // never read, so no client picks the address stored as
+    // its member's last_ip or the one BlockIpMiddleware
+    // checks. It reads $_SERVER, not Laravel's request, which
+    // is why the tests set REMOTE_ADDR by hand.
     //
     // Used by:
     //   - BlockIpMiddleware::handle — every request
@@ -94,23 +86,7 @@ class SettingsController extends Controller
 
     public static function getUserIP()
     {
-        // Cloudflare's header, when present, overwrites the
-        // others — and REMOTE_ADDR for the whole request
-        if (isset($_SERVER["HTTP_CF_CONNECTING_IP"])) {
-            $_SERVER['REMOTE_ADDR'] = $_SERVER["HTTP_CF_CONNECTING_IP"];
-            $_SERVER['HTTP_CLIENT_IP'] = $_SERVER["HTTP_CF_CONNECTING_IP"];
-        }
-        $client  = @$_SERVER['HTTP_CLIENT_IP'];
-        $forward = @$_SERVER['HTTP_X_FORWARDED_FOR'];
-        $remote  = $_SERVER['REMOTE_ADDR'];
-
-        // A list of forwarded addresses is not a valid address,
-        // so X-Forwarded-For counts only when it holds one
-        if(filter_var($client, FILTER_VALIDATE_IP)) { $ip = $client; }
-        elseif(filter_var($forward, FILTER_VALIDATE_IP)) { $ip = $forward; }
-        else { $ip = $remote; }
-
-        return $ip;
+        return $_SERVER['REMOTE_ADDR'];
     }
 
 
@@ -132,7 +108,7 @@ class SettingsController extends Controller
     // simulation runs.
     //
     // Known bug (medium): str_shuffle draws from PHP's
-    // Mersenne Twister (SettingsController.php:157), which
+    // Mersenne Twister (SettingsController.php:133), which
     // is not a cryptographic generator: its output can be
     // predicted once its 32-bit seed is worked out, and tokens
     // of one's own can be enough for that — then the reset

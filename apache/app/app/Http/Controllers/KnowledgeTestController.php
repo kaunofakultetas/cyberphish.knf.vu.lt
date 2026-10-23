@@ -116,8 +116,8 @@ class KnowledgeTestController extends BaseController
     // the language has questions at all, the results of the
     // finished attempts and — once one passed — the full-name
     // form, with the certificate link once a name is stored.
-    // The page hides the start form after three tries; the
-    // server enforces nothing of the kind (see start).
+    // The page hides the start form after three tries, and
+    // start refuses a fourth.
     //
     // Used by:
     //   - parts/lm_left_sidebar.blade.php — the knowledge-test
@@ -173,17 +173,13 @@ class KnowledgeTestController extends BaseController
     // attempt draws, for each category the language's limits
     // in settings row 3 name, that many questions at random,
     // and is stored open with every question unanswered and a
-    // result of 0.
-    //
-    // Known bug (medium): nothing here counts the tries — the
-    // three-try limit lives only in knowledge_test.blade.php,
-    // so a start posted by hand draws a fourth attempt and
-    // more (KnowledgeTestController.php:204). Pinned as
-    // knowledge-attempt-limit. Fix: refuse a start once the
-    // member has three attempts in the language.
+    // result of 0. A member with three attempts in the
+    // language — the tries the page offers — is sent back to
+    // the test page, so a start posted by hand draws no
+    // fourth.
     //
     // Known bug (low): the language's limits are used
-    // unchecked (KnowledgeTestController.php:213), so a
+    // unchecked (KnowledgeTestController.php:216), so a
     // language missing from settings row 3 — its first
     // category added after the limits were last saved — or a
     // site without the row makes every start a 500. Fix:
@@ -197,9 +193,16 @@ class KnowledgeTestController extends BaseController
     public function start(Request $request, $lang)
     {
         // STEP 1: an attempt still open in the language is
-        // resumed — no second one is drawn while it lasts
-        // ================================================
+        // resumed — no second one is drawn while it lasts — and
+        // after three tries none is drawn at all
+        // =====================================================
         $unfinished = KnowledgeUserTest::where(['finished'=>0, 'user_id'=>Auth::guard('mem')->id(), 'lang_id'=>Langs::getLangId($lang)])->count();
+
+        $tries = KnowledgeUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'lang_id'=>Langs::getLangId($lang)])->count();
+
+        if($unfinished == 0 && $tries >= 3){
+            return redirect('/'.$lang.'/knowledge_test');
+        }
 
         if($unfinished == 0){
             // STEP 2: none open — a new public id, and for each
@@ -297,37 +300,23 @@ class KnowledgeTestController extends BaseController
     //
     // GET /{lang}/knowledge_test/progress/{public_id}
     //
-    // One step of an attempt, behind auth:mem. While a drawn
-    // question is unanswered the page shows the first one
-    // with its options in random order and the share answered
-    // so far; the question's id goes into the form as a
-    // double MD5 hash. Once none is left the attempt closes —
-    // finished, ended now, the result from calculate_results
-    // — and when it is the member's first finished attempt
-    // and passed (above 74), badge_final_test is awarded with
-    // a flash message. The page is knowledge_progress.blade.php
-    // either way.
-    //
-    // Known bug (low): the attempt is found by its public id
-    // alone (KnowledgeTestController.php:344). An unknown id
-    // runs a foreach over nothing, a 500 (pinned as
-    // knowledge-unknown-attempt); another member's id opens
-    // that member's questions (pinned as
-    // knowledge-attempt-owner). Fix: a 404 unless the attempt
-    // exists and is the member's.
-    //
-    // Known bug (medium): every visit to a finished attempt
-    // closes it again (KnowledgeTestController.php:384): ended
-    // moves to the latest visit — the date the certificate
-    // prints — and the result is recomputed from whatever
-    // answer rows the attempt has by then, rows progress_save
-    // still accepts after the close. Fix: close only an
-    // attempt that is still open.
-    // Pinned as knowledge-reclose.
+    // One step of an attempt, behind auth:mem; only the
+    // member's own attempt opens, any other public id is a
+    // 404. While a drawn question is unanswered the page shows
+    // the first one with its options in random order and the
+    // share answered so far; the question's id goes into the
+    // form as a double MD5 hash. Once none is left an open
+    // attempt closes — finished, ended now, the result from
+    // calculate_results — and when it is the member's first
+    // finished attempt and passed (above 74),
+    // badge_final_test is awarded with a flash message. A
+    // finished attempt keeps its end date, the date the
+    // certificate prints, and its result. The page is
+    // knowledge_progress.blade.php either way.
     //
     // Known bug (low): the badge check counts the member's
     // finished attempts in every language
-    // (KnowledgeTestController.php:388), so a pass on a later
+    // (KnowledgeTestController.php:391), so a pass on a later
     // try, or a first pass in a second language, never earns
     // badge_final_test. Fix: award it for any pass in the
     // language — save_badge already refuses a second copy.
@@ -341,8 +330,13 @@ class KnowledgeTestController extends BaseController
     public function progress(Request $request, $lang, $public_id)
     {
         $lang_id = Langs::getLangId($lang);
-        $id = KnowledgeUserTest::getPrivateId($public_id);
+        $attempt = KnowledgeUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->first();
 
+        if($attempt == null){
+            abort(404);
+        }
+
+        $id = $attempt->id;
         $qids = KnowledgeUserTest::getQIds($id);
 
         // The first question still at 0 is the one to ask —
@@ -370,6 +364,16 @@ class KnowledgeTestController extends BaseController
 
             $results = 0;
 
+        } elseif($finished == 1 && $attempt->finished == 1){
+
+            // Closed before: its end date and result stay
+            $progress = 100;
+            $results = $attempt->results;
+
+            $q_id = 0;
+            $question = '';
+            $options = [];
+
         } elseif($finished == 1){
 
             $progress = 100;
@@ -380,7 +384,6 @@ class KnowledgeTestController extends BaseController
             $question = '';
             $options = [];
 
-            // Runs again on every later visit (see the banner)
             KnowledgeUserTest::where(['id'=>$id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date('Y-m-d H:i:s'), 'results'=>$results]);
 
             // badge_final_test needs the first finished attempt,
@@ -427,35 +430,19 @@ class KnowledgeTestController extends BaseController
     // POST /{lang}/knowledge_test/progress/{public_id}
     //
     // Stores the answer to one question, behind auth:mem, and
-    // redirects back to the progress page for the next. The
-    // question arrives as the page's double MD5 hash (pbid),
-    // matched against every question; each option id posted
-    // in a[] becomes one answer row carrying the option's
-    // correct flag, and the question is marked answered in
-    // the question set — also when no option came, which
-    // leaves no row. Only the marking checks that the
-    // attempt is the member's.
-    //
-    // Known bug (high): every answer row's cat_id is looked up
-    // by the ATTEMPT's id (KnowledgeTestController.php:488),
-    // giving the category of whichever question shares the
-    // attempt's number. Production's attempt ids reach 664
-    // and its question ids run to 760, so answers save today
-    // under a wrong category that nothing reads; from attempt
-    // 761 on the insert fails on the NOT NULL column — a 500
-    // on every answer, the member stuck on the first
-    // question. Pinned as knowledge-category-lookup. Fix:
-    // look the category up by the question's id.
-    //
-    // Known bug (high): nothing ties the answer rows to the
-    // question (KnowledgeTestController.php:494): an option of
-    // any question counts with its own flag, an id posted many
-    // times counts each time, and a question already
-    // answered, one never drawn, or an attempt already closed
-    // takes more rows — counted on the next visit to
-    // progress. Pinned as knowledge-repeated-option. Fix: one
-    // option per open question of the attempt, and only an
-    // option of that question.
+    // redirects back to the progress page for the next; only
+    // the member's own attempt takes answers, any other public
+    // id is a 404. The question arrives as the page's double
+    // MD5 hash (pbid), matched against every question. While
+    // the attempt is open and the question one of its drawn,
+    // unanswered ones, the first option posted in a[] — the
+    // page's radio buttons send one — becomes an answer row
+    // with the option's correct flag and the category of the
+    // question, provided it is an option of that question; and
+    // the question is marked answered in the question set,
+    // also when no option came, which leaves no row. Anything
+    // else — a question already answered or never drawn, a
+    // closed attempt — stores nothing.
     //
     // Used by:
     //   - knowledge_progress.blade.php — the answer form, which
@@ -464,34 +451,46 @@ class KnowledgeTestController extends BaseController
 
     public function progress_save(Request $request, $lang, $public_id)
     {
-        // STEP 1: the attempt and the question answered, whose
-        // id the page sends as a double MD5 hash; $lang_id is
-        // left over and never read
-        // ====================================================
+        // STEP 1: the member's own attempt and the question
+        // answered, whose id the page sends as a double MD5
+        // hash; $lang_id is left over and never read
+        // =================================================
         $lang_id = Langs::getLangId($lang);
-        $id = KnowledgeUserTest::getPrivateId($public_id);
+        $attempt = KnowledgeUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->first();
+
+        if($attempt == null){
+            abort(404);
+        }
+
+        $id = $attempt->id;
+        $qids = KnowledgeUserTest::getQIds($id);
 
         $question_id = KnowledgeTest::getDecryptedId($request->get('pbid'));
 
         $a = $request->get('a');
 
+        // Only a drawn question still unanswered, in an attempt
+        // still open, takes an answer
+        $open = $attempt->finished == 0 && isset($qids[$question_id]) && $qids[$question_id] == 0;
 
-        // STEP 2: one answer row per option id posted, none
+
+        // STEP 2: one answer row, from the first option posted
+        // and only if it is an option of that question; none
         // when no option came
-        // =================================================
-        if(is_array($a) && count($a)>0){
-            foreach($a as $k => $v){
+        // ====================================================
+        if($open && is_array($a) && count($a)>0){
+
+            $option = KnowledgeOption::where(['id'=>reset($a), 'question_id'=>$question_id])->first();
+
+            if($option != null){
 
                 $addRecord = new KnowledgeUserOptions;
-                // The ATTEMPT's id, not the question's — pinned as
-                // knowledge-category-lookup
-                $addRecord->cat_id = KnowledgeTest::getCatId($id);
+                $addRecord->cat_id = KnowledgeTest::getCatId($question_id);
                 $addRecord->test_id = $id;
                 $addRecord->public_id = $public_id;
                 $addRecord->user_id = Auth::guard('mem')->id();
                 $addRecord->question_id = $question_id;
-                // Any option id is taken, of any question
-                $addRecord->correct = KnowledgeOption::select('correct')->where(['id'=>$v])->get()->pluck('correct')->first();
+                $addRecord->correct = $option->correct;
                 $addRecord->save();
 
             }
@@ -499,19 +498,20 @@ class KnowledgeTestController extends BaseController
 
 
         // STEP 3: mark the question answered in the question
-        // set; the update matches the member's own attempt only
-        // =====================================================
-        $qids = KnowledgeUserTest::getQIds($id);
-        foreach($qids as $k => $v){
-            if($k == $question_id){
-                $newqids[$k] = 1;
-            } else {
-                $newqids[$k] = $v;
+        // set
+        // ==================================================
+        if($open){
+            foreach($qids as $k => $v){
+                if($k == $question_id){
+                    $newqids[$k] = 1;
+                } else {
+                    $newqids[$k] = $v;
+                }
             }
-        }
 
-        // The 1 is JSON_HEX_TAG, harmless for a map of numbers
-        KnowledgeUserTest::where(['id'=>$id, 'user_id'=>Auth::guard('mem')->id()])->update(['question_set'=>json_encode($newqids,1)]);
+            // The 1 is JSON_HEX_TAG, harmless for a map of numbers
+            KnowledgeUserTest::where(['id'=>$id, 'user_id'=>Auth::guard('mem')->id()])->update(['question_set'=>json_encode($newqids,1)]);
+        }
 
 
         // STEP 4: back to the progress page for the next

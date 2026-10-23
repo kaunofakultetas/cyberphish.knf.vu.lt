@@ -13,7 +13,8 @@
 //  could answer to, and behind an .htaccess that tries to
 //  switch PHP back on — and make sure none of them runs.
 //  The upload folder is the symlink public/upload ->
-//  storage/app/public, a tmpfs in the test container.
+//  storage/app/public, a tmpfs in the test container. No
+//  response names the version of PHP or of Apache either.
 //
 //  Used by:
 //    - PHPUnit — the Apache suite (runTests.sh)
@@ -284,6 +285,57 @@ class ProtectionTest extends ApacheTestCase
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('application/pdf', $response->getHeaderLine('Content-Type'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResponsesDoNotNamePhp
+    // -----------------------------------------------------------
+    //
+    // No X-Powered-By header: the Dockerfile turns off
+    // expose_php, which php.ini-production leaves on, and the
+    // endpoint's Caddyfile would pass the header on.
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResponsesDoNotNamePhp(): void
+    {
+        $response = $this->http->get('/');
+
+        $this->assertFalse($response->hasHeader('X-Powered-By'), 'X-Powered-By: ' . $response->getHeaderLine('X-Powered-By'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResponsesDoNotNameApachesVersion
+    // -----------------------------------------------------------
+    //
+    // The Server header names no version, and the pages Apache
+    // writes itself — the 403 of a hidden file — carry no
+    // signature: 000-default.conf overrides the ServerTokens
+    // OS and ServerSignature On of Debian's security.conf.
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResponsesDoNotNameApachesVersion(): void
+    {
+        $server = $this->http->get('/')->getHeaderLine('Server');
+        $refusal = (string) $this->http->get('/.htaccess')->getBody();
+
+        $this->assertDoesNotMatchRegularExpression('/\d/', $server, "Server: $server");
+        $this->assertStringNotContainsString('Apache/2', $refusal, 'Apache signs its error page');
     }
 
 

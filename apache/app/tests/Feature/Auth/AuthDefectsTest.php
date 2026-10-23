@@ -9,30 +9,15 @@
 //  until a fix makes one pass — then the test fails as the
 //  cue to remove its pin and move it into its home file.
 //
-//    verify-blank-token       — /verify/%20 switches every
-//                               deactivated account back on
-//    login-throttle           — the member login takes any
-//                               number of password guesses
-//    country-out-of-range     — a country id above 5 breaks
-//                               every page of that member
-//    password-trim            — a password with a blank at
-//                               either end never matches its
-//                               repeat
-//    password-flash           — a failed sign-up keeps the
-//                               repeated password in the
-//                               session
-//    reset-link-logout        — signing out kills a pending
-//                               reset link
-//    login-error-lost         — a failed login that a member
-//                               page led to loses its error
-//    login-badge-message      — the login that earns the
-//                               ten-days badge never says so
-//    register-while-signed-in — a signed-in member can still
-//                               open and post the sign-up
-//                               form
-//    captcha-message          — a failed reCAPTCHA shows a
-//                               raw key, an unticked one the
-//                               field's raw name
+//    reset-link-logout   — signing out kills a pending reset
+//                          link
+//    login-error-lost    — a failed login that a member page
+//                          led to loses its error
+//    login-badge-message — the login that earns the ten-days
+//                          badge never says so
+//    captcha-message     — a failed reCAPTCHA shows a raw key,
+//                          an unticked one the field's raw
+//                          name
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -41,7 +26,6 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\Members;
 use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
@@ -65,173 +49,6 @@ use Tests\Support\World;
 
 class AuthDefectsTest extends FeatureTestCase
 {
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testBlankVerificationLinkLeavesDeactivatedAccountsAlone
-    // -----------------------------------------------------------
-    //
-    // An account an admin switched off (status 0) after it was
-    // verified has an empty verify token. RegisterController::
-    // verify looks members up by the token from the URL with
-    // no "exactly one" guard, and MySQL ignores trailing
-    // spaces, so /verify/%20 matches every empty token and
-    // sets every such account back to status 1. Wanted: the
-    // account stays off.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testBlankVerificationLinkLeavesDeactivatedAccountsAlone(): void
-    {
-        $deactivated = $this->world->member(['status' => 0]);
-
-        $this->pinDefect('verify-blank-token', function () use ($deactivated) {
-            $this->get('/verify/%20');
-            $this->assertSame(0, Members::find($deactivated->id)->status, 'the deactivated account is active again');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testRepeatedWrongPasswordsLockTheLoginForAWhile
-    // -----------------------------------------------------------
-    //
-    // LoginController::login replaces Laravel's login without
-    // calling ThrottlesLogins, and the form has no reCAPTCHA,
-    // so password guessing is unlimited. Wanted: after ten
-    // wrong passwords even the right one is refused for a
-    // while.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testRepeatedWrongPasswordsLockTheLoginForAWhile(): void
-    {
-        $member = $this->world->member();
-
-        $this->pinDefect('login-throttle', function () use ($member) {
-            for ($guess = 1; $guess <= 10; $guess++) {
-                $this->from('/login')->post('/login', ['email' => $member->email, 'password' => 'Wrong-Guess-' . $guess]);
-            }
-            $this->from('/login')->post('/login', ['email' => $member->email, 'password' => World::PASSWORD]);
-            $this->assertGuest('mem');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testMemberOfAnyCountryCanOpenTheDashboard
-    // -----------------------------------------------------------
-    //
-    // Registration accepts any integer as the country, but
-    // LMController::pc_questionare_link knows countries 0 to 5
-    // only, and BaseController calls it on every page of a
-    // signed-in member — an undefined index, a 500 on every
-    // page. Wanted: the dashboard opens.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testMemberOfAnyCountryCanOpenTheDashboard(): void
-    {
-        $member = $this->world->member(['country' => 9]);
-
-        $this->pinDefect('country-out-of-range', function () use ($member) {
-            $this->signInMember($member)->get('/cp/dashboard')->assertOk();
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testPasswordWithBlankEdgesRegisters
-    // -----------------------------------------------------------
-    //
-    // TrimStrings leaves only Laravel's own password fields
-    // untrimmed — password and password_confirmation — so the
-    // sign-up form's password2 loses the blanks at its ends
-    // while password keeps them: a password that starts or
-    // ends with a blank never matches its repeat, and the
-    // form refuses it. The same list trims the new password
-    // of both change-password forms and the manager form,
-    // which then save it without the blank, and the login
-    // refuses it. Wanted: the account is created.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testPasswordWithBlankEdgesRegisters(): void
-    {
-        $this->solveCaptcha();
-
-        $this->from('/register')->post('/register', [
-            'email'                => 'blank-edges@example.test',
-            'password'             => ' Blank-Edged-Pass-9 ',
-            'password2'            => ' Blank-Edged-Pass-9 ',
-            'country'              => 1,
-            'g-recaptcha-response' => 'solved',
-        ]);
-
-        $this->pinDefect('password-trim', function () {
-            $this->assertTrue(Members::where('email', 'blank-edges@example.test')->exists(), 'the matching passwords were refused');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testFailedSignUpKeepsNoPasswordInTheSession
-    // -----------------------------------------------------------
-    //
-    // A failed validation sends the form back with its input
-    // flashed into the session, minus the fields the
-    // exception handler's dontFlash names — Laravel's
-    // password and password_confirmation only. The sign-up
-    // form's password2, and the manager form's pass and
-    // repass, sit in the session store as typed until the
-    // next request takes them out. Wanted: no password of the
-    // form in the session.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testFailedSignUpKeepsNoPasswordInTheSession(): void
-    {
-        $this->from('/register')->post('/register', [
-            'email'     => 'not-an-address',
-            'password'  => World::PASSWORD,
-            'password2' => World::PASSWORD,
-            'country'   => 1,
-        ])->assertSessionHasErrors('email');
-
-        $this->pinDefect('password-flash', function () {
-            $this->assertArrayNotHasKey('password2', session()->getOldInput(), 'password2 was flashed');
-        });
-    }
 
 
 
@@ -334,54 +151,6 @@ class AuthDefectsTest extends FeatureTestCase
 
         $this->pinDefect('login-badge-message', function () use ($dashboard) {
             $dashboard->assertSee(__('main.new_badge'), false);
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testSignedInMemberIsSentAwayFromTheRegistrationForm
-    // -----------------------------------------------------------
-    //
-    // RegisterController::__construct puts a bare guest on
-    // every action, and RedirectIfAuthenticated::handle
-    // redirects only when the alias names a guard — man or
-    // mem — so with none it lets the request through: a
-    // signed-in member is still shown the sign-up form, and
-    // posting it creates another account and mails its
-    // verification link. The login form, behind guest:mem,
-    // sends the same member to the home page. Wanted: the
-    // form and its POST send the member to the home page, and
-    // no account is created.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testSignedInMemberIsSentAwayFromTheRegistrationForm(): void
-    {
-        $this->signInMember($this->world->member());
-        $form = $this->get('/register');
-
-        // The page asks the captcha service for its widget,
-        // which the mock cannot answer — so the mock comes
-        // after the page
-        $this->solveCaptcha();
-        $signUp = $this->from('/register')->post('/register', [
-            'email'                => 'second-account@example.test',
-            'password'             => World::PASSWORD,
-            'password2'            => World::PASSWORD,
-            'country'              => 1,
-            'g-recaptcha-response' => 'solved',
-        ]);
-
-        $this->pinDefect('register-while-signed-in', function () use ($form, $signUp) {
-            $form->assertRedirect('/');
-            $signUp->assertRedirect('/');
-            $this->assertFalse(Members::where('email', 'second-account@example.test')->exists(), 'a signed-in member opened another account');
         });
     }
 

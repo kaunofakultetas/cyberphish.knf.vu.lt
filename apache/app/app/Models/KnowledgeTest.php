@@ -129,18 +129,8 @@ class KnowledgeTest extends Model
     // getCatId
     // -----------------------------------------------------------
     //
-    // The category of the QUESTION with that id, or null
+    // The category of the question with that id, or null
     // when there is no such question.
-    //
-    // Known bug (high): KnowledgeTestController::progress_save
-    // calls it with the ATTEMPT's id, not the question's. An
-    // answer is filed under the category of whichever
-    // question shares the attempt's number, and when no
-    // question does — certain once the attempt ids pass the
-    // highest question id — the insert fails on the NOT NULL
-    // cat_id and the knowledge test breaks for every member
-    // (pinned as knowledge-category-lookup). This method is
-    // right as it is. Fix: pass the question's id there.
     //
     // Used by:
     //   - KnowledgeTestController::progress_save — the cat_id

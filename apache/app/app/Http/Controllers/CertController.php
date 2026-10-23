@@ -87,8 +87,8 @@ class CertController extends BaseController
     // test above 74 in the language and a full name, or the
     // answer is a 404. The date is the end of a passed
     // attempt — the query sets no order, so in practice the
-    // first one stored — and it moves whenever that attempt's
-    // result page is opened again (see
+    // first one stored — which stays put however often the
+    // attempt's result page is opened again (see
     // KnowledgeTestController::progress). It is written with
     // English month names whatever the language. The name has
     // room for about 43 characters; a longer one would wrap

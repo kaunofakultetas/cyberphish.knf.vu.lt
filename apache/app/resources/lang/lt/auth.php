@@ -5,13 +5,14 @@
 //
 //  Laravel's stock auth file, translated into Lithuanian:
 //  failed for credentials that match no account, throttle for
-//  too many attempts. Neither ever shows: the one reader of
-//  failed, the panel's sign-in, runs in English whatever the
-//  session's language, and throttle belongs to
-//  ThrottlesLogins, which neither login calls.
+//  too many attempts. failed never shows — its one reader,
+//  the panel's sign-in, runs in English whatever the
+//  session's language — but throttle does, once
+//  ThrottlesLogins locks the member login of a Lithuanian
+//  session.
 //
 //  Used by:
-//    - nothing at the moment — the panel reads en/auth.php
+//    - LoginController::login — its lockout
 // -----------------------------------------------------------
 
 

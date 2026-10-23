@@ -222,15 +222,7 @@ Route::get('admin-panel/lm/files/delete/{uid}', 'Admin\LMController@files_delete
 // A category's self-evaluation questions: the list, the
 // import dialog and the import, and deleting, editing and
 // saving one.
-//
-// Known bug (low): Admin\SelfevalController has no form
-// method, so the question_{type} route (web_admin.php:233)
-// answers a main admin with a 500; nothing links to it.
-// Fix: remove the route.
-// Pinned as selfeval-form-route.
 Route::get('admin-panel/lm/self_eval/{uid}', 'Admin\SelfevalController@index')->middleware(['auth.admin:man', 'perms']);
-
-Route::get('admin-panel/lm/self_eval/question_{type}/{uid}', 'Admin\SelfevalController@form')->middleware(['auth.admin:man', 'perms']);
 
 Route::get('admin-panel/dialog/lm/self_eval/import/{uid}', 'Admin\SelfevalController@import_question_dialog')->middleware(['auth.admin:man', 'perms']);
 

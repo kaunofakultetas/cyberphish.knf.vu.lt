@@ -7,11 +7,15 @@
 //  form creates an unverified member — status 0, a
 //  generated User<number> name, a 50-character verify token
 //  — and mails the verification link; a mismatched
-//  password, an email already in use, an incomplete form or
-//  an unsolved reCAPTCHA creates nothing and mails nothing.
-//  The verification link is built from APP_URL, so a forged
+//  password, an email already in use, an incomplete form —
+//  a country outside the form's 0 to 5 among them — or an
+//  unsolved reCAPTCHA creates nothing and mails nothing.
+//  Both password fields keep the blanks at their ends, and a
+//  form sent back keeps neither in the session. The
+//  verification link is built from APP_URL, so a forged
 //  Host or X-Forwarded-Host header cannot point it anywhere
-//  else.
+//  else. The form is for visitors only: a signed-in member
+//  is sent to the home page.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -293,8 +297,8 @@ class RegistrationTest extends FeatureTestCase
     //
     // The fields to break and the field the error lands on:
     // the email, the password (12 to 50 characters), its
-    // repetition, the country (a number) and the reCAPTCHA
-    // token.
+    // repetition, the country (one of the form's ids, 0 to 5)
+    // and the reCAPTCHA token.
     //
     // Used by:
     //   - testIncompleteFormIsRefused (above)
@@ -309,6 +313,7 @@ class RegistrationTest extends FeatureTestCase
             'password too long'    => [['password' => str_repeat('a', 51), 'password2' => str_repeat('a', 51)], 'password'],
             'no repeated password' => [['password2' => ''], 'password2'],
             'country not a number' => [['country' => 'Lithuania'], 'country'],
+            'country out of range' => [['country' => 9], 'country'],
             'no reCAPTCHA token'   => [['g-recaptcha-response' => ''], 'g-recaptcha-response'],
         ];
     }
@@ -334,6 +339,94 @@ class RegistrationTest extends FeatureTestCase
         $this->solveCaptcha(false);
         $this->from('/register')->post('/register', $this->form())
             ->assertSessionHasErrors('g-recaptcha-response');
+
+        $this->assertFalse(Members::where('email', self::EMAIL)->exists());
+        Mail::assertNothingSent();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordWithBlankEdgesRegisters
+    // -----------------------------------------------------------
+    //
+    // Neither password field is trimmed, so a password that
+    // starts and ends with a blank matches its repeat, and the
+    // hash stored checks against it as typed — the way the
+    // login, which never trims a password, compares it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordWithBlankEdgesRegisters(): void
+    {
+        $this->solveCaptcha();
+        $this->from('/register')->post('/register', $this->form(['password' => ' Blank-Edged-Pass-9 ', 'password2' => ' Blank-Edged-Pass-9 ']))
+            ->assertSessionHas('success', __('main.user_registered'));
+
+        $this->assertTrue(Hash::check(' Blank-Edged-Pass-9 ', Members::where('email', self::EMAIL)->value('password')));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFailedSignUpKeepsNoPasswordInTheSession
+    // -----------------------------------------------------------
+    //
+    // A form its validation sends back flashes its input into
+    // the session for the next page, minus every password
+    // field — the repeat as well as the password.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFailedSignUpKeepsNoPasswordInTheSession(): void
+    {
+        $this->solveCaptcha();
+        $this->from('/register')->post('/register', $this->form(['email' => 'not-an-address']))
+            ->assertSessionHasErrors('email');
+
+        $old = session()->getOldInput();
+        $this->assertSame('not-an-address', $old['email']);
+        $this->assertArrayNotHasKey('password', $old);
+        $this->assertArrayNotHasKey('password2', $old);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSignedInMemberIsSentAwayFromTheRegistrationForm
+    // -----------------------------------------------------------
+    //
+    // The form is for visitors only (guest:mem): a signed-in
+    // member who opens it or posts it is sent to the home
+    // page, and no second account is created.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSignedInMemberIsSentAwayFromTheRegistrationForm(): void
+    {
+        $this->signInMember($this->world->member());
+        $this->get('/register')->assertRedirect('/');
+
+        // The mock comes after the page: were the form shown,
+        // it would ask the captcha service for its widget,
+        // which the mock cannot answer
+        $this->solveCaptcha();
+        $this->from('/register')->post('/register', $this->form())->assertRedirect('/');
 
         $this->assertFalse(Members::where('email', self::EMAIL)->exists());
         Mail::assertNothingSent();

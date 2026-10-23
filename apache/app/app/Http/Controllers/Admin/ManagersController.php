@@ -256,22 +256,17 @@ class ManagersController extends BaseController
     //
     // Gives the manager named by uid a new address, one no
     // other manager has, and a new password typed twice; both
-    // are required on every save. Answers a redirect back
-    // with the result.
+    // are required on every save. Like manager_status and
+    // manager_delete it passes over main admins, which the
+    // page never lists: a post with a main admin's id changes
+    // nothing. Answers a redirect back with the result.
     //
     // Known bug (low): the dialog asks for the country again,
     // but only the address and the password are saved
-    // (ManagersController.php:294), so a manager's country
+    // (ManagersController.php:289), so a manager's country
     // cannot change once it is created. Fix: save the country
     // too, or drop the field from the edit dialog.
     // Pinned as manager-country-update.
-    //
-    // Known bug (low): unlike manager_status and
-    // manager_delete, the update does not pass over main
-    // admins (ManagersController.php:294): a post with a main
-    // admin's id rewrites that admin's address and password.
-    // Fix: the same main-is-not-1 condition.
-    // Pinned as manager-update-main.
     //
     // Used by:
     //   - admin-panel/dialog/managers_form.blade.php — the
@@ -291,7 +286,7 @@ class ManagersController extends BaseController
 
             if(Managers::where(['email'=>$validatedData['email']])->where('id','!=', $validatedData['uid'])->count() == 0){
 
-                Managers::where(['id' => $validatedData['uid']])->update([
+                Managers::where(['id' => $validatedData['uid']])->where('main', '!=', '1')->update([
                     'email'=>$validatedData['email'],
                     'password'=>Hash::make($validatedData['pass'])
                 ]);
@@ -329,7 +324,7 @@ class ManagersController extends BaseController
     // a redirect back to the managers page.
     //
     // Known bug (medium): a delete on a plain GET
-    // (ManagersController.php:346), which the CSRF check never
+    // (ManagersController.php:341), which the CSRF check never
     // covers, so a link a signed-in admin opens deletes a
     // manager (pinned as admin-get-deletes, for every delete
     // of the panel). Fix: a POST route, sent with the CSRF

@@ -9,10 +9,9 @@
 //  (JSON in val1), row 2 the number of questions a
 //  self-evaluation draws (val3), row 3 how many questions
 //  the knowledge test draws per language and category
-//  (JSON in val1). The saves UPDATE rows they never create,
-//  and mysql/init.sql seeds row 2 only (pinned as
-//  seed-settings-rows). The page also offers every
-//  simulation on one printable page. Every route sits
+//  (JSON in val1). The saves UPDATE rows they never create;
+//  mysql/init.sql seeds all three. The page also offers
+//  every simulation on one printable page. Every route sits
 //  behind auth.admin:man and perms: main admins only.
 //
 //  Used by:
@@ -182,15 +181,9 @@ class SiteSettingsController extends BaseController
     //
     // Stores the home page's about text and link of every
     // language, as JSON keyed by language id, in val1 of
-    // settings row 1. Answers a redirect to the page's Main
-    // page tab.
-    //
-    // Known bug (medium): the save is an UPDATE of row 1
-    // (SiteSettingsController.php:205), a row mysql/init.sql
-    // never creates — on a fresh install nothing is saved,
-    // and the page still says it was (pinned as
-    // seed-settings-rows). Fix: insert the row when it is
-    // missing, or seed rows 1 and 3.
+    // settings row 1 — an UPDATE, so the row must exist, as
+    // mysql/init.sql makes sure. Answers a redirect to the
+    // page's Main page tab.
     //
     // Used by:
     //   - admin-panel/settings_other.blade.php — the form of
@@ -220,16 +213,10 @@ class SiteSettingsController extends BaseController
     //
     // Stores how many questions the knowledge test draws from
     // each category of each language, as JSON keyed by
-    // language id and category id, in val1 of settings row 3.
-    // Answers a redirect to the page's Knowledge Test tab.
-    //
-    // Known bug (medium): the save is an UPDATE of row 3
-    // (SiteSettingsController.php:244), a row mysql/init.sql
-    // never creates — on a fresh install nothing is saved and
-    // the knowledge test cannot start without its limits,
-    // while the page says the save worked (pinned as
-    // seed-settings-rows). Fix: insert the row when it is
-    // missing, or seed rows 1 and 3.
+    // language id and category id, in val1 of settings row 3
+    // — an UPDATE, so the row must exist, as mysql/init.sql
+    // makes sure. Answers a redirect to the page's Knowledge
+    // Test tab.
     //
     // Used by:
     //   - admin-panel/settings_other.blade.php — the form of
@@ -266,7 +253,7 @@ class SiteSettingsController extends BaseController
     //
     // Known bug (low): the categories and the attributes are
     // kept once per language and overwritten for every
-    // scenario (SiteSettingsController.php:295-296), and the
+    // scenario (SiteSettingsController.php:282-283), and the
     // view prints that one list under every scenario: each
     // scenario of a language shows the categories and
     // attributes of the language's last one. Fix: store them

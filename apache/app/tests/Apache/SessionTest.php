@@ -10,6 +10,8 @@
 //  changes at sign-in so a planted id is worthless, and
 //  signing out ends the session. The cookie is Secure as
 //  well, since Laravel 13 marks it so on HTTPS requests.
+//  The address recorded for the member is the one Apache
+//  saw, whatever header the client sends.
 //
 //  Used by:
 //    - PHPUnit — the Apache suite (runTests.sh)
@@ -18,8 +20,10 @@
 
 namespace Tests\Apache;
 
+use App\Models\Members;
 use Illuminate\Cookie\CookieValuePrefix;
 use Illuminate\Support\Facades\Crypt;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\ApacheTestCase;
 use Tests\Support\World;
 
@@ -42,6 +46,10 @@ use Tests\Support\World;
 
 class SessionTest extends ApacheTestCase
 {
+
+    // The address a client claims to have — one from the
+    // range RFC 5737 keeps for documentation
+    private const CLAIMED_IP = '203.0.113.9';
 
 
 
@@ -235,6 +243,59 @@ class SessionTest extends ApacheTestCase
 
         $this->assertNotNull($cookie, 'the login page set no session cookie');
         $this->assertTrue($cookie->getSecure(), 'the session cookie is not Secure');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRecordedAddressIsTheOneApacheSaw
+    // -----------------------------------------------------------
+    //
+    // A sign-in that carries a header claiming another
+    // address still records the one Apache saw — 127.0.0.1 in
+    // the test container — as the member's last_ip
+    // (SettingsController::getUserIP).
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    #[DataProvider('addressHeaders')]
+    public function testRecordedAddressIsTheOneApacheSaw(string $header): void
+    {
+        $member = $this->world->member();
+
+        $this->signInOverHttp($member, [$header => self::CLAIMED_IP]);
+
+        $this->assertSame('127.0.0.1', Members::find($member->id)->last_ip, "the $header header chose the address");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // addressHeaders
+    // -----------------------------------------------------------
+    //
+    // The two headers the app once took a client's word from:
+    // Client-IP and Cloudflare's CF-Connecting-IP, though no
+    // Cloudflare stands in front of the site.
+    //
+    // Used by:
+    //   - testRecordedAddressIsTheOneApacheSaw (above)
+    // -----------------------------------------------------------
+
+    public static function addressHeaders(): array
+    {
+        return [
+            'Client-IP'        => ['Client-IP'],
+            'CF-Connecting-IP' => ['CF-Connecting-IP'],
+        ];
     }
 
 

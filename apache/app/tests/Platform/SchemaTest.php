@@ -7,9 +7,8 @@
 //  the way the production stack's first start does. It
 //  must create every table the app uses, the two ranking
 //  views, the course-progress function, and the seed rows:
-//  English, the self-evaluation length, and the main admin.
-//  The admin's known password is pinned in
-//  PlatformDefectsTest.
+//  English, the three settings rows the settings page saves
+//  into, and the main admin — whose password nobody knows.
 //
 //  Used by:
 //    - PHPUnit — the Platform suite (runTests.sh)
@@ -19,6 +18,7 @@
 namespace Tests\Platform;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 
@@ -136,9 +136,10 @@ class SchemaTest extends TestCase
     // testSeedRowsArePresent
     // -----------------------------------------------------------
     //
-    // English is language 3, settings row 2 asks five
-    // questions a self-evaluation, and manager 1 is an active
-    // main admin.
+    // English is language 3; settings row 2 asks five
+    // questions a self-evaluation, and rows 1 and 3 wait,
+    // empty, for the about text and the knowledge-test limits;
+    // manager 1 is an active main admin.
     //
     // Used by:
     //   - PHPUnit — the Platform suite (runTests.sh)
@@ -148,10 +149,36 @@ class SchemaTest extends TestCase
     {
         $this->assertSame('en', DB::table('bei_lang')->where('id', 3)->value('locale'));
         $this->assertEquals(5, DB::table('bei_settings')->where('id', 2)->value('val3'));
+        $this->assertSame('home_about', DB::table('bei_settings')->where('id', 1)->value('name'));
+        $this->assertSame('knowledge_tests', DB::table('bei_settings')->where('id', 3)->value('name'));
 
         $admin = DB::table('bei_managers')->where('id', 1)->first();
         $this->assertSame('admin@knf.vu.lt', $admin->email);
         $this->assertEquals(1, $admin->main);
         $this->assertEquals(1, $admin->status);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSeededAdminHasNoKnownPassword
+    // -----------------------------------------------------------
+    //
+    // The main admin's hash is of a random password nobody
+    // kept, so a fresh deployment opens with no admin anyone
+    // can guess — not with "admin", as the seed once had it.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSeededAdminHasNoKnownPassword(): void
+    {
+        $hash = DB::table('bei_managers')->where('id', 1)->value('password');
+
+        $this->assertFalse(Hash::check('admin', $hash), 'the seeded admin\'s password is "admin"');
     }
 }

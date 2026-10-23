@@ -56,13 +56,6 @@ use Illuminate\Support\Facades\Validator;
 //   question_delete        — a question goes, options and
 //                            all
 //
-// Known bug (low): routes/web_admin.php also sends GET
-// /admin-panel/lm/self_eval/question_{type}/{uid} to a form
-// action this class does not have; nothing links to it,
-// and a main admin who opens it gets a 500. Fix: drop the
-// route.
-// Pinned as selfeval-form-route.
-//
 // Used by:
 //   - routes/web_admin.php — every action
 // -----------------------------------------------------------
@@ -217,14 +210,14 @@ class SelfevalController extends BaseController
     //
     // Known bug (medium): the first byte of a line is
     // compared with the Greek capital epsilon, two bytes in
-    // UTF-8 (SelfevalController.php:267), so a Greek
+    // UTF-8 (SelfevalController.php:260), so a Greek
     // question line never matches: its options land on an
     // earlier block's question, or the import fails as
     // above. Pinned as selfeval-greek-import. Fix: compare
     // the line's first character, taken with mb_substr.
     //
     // Known bug (low): an option's marker is taken out with
-    // str_replace (SelfevalController.php:313 and 328),
+    // str_replace (SelfevalController.php:306 and 321),
     // which drops every "=" or "~" of the line, not only the
     // first, so an address with a query string loses its
     // "=" signs. Fix: cut the first character only.
@@ -366,7 +359,7 @@ class SelfevalController extends BaseController
     // Main admins only (auth.admin:man, perms).
     //
     // Known bug (medium): a plain GET reaches the delete at
-    // SelfevalController.php:381, so a link a signed-in admin
+    // SelfevalController.php:374, so a link a signed-in admin
     // opens is enough. Pinned as admin-get-deletes. Fix: a
     // POST route behind the CSRF check.
     //
@@ -434,7 +427,7 @@ class SelfevalController extends BaseController
     // Main admins only (auth.admin:man, perms).
     //
     // Known bug (low): with no options posted nothing is
-    // saved (SelfevalController.php:458), not even the text,
+    // saved (SelfevalController.php:451), not even the text,
     // and the page still says "Updated!", so a question the
     // import left without options cannot be edited. Fix:
     // save the question before the options check.

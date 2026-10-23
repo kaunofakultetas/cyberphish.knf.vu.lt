@@ -74,8 +74,7 @@ return [
             // over-long value and stores a character the column
             // cannot hold as a question mark, with a warning
             // instead of an error — the silence behind the
-            // username-length and fullname-latin1 pins
-            // (tests/Feature/Account)
+            // fullname-latin1 pin (tests/Feature/Account)
             'strict' => false,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([

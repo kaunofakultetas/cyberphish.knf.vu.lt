@@ -44,7 +44,8 @@ use Illuminate\Support\Facades\Auth;
 //     action but logout
 //   - Auth\AdminLoginController — guest, guest:mem and
 //     guest:man, on every action but logout
-//   - Auth\RegisterController — a bare guest
+//   - Auth\RegisterController — guest, and guest:mem on
+//     every action but verify
 // -----------------------------------------------------------
 
 class RedirectIfAuthenticated
@@ -61,14 +62,8 @@ class RedirectIfAuthenticated
     //
     // Checks the guard the alias names: man with a manager
     // signed in goes to the admin dashboard, mem with a member
-    // signed in to the home page; everything else passes.
-    //
-    // Known bug (low): a bare guest names no guard and falls
-    // through to the request (RedirectIfAuthenticated.php:90),
-    // and RegisterController names none, so a signed-in
-    // member can still open the registration form and post
-    // it. Fix: guest:mem in RegisterController.
-    // Pinned as register-while-signed-in.
+    // signed in to the home page; everything else passes — a
+    // bare guest names no guard, so it never redirects.
     //
     // Used by:
     //   - Laravel's router, for the controllers in the class

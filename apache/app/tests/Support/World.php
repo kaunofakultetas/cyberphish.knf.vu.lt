@@ -47,8 +47,7 @@ use Illuminate\Support\Facades\Hash;
 //   news, information     — the public content
 //   lmCategory, lmContent, lmFile
 //                         — the learning material
-//   selfEvalQuestion, knowledgeQuestion, knowledgeLimits,
-//   coverKnowledgeAttempts
+//   selfEvalQuestion, knowledgeQuestion, knowledgeLimits
 //                         — the questions of both tests
 //   scenarioCategory, scenarioAttribute, scenario,
 //   scenarioOption        — the simulations
@@ -107,7 +106,6 @@ class World
     // Used by:
     //   - the Feature suite — Account/, Admin/, Auth/,
     //     Knowledge/, Learning/, Simulations/, Site/
-    //   - coverKnowledgeAttempts (below)
     // -----------------------------------------------------------
 
     public function language(string $locale): int
@@ -290,7 +288,6 @@ class World
     // Used by:
     //   - the Feature suite — Admin/, Knowledge/, Learning/,
     //     Site/
-    //   - coverKnowledgeAttempts (below)
     // -----------------------------------------------------------
 
     public function lmCategory(int $langId, array $columns = []): int
@@ -465,41 +462,6 @@ class World
     public function knowledgeLimits(array $limits): void
     {
         $this->setting(3, 'knowledge_test', json_encode($limits));
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // coverKnowledgeAttempts
-    // -----------------------------------------------------------
-    //
-    // KnowledgeTestController::progress_save looks up the
-    // category of an answer by the ATTEMPT's id in the
-    // questions table, so an answer only saves while some
-    // question has that id — true in production today, where
-    // the question ids run past the attempt ids, and pinned as
-    // knowledge-category-lookup. This keeps it true for the
-    // next count attempts: a spare question with each of
-    // their ids that no question has yet, in a Greek category
-    // no English knowledge test draws from.
-    //
-    // Used by:
-    //   - KnowledgeExamTest, KnowledgeDefectsTest
-    //     (Feature/Knowledge/)
-    // -----------------------------------------------------------
-
-    public function coverKnowledgeAttempts(int $count): void
-    {
-        $category = $this->lmCategory($this->language('gr'), ['name' => 'Spare questions']);
-        $next = $this->nextId('bei_users_knowledge_test');
-        for ($id = $next; $id < $next + $count; $id++) {
-            if (!DB::table('bei_knowledge_test')->where('id', $id)->exists()) {
-                $this->insert('bei_knowledge_test', ['id' => $id, 'cat_id' => $category, 'question' => 'Spare question ' . $id]);
-            }
-        }
     }
 
 
@@ -803,8 +765,7 @@ class World
     // included, since they use ids up too.
     //
     // Used by:
-    //   - coverKnowledgeAttempts (above)
-    //   - KnowledgeDefectsTest (Feature/Knowledge/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
     //   - AdminDefectsTest (Feature/Admin/)
     // -----------------------------------------------------------
 

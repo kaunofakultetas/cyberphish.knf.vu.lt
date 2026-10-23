@@ -74,37 +74,30 @@ class FinishedSe
     // a 404. Then counts the distinct questions answered in
     // the attempt against the self-evaluation length (val3 of
     // bei_settings row 2). Fewer, and the request goes on to
-    // the page or the save. As many, and the attempt is
+    // the page or the save. As many, and an open attempt is
     // closed — finished set, ended stamped, the points of
     // calucate_points stored — and the member is redirected
     // to the results page; when it is the member's only
     // attempt in the session's language, the
     // badge_self_evaluation_test badge is saved and the
-    // redirect carries the new-badge message. The answer to
-    // the last question passes here before the controller
-    // saves it: the controller's redirect back to the test
-    // page is what closes the attempt.
-    //
-    // Known bug (low): the close never looks at finished
-    // (FinishedSe.php:129), so every later visit to the test
-    // page closes the attempt again — ended moves forward on
-    // the results page and both histories, and the points are
-    // recomputed. Fix: close only an attempt whose finished
-    // is 0.
-    // Pinned as selfeval-reclose.
+    // redirect carries the new-badge message. An attempt
+    // closed before keeps its end date and points and only
+    // leads to its results. The answer to the last question
+    // passes here before the controller saves it: the
+    // controller's redirect back to the test page is what
+    // closes the attempt.
     //
     // Known bug (low): the badge needs the member to have
     // exactly one attempt in the language, finished or not
-    // (FinishedSe.php:133), and every visit to the start page
+    // (FinishedSe.php:131), and every visit to the start page
     // opens one — a member who left an attempt unfinished
-    // never gets the badge, while one with a single attempt
-    // sees the new-badge message again on every revisit. Fix:
-    // save the badge on every close and flash the message
-    // only when save_badge reports a new one.
+    // never gets the badge. Fix: save the badge on every close
+    // and flash the message only when save_badge reports a
+    // new one.
     // Pinned as selfeval-badge-count.
     //
     // Known bug (low): the new-badge message is translated
-    // here (FinishedSe.php:139), before BaseController sets
+    // here (FinishedSe.php:137), before BaseController sets
     // the request's site language, so it always reads in
     // English. Fix: set the locale before translating it.
     // Pinned as selfeval-badge-locale.
@@ -127,6 +120,11 @@ class FinishedSe
             $answered = SelfEvalUser::select("question_id")->where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id])->groupby('question_id')->get()->toArray();
 
             if($total_questions == count($answered)){
+
+                // Closed before: its end date and points stay
+                if(SelfEvalUserTest::select('finished')->where(['id'=>$test_id])->get()->pluck('finished')->first() == 1){
+                    return redirect('/cp/se_r/'.$public_id);
+                }
 
                 SelfEvalUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date("Y-m-d H:i:s"), 'points'=>$this->calucate_points($public_id)]);
 
@@ -168,16 +166,9 @@ class FinishedSe
     // answered in the attempt is worth its best option's
     // points: every stored answer row of the question adds
     // that much when it is correct and takes it away when it
-    // is not. A negative total counts as 0.
-    //
-    // Known bug (medium): every stored row counts
-    // (FinishedSe.php:197), and LMController's
-    // self_eval_test_save stores every option id posted — any
-    // option, as often as it comes — so posting a correct
-    // option three times scores its question three times
-    // over, and the public ranking shows it; pinned as
-    // selfeval-foreign-options. Fix: score each question
-    // once, from its own options.
+    // is not — LMController::self_eval_test_save stores each
+    // chosen option of the question once. A negative total
+    // counts as 0.
     //
     // Used by:
     //   - handle (above) — when it closes an attempt

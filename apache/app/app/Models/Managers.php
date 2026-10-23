@@ -42,8 +42,9 @@ use Illuminate\Notifications\Notifiable;
 // main admin), remember_token, last_login and last_ip. The
 // admin login copies main and country into the session,
 // where the perms middleware checks main. mysql/init.sql
-// seeds the main admin as manager 1 with a well-known
-// password (pinned as seed-admin-password).
+// seeds the main admin as manager 1 with the hash of a
+// password nobody kept, so a fresh install sets one before
+// the first sign-in.
 //
 // Used by:
 //   - Auth\AdminLoginController::login — the last login and

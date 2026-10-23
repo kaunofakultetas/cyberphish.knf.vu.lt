@@ -6,9 +6,10 @@
 //  The routing half of the Apache setup: public/.htaccess
 //  sends every path that is not a file or a folder to
 //  index.php, Laravel answers unknown paths with its 404
-//  page, a trailing slash is redirected away, the static
-//  files of public/ are served by Apache itself with their
-//  types, and a folder is never listed.
+//  page, a trailing slash is redirected away — on https,
+//  the scheme the vhost's ServerName gives Apache — the
+//  static files of public/ are served by Apache itself with
+//  their types, and a folder is never listed.
 //
 //  Used by:
 //    - PHPUnit — the Apache suite (runTests.sh)
@@ -123,7 +124,9 @@ class FrontControllerTest extends ApacheTestCase
     //
     // .htaccess redirects a path ending in a slash — when it
     // is not a folder — to the same path without it,
-    // permanently.
+    // permanently. Apache writes the Location itself, and
+    // keeps it on https: TLS ends at the endpoint, and the
+    // vhost's ServerName names the scheme visitors use.
     //
     // Used by:
     //   - PHPUnit — the Apache suite (runTests.sh)
@@ -134,7 +137,7 @@ class FrontControllerTest extends ApacheTestCase
         $response = $this->http->get('/login/');
 
         $this->assertSame(301, $response->getStatusCode());
-        $this->assertStringEndsWith('cyberphish.knf.vu.lt/login', $response->getHeaderLine('Location'));
+        $this->assertSame('https://cyberphish.knf.vu.lt/login', $response->getHeaderLine('Location'));
     }
 
 

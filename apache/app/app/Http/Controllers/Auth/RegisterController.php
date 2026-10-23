@@ -75,11 +75,14 @@ class RegisterController extends BaseController
     // __construct
     // -----------------------------------------------------------
     //
-    // BaseController's middleware, then guest on every action.
-    // The bare guest checks nothing — RedirectIfAuthenticated
-    // acts only when it is given the man or the mem guard — so
-    // a signed-in member can open the sign-up form and the
-    // verification link too.
+    // BaseController's middleware, then the visitors-only
+    // checks. The bare guest checks nothing —
+    // RedirectIfAuthenticated acts only when it is given the
+    // man or the mem guard — so guest:mem does the work: it
+    // sends a signed-in member from the sign-up form and its
+    // POST to the home page. The verification link is left
+    // out, so a link opened while signed in still switches its
+    // account on.
     //
     // Used by:
     //   - Laravel's router, before any action of this
@@ -90,6 +93,7 @@ class RegisterController extends BaseController
     {
         parent::__construct();
         $this->middleware('guest');
+        $this->middleware('guest:mem')->except('verify');
     }
 
 
@@ -131,38 +135,22 @@ class RegisterController extends BaseController
     // POST /register
     //
     // Creates a member. The form needs an email of 4 to 254
-    // characters, the password twice (12 to 50 characters), a
-    // country id and a solved reCAPTCHA. A new address with
-    // matching passwords gets a 50-character verify token from
-    // random_string, mailed in a SendVerification mail before
-    // the row is written; the row holds the password's hash,
-    // a generated user name, the token and the country, and
-    // stays inactive (status defaults to 0) until the link is
+    // characters, the password twice (12 to 50 characters),
+    // one of the country ids the form offers, 0 to 5, and a
+    // solved reCAPTCHA — while Google cannot be reached the
+    // reCAPTCHA counts as unsolved (AppServiceProvider::boot),
+    // after the package's 30-second timeout when the
+    // connection hangs. A new address with matching passwords
+    // gets a 50-character verify token from random_string,
+    // mailed in a SendVerification mail before the row is
+    // written; the row holds the password's hash, a generated
+    // user name, the token and the country, and stays
+    // inactive (status defaults to 0) until the link is
     // opened. Mismatched passwords and an address already
     // registered go back with their message — so unlike
     // forgot-password, this form tells whether an address has
     // an account. The email compares without case (latin1's
     // case-insensitive collation).
-    //
-    // Known bug (low): the reCAPTCHA rule
-    // (RegisterController.php:178) has anhskohbo/no-captcha
-    // post the token to Google with no error handling, so
-    // while Google cannot be reached the connection error
-    // escapes and the form answers with the 500 page — after
-    // the package's 30-second timeout when the connection
-    // hangs. It fails closed, nobody is registered, but the
-    // visitor is told nothing; pinned as captcha-outage-500.
-    // Fix: catch the connection error and send the form back
-    // with a message.
-    //
-    // Known bug (medium): the country is checked only for
-    // being an integer (RegisterController.php:177), but
-    // LMController::pc_questionare_link knows countries 0 to 5
-    // only, and BaseController calls it on every page of a
-    // signed-in member — a member registered with any other
-    // number gets a 500 on every page; pinned as
-    // country-out-of-range. Fix: accept only the country ids
-    // the form offers, 0 to 5.
     //
     // Used by:
     //   - auth/register.blade.php — the sign-up form posts here
@@ -174,7 +162,7 @@ class RegisterController extends BaseController
             'email'   => 'required|email|min:4|max:254',
             'password'=> 'required|min:12|max:50',
             'password2'=>'required|min:12|max:50',
-            'country'=>'required|integer',
+            'country'=>'required|integer|between:0,5',
             'g-recaptcha-response' => 'required|captcha',
         ]);
 
@@ -218,27 +206,19 @@ class RegisterController extends BaseController
     //
     // GET /verify/{verify_token}
     //
-    // The link of the verification mail. Every member holding
-    // the token from the URL is switched on (status 1) and the
-    // token is emptied, then the login form greets them with
-    // user_verified — through intended(), so a visitor who
-    // opened a member page earlier is sent there instead,
-    // bounced back to the form, and misses the greeting. An
-    // unknown token changes nothing and ends on the login form
-    // as well. The branch for an empty token never runs: the
-    // route needs a non-empty segment.
-    //
-    // Known bug (medium): a token of spaces passes the check
-    // against the empty string (RegisterController.php:250),
-    // and MySQL ignores trailing spaces when it compares
-    // strings, so it matches every member whose token is
-    // already empty — every verified account, those an admin
-    // switched off included — and the update has no "exactly
-    // one" guard (RegisterController.php:257): a link whose
-    // token is one space switches every deactivated account
-    // back on; pinned as verify-blank-token. Fix: refuse a
-    // blank token and demand exactly one match, as
-    // ValidateReset does for the reset link.
+    // The link of the verification mail. The one member
+    // holding the token from the URL is switched on (status 1)
+    // and the token is emptied, then the login form greets
+    // them with user_verified — through intended(), so a
+    // visitor who opened a member page earlier is sent there
+    // instead, bounced back to the form, and misses the
+    // greeting. An unknown token changes nothing and ends on
+    // the login form as well, and so does a token of blanks:
+    // MySQL ignores trailing spaces when it compares strings,
+    // so it would match every emptied token — every verified
+    // account, those an admin switched off included. A token
+    // more than one member holds changes nothing either, the
+    // guard ValidateReset gives the reset link.
     //
     // Used by:
     //   - SendVerification — the link in the verification mail
@@ -247,11 +227,12 @@ class RegisterController extends BaseController
 
     public function verify(Request $request, $verify_token)
     {
-        if($verify_token <> ''){
+        if(trim($verify_token) <> ''){
 
-            if(Members::where(array('verify_token' => $verify_token))->count() == 0) {
-                // An unknown token: nothing to switch on, the
-                // redirect at the end answers it
+            if(Members::where(array('verify_token' => $verify_token))->count() <> 1) {
+                // An unknown token, or one of several members:
+                // nothing to switch on, the redirect at the end
+                // answers it
             } else {
 
                 Members::where(['verify_token' => $verify_token])->update(['status'=>1,'verify_token'=>'']);
@@ -311,7 +292,7 @@ class RegisterController extends BaseController
     //
     // Known bug (low): getUsername wants a single number, yet
     // for it this builds and shuffles a range of almost a
-    // million integers (RegisterController.php:325) — some tens
+    // million integers (RegisterController.php:306) — some tens
     // of megabytes and a full shuffle on every sign-up and
     // every retry. Not pinned. Fix: draw the number with
     // random_int.

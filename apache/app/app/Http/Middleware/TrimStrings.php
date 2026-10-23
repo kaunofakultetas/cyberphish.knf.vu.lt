@@ -28,19 +28,11 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings as Middleware;
 // TrimStrings
 // -----------------------------------------------------------
 //
-// Trims every input but password and password_confirmation,
-// so that a password keeps the blanks it was typed with.
-//
-// Known bug (low): the list holds Laravel's field names
-// (TrimStrings.php:53), but the app's forms also post
-// passwords as password2, newpass, renewpass, pass and
-// repass. Those are trimmed while password is not, so a
-// password with a blank at either end never matches its
-// repeat on the registration form, and one set on a
-// change-password form or the manager form is saved
-// without the blank and then refused at the login, where
-// password arrives as typed. Fix: add those names.
-// Pinned as password-trim.
+// Trims every input but the password fields, so that a
+// password keeps the blanks it was typed with — the same
+// in every form, or one with a blank at either end would
+// never match its repeat, or would be saved without the
+// blank and refused at the login.
 //
 // Used by:
 //   - Kernel::$middleware — the global stack, every request
@@ -49,9 +41,17 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings as Middleware;
 class TrimStrings extends Middleware
 {
 
-    // The inputs left as typed
+    // The inputs left as typed: Laravel's password fields and
+    // the app's — the sign-up form's repeat, the two
+    // change-password forms' new password and its repeat, the
+    // manager form's pair
     protected $except = [
         'password',
         'password_confirmation',
+        'password2',
+        'newpass',
+        'renewpass',
+        'pass',
+        'repass',
     ];
 }

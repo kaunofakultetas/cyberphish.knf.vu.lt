@@ -6,7 +6,10 @@
 //  The home page with its about text, the news list and
 //  articles, the information pages, the two public ranking
 //  tables and the language switch — the parts of the site a
-//  visitor sees without an account. The home page's
+//  visitor sees without an account. A ranking shows each
+//  member's badges once, in the order earned, and costs the
+//  same queries however many members it lists. The home
+//  page's
 //  latest-news section is switched off: welcome.blade.php
 //  keeps it inside a Blade comment, though HomeController
 //  still loads the three latest articles for it.
@@ -21,6 +24,7 @@
 
 namespace Tests\Feature\Site;
 
+use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
 
 
@@ -82,8 +86,8 @@ class PublicPagesTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // The home page renders with nothing but the seed rows of
-    // mysql/init.sql — no about text (settings row 1) and no
-    // news.
+    // mysql/init.sql — settings row 1 without an about text,
+    // and no news.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -342,6 +346,68 @@ class PublicPagesTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testRankingShowsEachBadgeOnceInTheOrderEarned
+    // -----------------------------------------------------------
+    //
+    // A badge stored twice shows once, and the badges beside a
+    // name come in the order the member first earned them.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRankingShowsEachBadgeOnceInTheOrderEarned(): void
+    {
+        $member = $this->world->member();
+        $this->world->selfEvalAttempt($member->id, $this->world->lmCategory($this->en), $this->en, ['points' => 10]);
+        foreach (['badge_login_10', 'badge_all_presentations', 'badge_login_10', 'badge_final_test'] as $badge) {
+            DB::table('bei_users_badges')->insert(['lang_id' => $this->en, 'user_id' => $member->id, 'name' => $badge]);
+        }
+
+        $page = $this->get('/en/ranks/self-evaluation')
+            ->assertOk()
+            ->assertSeeInOrder(['badges/badge_login_10.png', 'badges/badge_all_presentations.png', 'badges/badge_final_test.png'], false)
+            ->getContent();
+
+        // Each badge's picture is named twice: its link and its
+        // image
+        $this->assertSame(2, substr_count($page, 'badges/badge_login_10.png'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRankingQueriesDoNotGrowWithTheMembers
+    // -----------------------------------------------------------
+    //
+    // Both rankings read the badges of all their members in
+    // one query, so a page runs as many queries for four
+    // ranked members as for one.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRankingQueriesDoNotGrowWithTheMembers(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $scenario = $this->world->scenario($this->en);
+        $this->rankMembers(1, $category, $scenario);
+        $few = $this->rankingQueries();
+        $this->rankMembers(3, $category, $scenario);
+
+        $this->assertSame($few, $this->rankingQueries());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testLanguageSwitchStoresTheChoice
     // -----------------------------------------------------------
     //
@@ -421,5 +487,61 @@ class PublicPagesTest extends FeatureTestCase
     public function testUnknownLanguageInTheUrlFallsBackToTheSession(): void
     {
         $this->get('/xx/news')->assertOk()->assertSessionHas('lang', 'en');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // rankMembers
+    // -----------------------------------------------------------
+    //
+    // Adds that many members to both English rankings: each
+    // finishes one self-evaluation of the category and one run
+    // of the simulation.
+    //
+    // Used by:
+    //   - testRankingQueriesDoNotGrowWithTheMembers (above)
+    // -----------------------------------------------------------
+
+    private function rankMembers(int $count, int $category, int $scenario): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            $member = $this->world->member();
+            $this->world->selfEvalAttempt($member->id, $category, $this->en);
+            $this->world->scenarioAttempt($member->id, $scenario, $this->en);
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // rankingQueries
+    // -----------------------------------------------------------
+    //
+    // How many database queries each English ranking page runs
+    // for a visitor, keyed by the last part of its path: the
+    // connection's query log, emptied before each page.
+    //
+    // Used by:
+    //   - testRankingQueriesDoNotGrowWithTheMembers (above)
+    // -----------------------------------------------------------
+
+    private function rankingQueries(): array
+    {
+        $queries = [];
+        DB::enableQueryLog();
+        foreach (['self-evaluation', 'simulations'] as $page) {
+            DB::flushQueryLog();
+            $this->get("/en/ranks/$page")->assertOk();
+            $queries[$page] = count(DB::getQueryLog());
+        }
+        DB::disableQueryLog();
+        return $queries;
     }
 }

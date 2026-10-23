@@ -231,22 +231,15 @@ class SimulationsController extends BaseController
     // GET /{lang}/simulation/{uid}
     //
     // The start page of a simulation, behind auth:mem and
-    // r_exists:sim_id (a 404 for an unknown simulation): its
-    // columns become the view's variables, next to the names
-    // of its categories and attributes by id, and the page's
-    // form starts a run in one of two modes. Answers
-    // simulation_start.blade.php.
-    //
-    // Known bug (low): the simulation is looked up in the
-    // session's language only (SimulationsController.php:264),
-    // while R_Exists checks just that the id exists, so a
-    // simulation of another language calls toArray on
-    // nothing — a 500 instead of a 404; pinned as
-    // simulation-other-language. Fix: a 404 when the lookup
-    // finds nothing.
+    // r_exists:sim_id (a 404 for an unknown simulation); a
+    // simulation of another language than the session's is a
+    // 404 too. Its columns become the view's variables, next
+    // to the names of its categories and attributes by id,
+    // and the page's form starts a run in one of two modes.
+    // Answers simulation_start.blade.php.
     //
     // Known bug (low): categories is set only inside its loop
-    // (SimulationsController.php:272), so a simulation filed
+    // (SimulationsController.php:271), so a simulation filed
     // under no category hands the view no $categories, which
     // simulation_start.blade.php counts without the isset it
     // gives the attributes — a 500; pinned as
@@ -261,13 +254,19 @@ class SimulationsController extends BaseController
 
     public function simulation_start(Request $request, $lang, $uid)
     {
-        $scenario = Scenarios::where(['id'=>$uid, 'lang_id'=>Langs::getLangId(Session::get('lang'))]) ->get()->first()->toArray();
+        $scenario = Scenarios::where(['id'=>$uid, 'lang_id'=>Langs::getLangId(Session::get('lang'))]) ->get()->first();
+
+        if($scenario == null){
+            abort(404);
+        }
+
+        $scenario = $scenario->toArray();
 
         $categories = ScenariosInCategory::where(['scenario_id'=>$scenario['id'], 'lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
         $attributes = ScenariosInAttributes::where(['scenario_id'=>$scenario['id'], 'lang_id'=>Langs::getLangId(Session::get('lang'))])->get()->toArray();
 
         // categories and attributes exist only when the
-        // simulation has some — the second Known bug above
+        // simulation has some — the Known bug above
         foreach($categories as $k => $v){
             $scenario['categories'][$v['cat_id']] = ScenariosCategory::where(['id'=>$v['cat_id']])->get()->pluck('name')->first();
         }
@@ -339,7 +338,7 @@ class SimulationsController extends BaseController
     // against the ids bei_users_scenarios already holds.
     //
     // Known bug (low): the retry
-    // (SimulationsController.php:363) calls
+    // (SimulationsController.php:362) calls
     // ScenariosUsers::gen_test_id, a method that model does
     // not have, so the one id that collides fails the request
     // with a BadMethodCallException instead of drawing again —
@@ -379,27 +378,21 @@ class SimulationsController extends BaseController
     // r_exists:sim_public_id (a 404 unless the run is the
     // member's). The member's latest choice decides the step:
     // before the first one the level 1 choices, afterwards
-    // the choices under the latest one, a level deeper. When
-    // there are none the run is over: it is closed with its
-    // points if still open, the SimulationsResults mail takes
-    // the points to the member, badge_all_simulations follows
-    // once every simulation of the language is finished, and
-    // in mode 2 the page lists the feedback of every choice.
-    // Answers simulation_do_stuff.blade.php with the choices,
-    // the run's ids, whether it is finished and the points so
+    // the choices under the latest one, a level deeper
+    // (step_options). When there are none the run is over: a
+    // run still open is closed with its points and the
+    // SimulationsResults mail takes them to the member — once
+    // per run, however often the end page is shown —
+    // badge_all_simulations follows once every simulation of
+    // the language is finished, and in mode 2 the page lists
+    // the feedback of every choice. Answers
+    // simulation_do_stuff.blade.php with the choices, the
+    // run's ids, whether it is finished and the points so
     // far; the mode 1 feedback of the last choice reaches the
     // page through the session.
     //
-    // Known bug (low): the mail
-    // (SimulationsController.php:466) goes out every time the
-    // end page is shown, though only the first visit closes
-    // the run, so a reload or a visit from the history mails
-    // the result again; pinned as
-    // simulation-results-mail-repeat. Fix: mail only when the
-    // update closed the run.
-    //
     // Known bug (low): main.new_badge is flashed
-    // (SimulationsController.php:473) on every end page once
+    // (SimulationsController.php:455) on every end page once
     // all simulations are finished, whatever save_badge
     // answered, so a badge held for long is announced again
     // on each visit. Fix: flash only when save_badge saved
@@ -430,41 +423,30 @@ class SimulationsController extends BaseController
         // choices before the first choice, afterwards the ones
         // under the latest choice, one level deeper
         // ====================================================
-        if($if_any == 0){
+        $options = SimulationsController::step_options($public_id, $scenario_id);
 
-            $options = ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>0, 'level'=>1])->get()->toArray();
-
-        } else {
-
-            $level = ScenariosUsersOptions::selectraw("bei_scenarios_options.level as level")
-            ->where(['bei_users_scenarios_options.user_scenario_public_id'=>$public_id, 'bei_users_scenarios_options.user_id'=>Auth::guard('mem')->id()])
-            ->leftJoin('bei_scenarios_options', 'bei_scenarios_options.id', 'bei_users_scenarios_options.option_id')
-            ->orderByDesc('bei_users_scenarios_options.id')->get()->pluck('level')->first();
-
-            $parent_option_id = ScenariosUsersOptions::where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])
-            ->orderByDesc('id')->get()->pluck('option_id')->first();
-
-            $new_level = $level+1;
-
-            $options = ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>$parent_option_id, 'level'=>$new_level])->get()->toArray();
+        if($if_any > 0){
 
             if(count($options)==0){
                 // STEP 3: no choice left, the run is over — close
                 // it with its points while it is still open, mail
-                // the result, and award badge_all_simulations once
-                // every simulation of the language is finished
-                // ================================================
+                // the result when this visit closed it, and award
+                // badge_all_simulations once every simulation of
+                // the language is finished
+                // ===============================================
                 $finished=1;
 
-                ScenariosUsers::where([
+                $closed = ScenariosUsers::where([
                         'public_id'=>$public_id,
                         'user_id'=>Auth::guard('mem')->id(),
                         'finished'=>0])->update(['ended'=>date("Y-m-d H:i:s"),
                             'finished'=>1,
                             'points'=>SimulationsController::simulation_total_points($public_id)]);
 
-                Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
-                ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
+                if($closed > 0){
+                    Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
+                    ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
+                }
 
                 if(!in_array(0, SimulationsController::check_if_all_simulations_finished(Langs::getLangId($lang)))){
 
@@ -521,17 +503,11 @@ class SimulationsController extends BaseController
     // bei_users_scenarios_options row with the option's type
     // and points. In mode 1 the option's feedback goes into
     // the session for the next step to show; in any other
-    // mode the session's feedback is emptied. Redirects to
-    // the run's next step.
-    //
-    // Known bug (medium): the choice is stored as posted
-    // (SimulationsController.php:563), never checked against
-    // the choices the current step offers — any option id of
-    // any simulation, as often as it comes — so repeating the
-    // best choice before the last one lifts a run far past
-    // its best path, and the public ranking shows it; pinned
-    // as simulation-foreign-option. Fix: accept only a choice
-    // the current step offers.
+    // mode the session's feedback is emptied. Only a choice
+    // the current step offers (step_options) is taken: an
+    // option of another step or simulation, or a choice sent
+    // twice, records nothing, so a run never scores past its
+    // best path. Redirects to the run's next step.
     //
     // Used by:
     //   - simulation_do_stuff.blade.php — the choice form,
@@ -552,9 +528,15 @@ class SimulationsController extends BaseController
         $points = ScenariosOptions::where(['id'=>$option_id])->get()->pluck('points')->first();
         $feedback = ScenariosOptions::where(['id'=>$option_id])->get()->pluck('feedback')->first();
 
+        // A choice the current step does not offer records
+        // nothing
+        if(!in_array($option_id, array_column(SimulationsController::step_options($public_id, $scenario_id), 'id'))){
+            return redirect('/'.$lang.'/simulation/progress/'.$public_id);
+        }
 
-        // STEP 2: record the choice as posted
-        // ===================================
+
+        // STEP 2: record the choice
+        // =========================
         $add = new ScenariosUsersOptions;
         $add->user_id = Auth::guard('mem')->id();
         $add->user_scenario_id = $user_scenario_id;
@@ -579,6 +561,48 @@ class SimulationsController extends BaseController
         }
 
         return redirect('/'.$lang.'/simulation/progress/'.$public_id);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // step_options
+    // -----------------------------------------------------------
+    //
+    // The choices the current step of a run offers, as rows of
+    // bei_scenarios_options: the simulation's level 1 choices
+    // before the first choice, afterwards the choices under
+    // the member's latest choice, one level deeper — none
+    // once the run has reached its end.
+    //
+    // Used by:
+    //   - simulation_do_stuff (above) — the step to show
+    //   - simulation_do_stuff_save (above) — the choices it
+    //     accepts
+    // -----------------------------------------------------------
+
+    private static function step_options($public_id, $scenario_id)
+    {
+        $if_any = ScenariosUsersOptions::where(['user_scenario_public_id'=>$public_id])->count();
+
+        if($if_any == 0){
+            return ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>0, 'level'=>1])->get()->toArray();
+        }
+
+        $level = ScenariosUsersOptions::selectraw("bei_scenarios_options.level as level")
+        ->where(['bei_users_scenarios_options.user_scenario_public_id'=>$public_id, 'bei_users_scenarios_options.user_id'=>Auth::guard('mem')->id()])
+        ->leftJoin('bei_scenarios_options', 'bei_scenarios_options.id', 'bei_users_scenarios_options.option_id')
+        ->orderByDesc('bei_users_scenarios_options.id')->get()->pluck('level')->first();
+
+        $parent_option_id = ScenariosUsersOptions::where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])
+        ->orderByDesc('id')->get()->pluck('option_id')->first();
+
+        $new_level = $level+1;
+
+        return ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>$parent_option_id, 'level'=>$new_level])->get()->toArray();
     }
 
 

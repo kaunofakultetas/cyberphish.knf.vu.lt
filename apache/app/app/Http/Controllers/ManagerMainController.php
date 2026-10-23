@@ -190,29 +190,22 @@ class ManagerMainController extends BaseController
     //
     // POST /cp/change-username
     //
-    // Renames the member, behind auth:mem: 6 to 100
-    // characters (the form asks for 3 to 20), and no other
-    // member may hold the name already — submitting one's own
-    // name again is fine. A failed validation comes back as a
-    // bare "Error!", untranslated; success and a taken name
-    // answer with the translation keys pass_updated and
-    // pass_unavailable, which hold the user-name texts
-    // despite their names.
+    // Renames the member, behind auth:mem: 6 to 45
+    // characters, the column's size (the form asks for 3 to
+    // 20), and no other member may hold the name already —
+    // submitting one's own name again is fine. A failed
+    // validation comes back as a bare "Error!", untranslated;
+    // success and a taken name answer with the translation
+    // keys pass_updated and pass_unavailable, which hold the
+    // user-name texts despite their names.
     //
     // Known bug (medium): bei_users is latin1 while the
     // connection speaks utf8mb4, so the uniqueness lookup
-    // (ManagerMainController.php:234) fails on a name with
+    // (ManagerMainController.php:227) fails on a name with
     // Lithuanian letters with an illegal mix of collations —
     // a 500, which production logged for students' real
     // names. Pinned as username-lithuanian. Fix: convert the
     // table to utf8mb4.
-    //
-    // Known bug (low): the validator allows 100 characters
-    // for a column of 45 (ManagerMainController.php:225), and
-    // the non-strict SQL mode cuts the rest off without a
-    // word — a cut name can even collide with an existing one
-    // on the unique key, a 500. Pinned as username-length.
-    // Fix: a limit of 45.
     //
     // Used by:
     //   - parts/change_username.blade.php — the user-name form
@@ -222,7 +215,7 @@ class ManagerMainController extends BaseController
     public function change_username(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|min:6|max:100'
+            'username' => 'required|min:6|max:45'
         ]);
 
         if($validator->fails()){
@@ -263,12 +256,12 @@ class ManagerMainController extends BaseController
     // Known bug (medium): bei_users is a latin1 table, so the
     // letters latin1 lacks — ą, č, ę, ė, į, ų, ū — are stored
     // as question marks without an error
-    // (ManagerMainController.php:297), and the certificate
+    // (ManagerMainController.php:290), and the certificate
     // prints them so. Pinned as fullname-latin1. Fix: convert
     // the table to utf8mb4.
     //
     // Known bug (medium): the limit of 20 characters
-    // (ManagerMainController.php:288) refuses many real full
+    // (ManagerMainController.php:281) refuses many real full
     // names, while the form takes 100 and the certificate has
     // room for about 43 (CertController::download); a member
     // with a longer name cannot have the certificate in it.

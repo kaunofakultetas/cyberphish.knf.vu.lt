@@ -10,7 +10,8 @@
 //  history and one simulation run — plus an unfinished
 //  knowledge-test report nothing links to. The dashboard
 //  and the reports are open to country managers
-//  (auth.admin:man alone); the password change carries
+//  (auth.admin:man alone) — the reports for the members of
+//  their own country only; the password change carries
 //  perms too. The members' own dashboard is the other
 //  ManagerMainController, in App\Http\Controllers.
 //
@@ -58,9 +59,9 @@ use App\Models\KnowledgeUserOptions;
 // -----------------------------------------------------------
 //
 // Reads the members' rows for the manager pages; only
-// change_pass writes. The reports trust the member or the
-// run the URL names — manager-country-scope, noted in
-// their banners.
+// change_pass writes. Every report first checks that the
+// member it shows is one the manager may read
+// (member_in_scope), and answers 404 otherwise.
 //
 //   dashboard               — the home page, per language
 //   change_pass             — the manager's own password
@@ -69,7 +70,8 @@ use App\Models\KnowledgeUserOptions;
 //   simulation_report       — one simulation run
 //   knowledge_report        — one knowledge test, a stub
 //   question_correct,
-//   knowledge_results       — helpers of the pages above
+//   knowledge_results,
+//   member_in_scope         — helpers of the pages above
 //
 // Used by:
 //   - routes/web_admin.php
@@ -191,8 +193,8 @@ class ManagerMainController extends BaseController
     // their password here.
     //
     // Known bug (low): no resources/lang file defines the five
-    // main.msg_* keys (ManagerMainController.php:209, 214, 219,
-    // 229, 235), so the dialog shows the raw key names instead
+    // main.msg_* keys (ManagerMainController.php:211, 216, 221,
+    // 231, 237), so the dialog shows the raw key names instead
     // of a message. Fix: add the keys to the main.php files.
     // Pinned as admin-pass-messages.
     //
@@ -255,14 +257,9 @@ class ManagerMainController extends BaseController
     // query fills with a placeholder 0. Answers with
     // admin-panel/user_self_eval_history.blade.php, headed by
     // the member's address and the language's name. Open to
-    // every signed-in manager (auth.admin:man, no perms).
-    //
-    // Known bug (medium): the member comes from the URL and
-    // nothing checks its country (ManagerMainController.php:284),
-    // so a country manager reads any member's history by
-    // changing the id; pinned as manager-country-scope. Fix:
-    // answer 404 unless a main admin asks or the member is of
-    // the manager's country.
+    // every signed-in manager (auth.admin:man, no perms), for
+    // a member it may read (member_in_scope) — any other id is
+    // a 404.
     //
     // Used by:
     //   - admin-panel/dashboard.blade.php — the Self
@@ -271,6 +268,10 @@ class ManagerMainController extends BaseController
 
     public function self_evaluation_history(Request $request, $lang_id, $user_id)
     {
+        if(!ManagerMainController::member_in_scope($user_id)){
+            abort(404);
+        }
+
         if(count(SelfEvalUserTest::selectraw("bei_users_selfeval_test.*, bei_lm_category.name as category_name")
             ->leftJoin('bei_lm_category', 'bei_lm_category.id', 'bei_users_selfeval_test.cat_id')
             ->where([
@@ -353,15 +354,10 @@ class ManagerMainController extends BaseController
     // to count). Answers with
     // admin-panel/user_simulations_history.blade.php, headed
     // by the member's address and the language's name. Open
-    // to every signed-in manager (auth.admin:man, no perms).
-    //
-    // Known bug (medium): the member comes from the URL and
-    // nothing checks its country (ManagerMainController.php:379),
-    // so a country manager reads any member's runs — and the
-    // public ids that open their reports — by changing the
-    // id; pinned as manager-country-scope. Fix: answer 404
-    // unless a main admin asks or the member is of the
-    // manager's country.
+    // to every signed-in manager (auth.admin:man, no perms),
+    // for a member it may read (member_in_scope) — any other
+    // id is a 404, so the public ids that open the reports
+    // stay hidden too.
     //
     // Used by:
     //   - admin-panel/dashboard.blade.php — the Simulations
@@ -370,6 +366,10 @@ class ManagerMainController extends BaseController
 
     public function simulations_history(Request $request, $lang_id, $user_id)
     {
+        if(!ManagerMainController::member_in_scope($user_id)){
+            abort(404);
+        }
+
         if(count(ScenariosUsers::selectraw("bei_scenarios.*, bei_users_scenarios.public_id, bei_users_scenarios.points, bei_users_scenarios.started, bei_users_scenarios.ended,  bei_users_scenarios.finished")->
             leftJoin('bei_scenarios', 'bei_scenarios.id', 'bei_users_scenarios.scenario_id')->
             where(['bei_users_scenarios.user_id'=>$user_id, 'bei_users_scenarios.lang_id'=>$lang_id])->get()->toArray()) > 0){
@@ -521,15 +521,9 @@ class ManagerMainController extends BaseController
     // member's address and the language's name — four
     // separate lookups of the same run row. Answers with
     // admin-panel/simulation_report.blade.php. Open to every
-    // signed-in manager (auth.admin:man, no perms).
-    //
-    // Known bug (medium): the run comes from the URL and
-    // nothing checks its member's country
-    // (ManagerMainController.php:541), so a country manager
-    // opens any member's report from its public id, which
-    // simulations_history hands out; pinned as
-    // manager-country-scope. Fix: answer 404 unless a main
-    // admin asks or the member is of the manager's country.
+    // signed-in manager (auth.admin:man, no perms), for a run
+    // of a member it may read (member_in_scope) — any other
+    // public id is a 404 for a country manager.
     //
     // Used by:
     //   - admin-panel/user_simulations_history.blade.php — the
@@ -539,6 +533,11 @@ class ManagerMainController extends BaseController
     public function simulation_report(Request $request, $public_id)
     {
         $user_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('user_id')->first();
+
+        if(!ManagerMainController::member_in_scope($user_id)){
+            abort(404);
+        }
+
         $lang_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('lang_id')->first();
         $points = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('points')->first();
         $scenario_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('scenario_id')->first();
@@ -577,20 +576,10 @@ class ManagerMainController extends BaseController
     // never reaches the view, and the view shows only the
     // member's address over an empty table; results is passed
     // and not shown either. Open to every signed-in manager
-    // (auth.admin:man, no perms).
-    //
-    // Known bug (medium): nothing checks the member's country
-    // (ManagerMainController.php:603), so a country manager
-    // opens any member's attempt from its public id; pinned
-    // as manager-country-scope. Fix: answer 404 unless a main
-    // admin asks or the member is of the manager's country.
-    //
-    // Known bug (low): an unknown public id has no question
-    // set, so json_decode gives null and the foreach over it
-    // (ManagerMainController.php:612) stops with a 500, like
-    // the member side's knowledge-unknown-attempt. Pinned as
-    // knowledge-report-unknown. Fix: answer 404 when no
-    // attempt has that public id.
+    // (auth.admin:man, no perms), for an attempt of a member
+    // it may read (member_in_scope); an unknown public id, or
+    // another country's attempt for a country manager, is a
+    // 404.
     //
     // Used by:
     //   - nothing links here at the moment: the dashboard's
@@ -601,6 +590,11 @@ class ManagerMainController extends BaseController
     public function knowledge_report(Request $request, $public_id)
     {
         $user_id = KnowledgeUserTest::where(['public_id'=>$public_id])->get()->pluck('user_id')->first();
+
+        if($user_id == null || !ManagerMainController::member_in_scope($user_id)){
+            abort(404);
+        }
+
         $results = KnowledgeUserTest::where(['public_id'=>$public_id])->get()->pluck('results')->first();
 
         $email = Members::where(['id'=>$user_id])->get()->pluck('email')->first();
@@ -622,5 +616,33 @@ class ManagerMainController extends BaseController
             'email'=>$email,
             'results'=>$results
         ]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // member_in_scope
+    // -----------------------------------------------------------
+    //
+    // Whether the signed-in manager may read the member's
+    // reports: a main admin anyone's, a country manager only
+    // those of its country's members — the ones its dashboard
+    // lists. Both come from the manager's row, where the
+    // dashboard reads the country too, not from the session
+    // the login filled.
+    //
+    // Used by:
+    //   - self_evaluation_history, simulations_history,
+    //     simulation_report, knowledge_report (above)
+    // -----------------------------------------------------------
+
+    private static function member_in_scope($user_id)
+    {
+        $manager = Managers::where(['id'=>Auth::guard('man')->id()])->first();
+
+        return $manager->main == 1 || Members::where(['id'=>$user_id, 'country'=>$manager->country])->count() > 0;
     }
 }

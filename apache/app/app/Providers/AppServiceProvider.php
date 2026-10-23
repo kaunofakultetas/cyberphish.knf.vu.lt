@@ -5,8 +5,9 @@
 //
 //  Laravel's place for the app's own container bindings
 //  and boot-time wiring. The app binds nothing; at boot it
-//  only keeps the paginator on the Bootstrap 4 template the
-//  pages were built with.
+//  keeps the paginator on the Bootstrap 4 template the
+//  pages were built with, and makes the reCAPTCHA rule
+//  survive an outage of Google.
 //
 //  Used by:
 //    - config/app.php — the providers list
@@ -15,7 +16,9 @@
 
 namespace App\Providers;
 
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
 
@@ -29,7 +32,8 @@ use Illuminate\Support\ServiceProvider;
 // AppServiceProvider
 // -----------------------------------------------------------
 //
-// Registers nothing; boots the paginator's template.
+// Registers nothing; boots the paginator's template and
+// the reCAPTCHA rule.
 //
 // Used by:
 //   - config/app.php — the providers list
@@ -73,6 +77,18 @@ class AppServiceProvider extends ServiceProvider
     // default, and without this line the links of the news
     // list and the panel's lists would lose their look.
     //
+    // Then registers the captcha rule of the sign-up and
+    // forgot-password forms again, over anhskohbo/no-captcha's
+    // own (its provider boots earlier). The package posts the
+    // token to Google with no error handling, so while Google
+    // cannot be reached — whenever the exit proxy is down —
+    // the connection error escaped the validator and both
+    // forms answered with the 500 page. Here the error is
+    // logged and the reCAPTCHA counts as unsolved: the form
+    // comes back with the same error an unsolved one gets.
+    // The service is looked up at every check, so the tests'
+    // double (solveCaptcha) still takes its place.
+    //
     // Used by:
     //   - Laravel, once every provider is registered
     // -----------------------------------------------------------
@@ -80,5 +96,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         Paginator::useBootstrapFour();
+
+        Validator::extend('captcha', function ($attribute, $value) {
+            try {
+                return app('captcha')->verifyResponse($value, request()->getClientIp());
+            } catch (GuzzleException $exception) {
+                report($exception);
+                return false;
+            }
+        });
     }
 }

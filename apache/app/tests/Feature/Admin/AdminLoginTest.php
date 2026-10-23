@@ -9,8 +9,9 @@
 //  session gets the manager's main flag and country — main
 //  admins pass the Perms middleware, country managers see
 //  their country only. A wrong password, a switched-off
-//  manager and a member's account are refused. The missing
-//  brute-force protection is pinned in AdminDefectsTest.
+//  manager and a member's account are refused, and ten
+//  wrong passwords for one email from one address lock that
+//  pair out for a while, the right password included.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -147,6 +148,38 @@ class AdminLoginTest extends FeatureTestCase
             ->assertSessionHasErrors();
 
         $this->assertSame(__('auth.failed'), session('errors')->first());
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTenWrongPasswordsLockTheAdminLogin
+    // -----------------------------------------------------------
+    //
+    // After ten wrong passwords for one email from one
+    // address even the right one is refused — with the
+    // lockout message on the email field, not auth.failed —
+    // and the manager stays out.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTenWrongPasswordsLockTheAdminLogin(): void
+    {
+        $admin = $this->world->manager();
+        for ($guess = 1; $guess <= 10; $guess++) {
+            $this->signIn($admin->email, 'Wrong-' . $guess);
+        }
+
+        $this->signIn($admin->email, World::PASSWORD)
+            ->assertRedirect('/admin-panel')
+            ->assertSessionHasErrors('email');
+
         $this->assertGuest('man');
     }
 

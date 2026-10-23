@@ -37,11 +37,9 @@ use Illuminate\Database\Eloquent\Model;
 // object in val1 — per language id, a description and a
 // link; row 2 keeps its number in val3; row 3 keeps a JSON
 // object in val1 — per language id, per category id, the
-// number of questions. mysql/init.sql seeds row 2 only, and
-// the settings page saves with an UPDATE, so on a fresh
-// install rows 1 and 3 never come to exist and the
-// knowledge test cannot start (pinned as
-// seed-settings-rows).
+// number of questions. The settings page saves with an
+// UPDATE, so mysql/init.sql seeds all three rows — 1 and 3
+// empty until the page fills them in.
 //
 // Used by:
 //   - HomeController::index — row 1

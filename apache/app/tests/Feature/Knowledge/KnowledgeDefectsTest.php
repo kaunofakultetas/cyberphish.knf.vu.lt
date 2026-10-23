@@ -10,32 +10,15 @@
 //  the test fails as the cue to remove its pin and move it
 //  into KnowledgeExamTest, or into CertificateTest for the
 //  last pin, the certificate's own. The test unlocks the
-//  certificate, so the first two are the serious ones: each
-//  lets a member pass without the knowledge.
+//  certificate, so the first is the serious one: it lets a
+//  member pass without the knowledge.
 //
 //    knowledge-skipped-answers  — a question answered with no
 //                                 option drops out of the
 //                                 result
-//    knowledge-repeated-option  — a correct option posted
-//                                 many times counts many
-//                                 times
 //    knowledge-all-skipped      — skipping every question
 //                                 divides by zero and the
 //                                 test never closes
-//    knowledge-unknown-attempt  — an unknown attempt id is a
-//                                 500
-//    knowledge-attempt-owner    — any member can open another
-//                                 member's attempt
-//    knowledge-attempt-limit    — the three-try limit lives
-//                                 in the page only
-//    knowledge-category-lookup  — an answer's category is
-//                                 looked up by the attempt's
-//                                 id: once attempt ids pass
-//                                 the question ids, answering
-//                                 fails
-//    knowledge-reclose          — every visit closes a
-//                                 finished attempt again and
-//                                 moves its end date
 //    knowledge-limits-missing   — a language missing from the
 //                                 limits makes every start a
 //                                 500
@@ -102,8 +85,7 @@ class KnowledgeDefectsTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // Three questions in one English category, all drawn, and
-    // a member; the next attempt ids are covered the way
-    // production's are (World::coverKnowledgeAttempts).
+    // a member.
     //
     // Used by:
     //   - PHPUnit, before every test
@@ -118,7 +100,6 @@ class KnowledgeDefectsTest extends FeatureTestCase
             $this->questions[] = $this->world->knowledgeQuestion($this->category, [['Right', true], ['Wrong', false]]);
         }
         $this->world->knowledgeLimits([$this->en => [$this->category => 3]]);
-        $this->world->coverKnowledgeAttempts(3);
         $this->member = $this->world->member();
     }
 
@@ -156,33 +137,6 @@ class KnowledgeDefectsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // testRepeatedOptionCountsOnce
-    // -----------------------------------------------------------
-    //
-    // Every option id posted for a question becomes an answer
-    // row, so the correct option posted eight times for the
-    // first question and wrong answers for the other two make
-    // 8 of 10 — 80, a pass. Wanted: one of three, 33.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testRepeatedOptionCountsOnce(): void
-    {
-        $publicId = $this->finishWith([array_fill(0, 8, 0), [1], [1]]);
-
-        $this->pinDefect('knowledge-repeated-option', function () use ($publicId) {
-            $this->assertEquals(33, $this->results($publicId), 'the repeated option counted more than once');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
     // testTestWithEveryQuestionSkippedCloses
     // -----------------------------------------------------------
     //
@@ -206,169 +160,6 @@ class KnowledgeDefectsTest extends FeatureTestCase
         $this->pinDefect('knowledge-all-skipped', function () use ($publicId) {
             $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
             $this->assertEquals(1, DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->value('finished'));
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testUnknownAttemptIsNotFound
-    // -----------------------------------------------------------
-    //
-    // The progress route has no existence check: an unknown
-    // public id reaches json_decode of nothing and a foreach
-    // over null — a 500. Wanted: a 404.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testUnknownAttemptIsNotFound(): void
-    {
-        $this->pinDefect('knowledge-unknown-attempt', function () {
-            $this->signInMember($this->member)->get('/en/knowledge_test/progress/no-such-attempt')->assertNotFound();
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testAnotherMembersAttemptIsNotFound
-    // -----------------------------------------------------------
-    //
-    // Unlike the self-evaluation and the simulations, the
-    // knowledge test's progress route checks no owner: a
-    // second member who has the public id sees the questions
-    // and can answer them. Wanted: a 404.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testAnotherMembersAttemptIsNotFound(): void
-    {
-        $publicId = $this->startKnowledgeTest($this->member);
-        $stranger = $this->world->member();
-
-        $this->pinDefect('knowledge-attempt-owner', function () use ($stranger, $publicId) {
-            $this->signInMember($stranger)->get("/en/knowledge_test/progress/$publicId")->assertNotFound();
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testFourthAttemptIsRefused
-    // -----------------------------------------------------------
-    //
-    // knowledge_test.blade.php hides the start form after three
-    // tries, but KnowledgeTestController::start checks nothing,
-    // so a fourth start posted by hand draws a new attempt.
-    // Wanted: no fourth attempt.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testFourthAttemptIsRefused(): void
-    {
-        for ($try = 0; $try < 3; $try++) {
-            $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 40]);
-        }
-
-        $this->signInMember($this->member)->post('/en/knowledge_start');
-
-        $this->pinDefect('knowledge-attempt-limit', function () {
-            $this->assertSame(3, DB::table('bei_users_knowledge_test')->where('user_id', $this->member->id)->count());
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testAnswerIsFiledUnderItsQuestionsCategory
-    // -----------------------------------------------------------
-    //
-    // progress_save fills the answer's cat_id with
-    // KnowledgeTest::getCatId($id), and $id is the ATTEMPT's
-    // id: the answer gets the category of whichever question
-    // shares the attempt's number, and when none does the
-    // insert fails on the NOT NULL column — a 500, the answer
-    // lost, the question never marked, the member stuck on it.
-    // Production has 760 questions and attempt ids up to 664:
-    // from attempt 761 every knowledge test breaks. Here the
-    // attempt gets an id no question has. Wanted: the answer
-    // saves, filed under its own question's category.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testAnswerIsFiledUnderItsQuestionsCategory(): void
-    {
-        // Moves the attempt counter past the ids setUp covered
-        // and past any id an existing question has
-        $other = $this->world->member();
-        do {
-            $this->world->knowledgeAttempt($other->id, $this->en);
-        } while (DB::table('bei_knowledge_test')->where('id', $this->world->nextId('bei_users_knowledge_test'))->exists());
-        $publicId = $this->startKnowledgeTest($this->member);
-        $question = $this->questions[0];
-
-        $this->pinDefect('knowledge-category-lookup', function () use ($publicId, $question) {
-            $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][0]])
-                ->assertRedirect("/en/knowledge_test/progress/$publicId");
-            $this->assertEquals(
-                $this->category,
-                DB::table('bei_users_knowledge_options')->where('public_id', $publicId)->value('cat_id')
-            );
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testFinishedAttemptStaysClosed
-    // -----------------------------------------------------------
-    //
-    // KnowledgeTestController::progress closes an attempt
-    // whenever no drawn question is left unanswered, without
-    // looking at finished: every later visit of the progress
-    // page closes it again, moves ended — the date the
-    // certificate prints — to that visit, and works the
-    // result out again from the answer rows as they are by
-    // then. Wanted: a closed attempt keeps its end date and
-    // result.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testFinishedAttemptStaysClosed(): void
-    {
-        $publicId = $this->finishWith([[0], [0], [0]]);
-        DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->update(['ended' => '2020-01-01 00:00:00']);
-
-        $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
-
-        $this->pinDefect('knowledge-reclose', function () use ($publicId) {
-            $ended = DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->value('ended');
-            $this->assertSame('2020-01-01 00:00:00', $ended, 'the visit moved the end date');
         });
     }
 
@@ -494,8 +285,7 @@ class KnowledgeDefectsTest extends FeatureTestCase
     //
     // Used by:
     //   - the scoring tests of this class
-    //   - testFinishedAttemptStaysClosed,
-    //     testPassOnALaterTryEarnsTheBadge (above)
+    //   - testPassOnALaterTryEarnsTheBadge (above)
     // -----------------------------------------------------------
 
     private function finishWith(array $answers): string

@@ -36,8 +36,8 @@ use Illuminate\Database\Eloquent\Model;
 // Columns: public_id, user_id, lang_id, finished (0 or 1),
 // started, ended, question_set — a JSON object from
 // question id to 0 (unanswered) or 1 (answered) — and
-// results, the percentage of the chosen options that are
-// correct.
+// results, the percentage of the answered questions whose
+// answer is correct.
 //
 //   getPrivateId — an attempt's id from its public id
 //   getQIds      — an attempt's question set
@@ -84,11 +84,12 @@ class KnowledgeUserTest extends Model
     //
     // The id of the attempt with that public id, or null when
     // there is none. It goes by the public id alone, whoever
-    // the attempt belongs to, and its callers check no owner
-    // either (pinned as knowledge-attempt-owner).
+    // the attempt belongs to.
     //
     // Used by:
-    //   - KnowledgeTestController::progress, progress_save
+    //   - nothing calls this at the moment —
+    //     KnowledgeTestController::progress and progress_save
+    //     look the attempt up together with its member
     // -----------------------------------------------------------
 
     public static function getPrivateId($public_id)
@@ -106,9 +107,9 @@ class KnowledgeUserTest extends Model
     // -----------------------------------------------------------
     //
     // The attempt's question set decoded into an array, from
-    // question id to 0 (unanswered) or 1 (answered). For an
-    // unknown attempt it is null, which progress then loops
-    // over — a 500 (pinned as knowledge-unknown-attempt).
+    // question id to 0 (unanswered) or 1 (answered); null for
+    // an unknown attempt, which both callers have answered
+    // with a 404 before they ask.
     //
     // Used by:
     //   - KnowledgeTestController::progress — the next

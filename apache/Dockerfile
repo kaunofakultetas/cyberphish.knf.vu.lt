@@ -59,6 +59,11 @@ RUN APP_URL=http://localhost composer install --no-dev --optimize-autoloader
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 
+# --- Hide PHP's version: php.ini-production leaves expose_php on, which
+# puts X-Powered-By with the exact version on every response
+RUN sed -i 's/^expose_php = On$/expose_php = Off/' "$PHP_INI_DIR/php.ini"
+
+
 
 # --- Initialize disable_functions
 # Necessary PHP functions:

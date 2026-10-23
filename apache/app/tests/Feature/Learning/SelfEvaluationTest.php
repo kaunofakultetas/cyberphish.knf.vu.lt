@@ -10,10 +10,12 @@
 //  attempt once as many questions are answered as settings
 //  row 2 asks for: every answer worth the question's best
 //  option is added for a correct choice and taken away for
-//  a wrong one, never below zero. cp/se_r shows the result
-//  and cp/self-evaluation-history the member's attempts. An
-//  attempt is its member's alone. The score inflation is
-//  pinned in LearningDefectsTest.
+//  a wrong one, never below zero. A question takes one
+//  answer, from its own options, each counted once, so a
+//  forged form scores no more than an honest one; a closed
+//  attempt keeps its end date. cp/se_r shows the result and
+//  cp/self-evaluation-history the member's attempts. An
+//  attempt is its member's alone.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -366,5 +368,99 @@ class SelfEvaluationTest extends FeatureTestCase
         ])->assertNotFound();
         $this->signInMember($stranger)->get("/cp/se_r/$publicId")->assertNotFound();
         $this->assertFalse(DB::table('bei_users_selfeval')->where('public_id', $publicId)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRepeatedOptionScoresOnce
+    // -----------------------------------------------------------
+    //
+    // An option posted many times counts once: the first
+    // question's correct option posted three times and the
+    // second's once score 200, the attempt's maximum — not the
+    // 400 the public ranking would show for stored repeats.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRepeatedOptionScoresOnce(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $correct = $this->first['options'][0];
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$correct, $correct, $correct]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
+
+        $this->assertEquals(200, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('points'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testForgedAnswersAreNotStored
+    // -----------------------------------------------------------
+    //
+    // An option of another question stores nothing, and a
+    // question already answered takes no second answer: the
+    // first question keeps the one row of its first real
+    // answer.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testForgedAnswersAreNotStored(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $question = $this->first['question'];
+
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $question, [$this->second['options'][0]]);
+        $this->assertFalse(DB::table('bei_users_selfeval')->where('public_id', $publicId)->exists());
+
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $question, [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $question, [$this->first['options'][1]]);
+
+        $rows = DB::table('bei_users_selfeval')->where('public_id', $publicId)->pluck('option_id')->all();
+        $this->assertEquals([$this->first['options'][0]], $rows);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFinishedAttemptKeepsItsEndDate
+    // -----------------------------------------------------------
+    //
+    // A closed attempt keeps its end date — on the result page
+    // and in both histories — and its points: a later visit
+    // of its test page only leads to the result.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedAttemptKeepsItsEndDate(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+        DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->update(['ended' => '2020-01-01 00:00:00']);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+
+        $attempt = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->first();
+        $this->assertSame('2020-01-01 00:00:00', $attempt->ended, 'the visit moved the end date');
+        $this->assertEquals(200, $attempt->points);
     }
 }

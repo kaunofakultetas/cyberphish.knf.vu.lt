@@ -31,16 +31,14 @@ use Illuminate\Database\Eloquent\Model;
 // -----------------------------------------------------------
 //
 // Columns: test_id and public_id (the attempt, in
-// KnowledgeUserTest), user_id, question_id, cat_id and
+// KnowledgeUserTest), user_id, question_id, cat_id (the
+// question's category, KnowledgeTest::getCatId) and
 // correct; which option was chosen is not kept, only
-// whether it was right. cat_id should be the question's
-// category, but the attempt's id is what progress_save
-// looks the category up by — see KnowledgeTest::getCatId
-// (pinned as knowledge-category-lookup).
+// whether it was right.
 //
 // Used by:
 //   - KnowledgeTestController::progress_save — a row per
-//     chosen option
+//     answered question
 //   - KnowledgeTestController::calculate_results — correct
 //     rows over all rows of the attempt
 //   - Admin\ManagerMainController::knowledge_report — a

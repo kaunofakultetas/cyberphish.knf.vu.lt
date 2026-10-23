@@ -10,9 +10,8 @@
 //  behind the ValidateReset middleware, mails the member a
 //  new random password and uses the token up. The link is
 //  built from APP_URL whatever host the request claimed,
-//  and a blank token is refused — the guard that keeps
-//  this flow safe from the trick that breaks the
-//  verification link (AuthDefectsTest).
+//  and a blank token is refused, as the verification link
+//  refuses one (VerificationTest).
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)

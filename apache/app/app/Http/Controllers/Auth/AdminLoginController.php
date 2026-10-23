@@ -42,9 +42,8 @@ use Carbon\Carbon;
 // -----------------------------------------------------------
 //
 // Laravel's AuthenticatesUsers with its form, login and
-// logout replaced; nothing else of the trait is called, so
-// its ThrottlesLogins never runs (pinned as
-// admin-login-throttle, see login).
+// logout replaced; login keeps the throttling of the
+// trait's login (ThrottlesLogins).
 //
 //   showLoginForm — the form
 //   login         — checks the password, fills the session
@@ -65,6 +64,12 @@ class AdminLoginController extends Controller
     // Nothing reads it: login below redirects to the
     // dashboard route itself, the same path
     protected $redirectTo = '/admin-panel/dashboard';
+
+    // ThrottlesLogins reads these: ten failed sign-ins for one
+    // email from one address lock that pair out until fifteen
+    // minutes after the first of them
+    protected $maxAttempts = 10;
+    protected $decayMinutes = 15;
 
 
 
@@ -138,20 +143,18 @@ class AdminLoginController extends Controller
     // manager's main flag and country into the session and
     // answers a redirect to the dashboard; on failure, back
     // to the form with the auth.failed message. The address
-    // is the one SettingsController::getUserIP picks, which a
-    // header from the client can choose (pinned there as
-    // client-ip-header).
-    //
-    // Known bug (high): attempts are never limited
-    // (AdminLoginController.php:173). The method replaces the
-    // trait's login without its ThrottlesLogins calls, and the
-    // form has no reCAPTCHA, so the panel that runs the whole
-    // site takes any number of password guesses (pinned as
-    // admin-login-throttle). Fix: lock the login for a while
-    // after a few failures, as ThrottlesLogins does.
+    // is the one SettingsController::getUserIP picks. The form
+    // has no reCAPTCHA, so the guesses are limited the way the
+    // trait's login limits them: every failure counts against
+    // the email and the address it came from, and once the
+    // pair has ten (the properties above), every post of it —
+    // the right password included — goes back to the form
+    // with auth.throttle, in English like the rest of the
+    // panel, until fifteen minutes after the first failure. A
+    // sign-in clears the count.
     //
     // Known bug (low): both answers go through Laravel's
-    // intended redirect (AdminLoginController.php:179, 183),
+    // intended redirect (AdminLoginController.php:189, 195),
     // which first takes the page auth.admin parked in the
     // session when it sent the visitor here. A failed attempt
     // goes to that page, which sends the visitor straight
@@ -170,7 +173,14 @@ class AdminLoginController extends Controller
             'password' => 'required|min:6'
         ]);
 
+        if ($this->hasTooManyLoginAttempts($request)) {
+            $this->fireLockoutEvent($request);
+            return $this->sendLockoutResponse($request);
+        }
+
         if (Auth::guard('man')->attempt(['email' => $request->email, 'password' => $request->password, 'status'=>1])) {
+
+            $this->clearLoginAttempts($request);
 
             Managers::where(['id' => Auth::guard('man')->id()])->update(['last_login' => Carbon::now(), 'last_ip' => SettingsController::getUserIP()]);
             Session::put('main', Managers::select('main')->where(['id' => Auth::guard('man')->id(), 'status'=>1])->get()->pluck('main')->first());
@@ -179,6 +189,8 @@ class AdminLoginController extends Controller
             return redirect()->intended(route('admin_dashboard'));
 
         }
+
+        $this->incrementLoginAttempts($request);
 
         return redirect()->intended(route('admin_login'))->withErrors([__('auth.failed')]);
     }

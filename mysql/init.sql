@@ -374,12 +374,22 @@ CREATE OR REPLACE VIEW `view_max_points_per_selfeval_cat` AS
 -- Default language
 INSERT INTO `bei_lang` (`id`, `name`, `locale`) VALUES (3, 'English', 'en');
 
--- Default admin: admin@knf.vu.lt / admin
+-- Main admin: admin@knf.vu.lt. The hash is of a random password nobody
+-- kept, so no fresh install opens with a password anyone can guess. Set
+-- one before the first sign-in: make a hash with
+--   docker exec cyberphish-apache php -r 'echo password_hash($argv[1], PASSWORD_BCRYPT), "\n";' '<the password>'
+-- and store it in bei_managers.password of id 1.
 INSERT INTO `bei_managers` (`id`, `email`, `password`, `main`, `status`, `country`)
-VALUES (1, 'admin@knf.vu.lt', '$2y$10$9ZZCTFYLM9h3BrKdYq8AjOGVX9glYH2L2yDprXIJJ5RnNEX6sriMO', 1, '1', 0);
+VALUES (1, 'admin@knf.vu.lt', '$2y$10$5v2fzFVJ3hhVAuom9iD2Q.IrgZp9tXfrp/PCCiN8sH0CsXqtFpxiq', 1, '1', 0);
 
--- Minimal settings
-INSERT INTO `bei_settings` (`id`, `name`, `val1`, `val2`, `val3`) VALUES (2, 'self_eval_pertime', NULL, NULL, 5);
+-- Settings, read by fixed ids: 1 the home page's about text and 3 the
+-- knowledge test's questions per category, both JSON the panel's
+-- settings page fills in; 2 the number of questions a self-evaluation
+-- asks. The page saves with an UPDATE, so every row must exist
+INSERT INTO `bei_settings` (`id`, `name`, `val1`, `val2`, `val3`) VALUES
+  (1, 'home_about', NULL, NULL, 0),
+  (2, 'self_eval_pertime', NULL, NULL, 5),
+  (3, 'knowledge_tests', NULL, NULL, 0);
 
 
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

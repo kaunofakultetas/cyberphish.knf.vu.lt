@@ -33,9 +33,9 @@ use Illuminate\Database\Eloquent\Model;
 // Columns: id (the member's id in bei_users, not a row id
 // of its own), username, max_points, scenario_id and
 // lang_id. Only members with a finished run appear. A run's
-// points are whatever its recorded choices add up to, so a
-// run that recorded forged choices ranks with its inflated
-// score (pinned as simulation-foreign-option).
+// points are what its recorded choices add up to — each an
+// option of the step it answered, the only kind
+// SimulationsController::simulation_do_stuff_save records.
 //
 // Used by:
 //   - RanksController::simulations — the simulations

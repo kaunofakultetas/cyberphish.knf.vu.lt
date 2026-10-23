@@ -805,21 +805,16 @@ class LMController extends BaseController
     //
     // Deletes one file of a lesson: from disk when it is
     // there, then its row, so unlike delete a file already
-    // gone blocks nothing. Back with "Updated!", not the
+    // gone blocks nothing. An id with no row — a link opened
+    // twice, or one on a stale page — finds nothing to delete
+    // and gets the same answer. Back with "Updated!", not the
     // "Removed!" of the other deletes. Main admins only
     // (auth.admin:man, perms).
     //
     // Known bug (medium): a plain GET reaches the delete at
-    // LMController.php:840, so a link a signed-in admin opens
+    // LMController.php:841, so a link a signed-in admin opens
     // is enough. Pinned as admin-get-deletes. Fix: a POST
     // route behind the CSRF check.
-    //
-    // Known bug (low): for an id with no row the path is the
-    // upload folder itself (LMController.php:834); the folder
-    // exists, so unlink runs on it and fails, and a repeated
-    // or stale delete link is a 500. Fix: stop when the row
-    // is missing.
-    // Pinned as lesson-file-delete-unknown.
     //
     // Used by:
     //   - admin-panel/lm_additional_files.blade.php — the
@@ -830,6 +825,12 @@ class LMController extends BaseController
     public function files_delete(Request $request, $uid)
     {
         $file = LMFiles::where(['id'=>$uid])->pluck('file_name')->first();
+
+        // Without a row the path below would be the upload
+        // folder itself, which unlink cannot remove
+        if($file === null){
+            return back()->withSuccess("Updated!");
+        }
 
         $file_path = public_path('upload/').$file;
 

@@ -67,7 +67,7 @@ Three files outside `tests/` belong to the suite:
 
 - **Offline.** Nothing reaches Google or Mailjet:
   - Feature tests fake the mailer and mock the captcha.
-  - Over HTTP, the unreachable Google is itself under test (`captcha-outage-500`).
+  - Over HTTP, the unreachable Google is itself under test (`ProductionModeTest`).
 - **Production-shaped.**
   - Apache runs with no `.env`, `APP_DEBUG` off, and the environment
     `docker-compose.yml` gives the production container, with test
@@ -100,59 +100,35 @@ Three files outside `tests/` belong to the suite:
 
 | Id | File | What breaks |
 |---|---|---|
-| `seed-admin-password` | `Platform/PlatformDefectsTest` | `init.sql` seeds the main admin with the password "admin" |
-| `remoteip-trust-range` | `Platform/PlatformDefectsTest` | Apache trusts all of 172.0.0.0/8, public addresses included, to name the visitor in the access log |
 | `home-about-missing` | `Feature/Site/SiteDefectsTest` | The home page is a 500 in a language the saved about text has no entry for |
 | `news-page-links` | `Feature/Site/SiteDefectsTest` | The page links under the news list point at `/news`, a 404 |
-| `ranks-query-per-member` | `Feature/Site/SiteDefectsTest` | The ranking pages run one more query for every ranked member |
-| `verify-blank-token` | `Feature/Auth/AuthDefectsTest` | `/verify/%20` switches every deactivated account back on |
-| `login-throttle` | `Feature/Auth/AuthDefectsTest` | The member login takes any number of password guesses |
-| `country-out-of-range` | `Feature/Auth/AuthDefectsTest` | A country id above 5 breaks every page of that member |
-| `password-trim` | `Feature/Auth/AuthDefectsTest` | A password with a blank at either end never matches its repeat; the change forms save it trimmed, and the login then refuses it |
-| `password-flash` | `Feature/Auth/AuthDefectsTest` | A failed sign-up keeps the repeated password in the session |
 | `reset-link-logout` | `Feature/Auth/AuthDefectsTest` | Signing out replaces `remember_token`, which holds a pending reset link's token |
 | `login-error-lost` | `Feature/Auth/AuthDefectsTest` | A failed login that a member page led to returns to the form without its error |
 | `login-badge-message` | `Feature/Auth/AuthDefectsTest` | The login that earns the ten-days badge never announces it |
-| `register-while-signed-in` | `Feature/Auth/AuthDefectsTest` | A signed-in member can still open and post the sign-up form |
 | `captcha-message` | `Feature/Auth/AuthDefectsTest` | A failed reCAPTCHA shows the raw key `validation.captcha`, and an unticked one names the field `g-recaptcha-response` |
 | `username-lithuanian` | `Feature/Account/AccountDefectsTest` | A user name with Lithuanian letters is a 500 |
-| `username-length` | `Feature/Account/AccountDefectsTest` | A user name longer than its column is cut without a word |
 | `password-policy` | `Feature/Account/AccountDefectsTest` | A changed password may be 6 characters; a new one needs 12 |
 | `fullname-latin1` | `Feature/Account/AccountDefectsTest` | Lithuanian letters of the full name turn into question marks |
 | `fullname-length` | `Feature/Account/AccountDefectsTest` | A full name over 20 characters is refused with a bare "Error!", though the form takes 100 |
 | `ee-strings` | `Feature/Account/AccountDefectsTest` | The Estonian user-name button ends in a stray "2", and a rename is answered with password messages |
-| `selfeval-foreign-options` | `Feature/Learning/LearningDefectsTest` | A self-evaluation scores any option ids posted, as often as posted |
 | `course-progress-selfeval` | `Feature/Learning/LearningDefectsTest` | Progress counts finished self-evaluations against the number of questions |
 | `lesson-badge-chain` | `Feature/Learning/LearningDefectsTest` | A completed lesson earns at most one badge, so badges that fall due together are lost |
 | `selfeval-get-creates` | `Feature/Learning/LearningDefectsTest` | Every visit of the self-evaluation start page opens one more attempt |
 | `selfeval-short-category` | `Feature/Learning/LearningDefectsTest` | In a category with fewer questions than the self-evaluation length, the attempt never closes |
-| `selfeval-reclose` | `Feature/Learning/LearningDefectsTest` | Every visit to a finished self-evaluation closes it again, moving its end date |
 | `selfeval-badge-count` | `Feature/Learning/LearningDefectsTest` | A member who left a self-evaluation unfinished never gets its badge |
 | `selfeval-badge-locale` | `Feature/Learning/LearningDefectsTest` | The self-evaluation's new-badge message is always in English |
 | `course-progress-null` | `Feature/Learning/LearningDefectsTest` | In a language without simulations or self-evaluation questions, the progress shows 0 whatever else is done |
 | `badge-duplicate` | `Feature/Learning/LearningDefectsTest` | A badge stored twice reads as not held |
 | `lang-no-questions` | `Feature/Learning/LearningDefectsTest` | `no_questions` is defined twice in four `main.php` files, so the self-evaluation page never shows its own text |
-| `simulation-foreign-option` | `Feature/Simulations/SimulationDefectsTest` | A step records any option id posted, as often as posted |
-| `simulation-results-mail-repeat` | `Feature/Simulations/SimulationDefectsTest` | Every visit to a finished run mails the result again |
-| `simulation-other-language` | `Feature/Simulations/SimulationDefectsTest` | A simulation of another language is a 500 |
 | `simulation-without-category` | `Feature/Simulations/SimulationDefectsTest` | A simulation filed under no category is a 500 |
 | `simulation-badge-message` | `Feature/Simulations/SimulationDefectsTest` | Once every simulation is finished, each end page announces the held badge as new again |
 | `knowledge-skipped-answers` | `Feature/Knowledge/KnowledgeDefectsTest` | A question answered with no option drops out of the result |
-| `knowledge-repeated-option` | `Feature/Knowledge/KnowledgeDefectsTest` | A correct option posted many times counts many times |
 | `knowledge-all-skipped` | `Feature/Knowledge/KnowledgeDefectsTest` | Skipping every question divides by zero, and the test never closes |
-| `knowledge-unknown-attempt` | `Feature/Knowledge/KnowledgeDefectsTest` | An unknown attempt id is a 500 |
-| `knowledge-attempt-owner` | `Feature/Knowledge/KnowledgeDefectsTest` | Any member can open another member's attempt |
-| `knowledge-attempt-limit` | `Feature/Knowledge/KnowledgeDefectsTest` | The three-try limit exists only in the page |
-| `knowledge-category-lookup` | `Feature/Knowledge/KnowledgeDefectsTest` | An answer's category is looked up by the attempt's id. Once attempt ids pass the question ids, answering fails |
-| `knowledge-reclose` | `Feature/Knowledge/KnowledgeDefectsTest` | Every visit closes a finished attempt again, moving the certificate's date and working the result out again |
 | `knowledge-limits-missing` | `Feature/Knowledge/KnowledgeDefectsTest` | A language missing from the knowledge-test limits makes every start a 500 |
 | `knowledge-badge-later-pass` | `Feature/Knowledge/KnowledgeDefectsTest` | A pass on a later try never earns the final-test badge |
 | `certificate-greek-name` | `Feature/Knowledge/KnowledgeDefectsTest` | The certificate's name font has no Greek letters, so a Greek member's name cannot print |
-| `manager-country-scope` | `Feature/Admin/AdminDefectsTest` | A country manager can read any member's history and reports |
 | `admin-get-deletes` | `Feature/Admin/AdminDefectsTest` | Deleting and switching off answer a plain GET, so a link can do it |
-| `admin-login-throttle` | `Feature/Admin/AdminDefectsTest` | The admin login takes any number of password guesses |
 | `selfeval-greek-import` | `Feature/Admin/AdminDefectsTest` | The import never finds a Greek question line |
-| `seed-settings-rows` | `Feature/Admin/AdminDefectsTest` | A fresh install has no settings rows 1 and 3 to save into |
 | `lesson-delete-missing-file` | `Feature/Admin/AdminDefectsTest` | A lesson whose file is gone from disk cannot be deleted |
 | `empty-body-500` | `Feature/Admin/AdminDefectsTest` | News, pages and lessons saved with an empty body are a 500 |
 | `admin-news-shadowed` | `Feature/Admin/AdminDefectsTest` | The public news routes answer the panel's news list, edit and delete links |
@@ -167,22 +143,12 @@ Three files outside `tests/` belong to the suite:
 | `lm-delete-anchor` | `Feature/Admin/AdminDefectsTest` | Deleting a lesson or a category reopens the list on the wrong language tab |
 | `category-delete-orphans` | `Feature/Admin/AdminDefectsTest` | A deleted category's self-evaluation and knowledge-test questions stay behind |
 | `lesson-file-missing` | `Feature/Admin/AdminDefectsTest` | A lesson-file post without a usable file stores nothing, yet says "Created!" |
-| `lesson-file-delete-unknown` | `Feature/Admin/AdminDefectsTest` | Deleting a lesson file that is already gone is a 500 |
-| `selfeval-form-route` | `Feature/Admin/AdminDefectsTest` | A self-evaluation route names a method its controller lacks: a 500 |
 | `language-rules` | `Feature/Admin/AdminDefectsTest` | A language name another language already has is a 500, not a form error |
 | `language-delete-in-use` | `Feature/Admin/AdminDefectsTest` | Deleting a language that still has content is a 500 instead of a message |
-| `knowledge-report-unknown` | `Feature/Admin/AdminDefectsTest` | The panel's knowledge report for an unknown attempt is a 500 |
 | `manager-country-update` | `Feature/Admin/AdminDefectsTest` | Editing a manager drops the country the dialog asks for |
-| `manager-update-main` | `Feature/Admin/AdminDefectsTest` | The manager dialog's update rewrites a main admin's address and password |
 | `simulation-update-descr` | `Feature/Admin/AdminDefectsTest` | Editing a simulation without steps drops the new description, though the page says "Updated!" |
 | `simulations-pdf-categories` | `Feature/Admin/AdminDefectsTest` | Every scenario of the simulations printout shows its language's last scenario's categories |
 | `import-cross-language` | `Feature/Admin/AdminDefectsTest` | The simulation import matches category and attribute names across languages |
-| `expose-php` | `Apache/ApacheDefectsTest` | Every response names PHP's exact version |
-| `server-banner` | `Apache/ApacheDefectsTest` | The Server header and Apache's own error pages name Apache's version |
-| `client-ip-header` | `Apache/ApacheDefectsTest` | A `Client-IP` or `CF-Connecting-IP` header picks the address the app records |
-| `trailing-slash-http` | `Apache/ApacheDefectsTest` | The trailing-slash redirect sends HTTPS visitors to `http://` |
-| `captcha-outage-500` | `Apache/ApacheDefectsTest` | Registration is a 500 while Google is unreachable |
-| `captcha-outage-reset` | `Apache/ApacheDefectsTest` | Forgot-password is a 500 while Google is unreachable |
 
 Each test's banner explains its defect: the cause, the impact, and the
 behaviour wanted instead.
@@ -196,6 +162,53 @@ their home files:
 - `session-cookie-secure` → `SessionTest::testSessionCookieIsSecure`.
   With `SESSION_SECURE_COOKIE` unset, Laravel 13 marks the cookie Secure
   on HTTPS requests, and behind the endpoint every request is HTTPS.
+
+## Fixed defects
+
+These 34 pins were fixed in October 2026, each with a change small enough
+that no user should notice it. Their tests now live in their home files,
+without the pin:
+
+| Id | Home test |
+|---|---|
+| `knowledge-category-lookup` | `KnowledgeExamTest::testAnswerIsFiledUnderItsQuestionsCategory` |
+| `knowledge-attempt-owner` | `KnowledgeExamTest::testAnotherMembersAttemptIsNotFound` |
+| `knowledge-attempt-limit` | `KnowledgeExamTest::testFourthAttemptIsRefused` |
+| `knowledge-repeated-option` | `KnowledgeExamTest::testRepeatedOptionCountsOnce` |
+| `knowledge-unknown-attempt` | `KnowledgeExamTest::testUnknownAttemptIsNotFound` |
+| `knowledge-reclose` | `KnowledgeExamTest::testFinishedAttemptStaysClosed` |
+| `selfeval-foreign-options` | `SelfEvaluationTest::testRepeatedOptionScoresOnce`, `testForgedAnswersAreNotStored` |
+| `selfeval-reclose` | `SelfEvaluationTest::testFinishedAttemptKeepsItsEndDate` |
+| `simulation-foreign-option` | `SimulationsTest::testRunNeverScoresAboveItsBestPath` |
+| `simulation-other-language` | `SimulationsTest::testSimulationOfAnotherLanguageIsNotFound` |
+| `simulation-results-mail-repeat` | `SimulationsTest::testFinishedRunMailsItsResultOnce` |
+| `verify-blank-token` | `VerificationTest::testBlankLinkLeavesDeactivatedAccountsAlone` |
+| `password-flash` | `RegistrationTest::testFailedSignUpKeepsNoPasswordInTheSession` |
+| `password-trim` | `RegistrationTest::testPasswordWithBlankEdgesRegisters` |
+| `register-while-signed-in` | `RegistrationTest::testSignedInMemberIsSentAwayFromTheRegistrationForm` |
+| `login-throttle` | `LoginTest::testTenWrongPasswordsLockTheLogin`, `testNineWrongPasswordsStillLetTheMemberIn` |
+| `country-out-of-range` | `AccountSettingsTest::testMemberOfAnUnknownCountryOpensTheDashboard`, and the "country out of range" case of `RegistrationTest::testIncompleteFormIsRefused` |
+| `username-length` | `AccountSettingsTest::testUsernameTheColumnCannotHoldIsRefused`, `testUsernameOfFortyFiveCharactersIsTaken` |
+| `manager-country-scope` | `AdminAccessTest::testCountryManagerReadsOnlyItsCountrysReports`, `testMainAdminReadsEveryCountrysReports` |
+| `knowledge-report-unknown` | `AdminAccessTest::testUnknownKnowledgeReportIsNotFound` |
+| `manager-update-main` | `AdminManagersTest::testMainAdminIsNeverRewritten` |
+| `admin-login-throttle` | `AdminLoginTest::testTenWrongPasswordsLockTheAdminLogin` |
+| `selfeval-form-route` | `AdminLearningTest::testQuestionFormPathIsNotFound` |
+| `lesson-file-delete-unknown` | `AdminLearningTest::testRepeatedFileDeleteLinkIsHarmless` |
+| `seed-settings-rows` | `AdminContentTest::testSettingsAreSaved`, which no longer creates rows 1 and 3 itself, and `SchemaTest::testSeedRowsArePresent` |
+| `ranks-query-per-member` | `PublicPagesTest::testRankingQueriesDoNotGrowWithTheMembers`, with `testRankingShowsEachBadgeOnceInTheOrderEarned` keeping the page as it was |
+| `client-ip-header` | `SessionTest::testRecordedAddressIsTheOneApacheSaw` |
+| `expose-php` | `ProtectionTest::testResponsesDoNotNamePhp` |
+| `server-banner` | `ProtectionTest::testResponsesDoNotNameApachesVersion` |
+| `trailing-slash-http` | `FrontControllerTest::testTrailingSlashIsRedirectedAway`, which now checks the whole `Location` |
+| `captcha-outage-500` | `ProductionModeTest::testRegistrationSurvivesAGoogleOutage` |
+| `captcha-outage-reset` | `ProductionModeTest::testResetRequestSurvivesAGoogleOutage` |
+| `remoteip-trust-range` | `ApacheConfigTest::testOnlyPrivateProxiesAreTrusted` |
+| `seed-admin-password` | `SchemaTest::testSeededAdminHasNoKnownPassword` |
+
+The fixes left the Platform and Apache suites without a pinned defect, so
+`PlatformDefectsTest` and `ApacheDefectsTest` are gone. A new pin there
+starts the file again.
 
 ## Found but not pinned
 
@@ -247,16 +260,6 @@ Things the suite learned the hard way:
     the link it carries.
   - Registration and forgot-password need `solveCaptcha()`; the member
     login has no captcha.
-- **Knowledge attempts.** `progress_save` looks an answer's category up
-  by the attempt's id (`knowledge-category-lookup`).
-  - In production, every attempt id so far (up to 664) is also a
-    question id (questions run to 760). Answers therefore save, but
-    under the wrong category.
-  - From attempt 761 on, the insert fails and every knowledge test
-    breaks.
-  - Tests that answer a knowledge question call `coverKnowledgeAttempts`
-    first, so that a question with the attempt's id exists, as in
-    production.
 - **Shadowed routes.** The public `{lang}/news…` routes are registered
   first and answer four `admin-panel/news…` URLs. `AdminAccessTest`
   leaves them out of its route sweep (`SHADOWED`), and
@@ -284,6 +287,10 @@ Things the suite learned the hard way:
   request at the configured `en`. A test that checks a translated text
   after a request in another language sets the locale back first, as
   `selfeval-badge-locale` does.
+- **A real server error.** `ProductionModeTest` renames
+  `bei_users_badges` for one request and puts it back, so the 500 it
+  inspects comes from a real exception. It used to borrow the error of a
+  pinned defect, `country-out-of-range`, and lost it when that was fixed.
 - **Apache tests commit.** Apache runs the app in its own processes,
   which see only committed rows. `ApacheTestCase` therefore gives its
   tests no transaction. `World::removeAll` deletes their rows and the

@@ -52,8 +52,8 @@ use Carbon\Carbon;
 // Built on BaseController, whose middleware sets the
 // language and shares the member's data with every view.
 // AuthenticatesUsers is mixed in, but showLoginForm, login
-// and logout replace the trait's own — and with its login
-// goes its throttling.
+// and logout replace the trait's own; login keeps the
+// throttling of the trait's login (ThrottlesLogins).
 //
 //   showLoginForm, login, logout — signing in and out
 //   ForgotPasswordForm,
@@ -76,6 +76,12 @@ class LoginController extends BaseController
     // signing in; nothing reads it, login names the dashboard
     // itself
     protected $redirectTo = "/cp/dashboard";
+
+    // ThrottlesLogins reads these: ten failed sign-ins for one
+    // email from one address lock that pair out until fifteen
+    // minutes after the first of them
+    protected $maxAttempts = 10;
+    protected $decayMinutes = 15;
 
 
 
@@ -156,18 +162,18 @@ class LoginController extends BaseController
     // (SettingsController::getUserIP), a bei_users_loginlog
     // row, badge_login_10 after ten days in a row — empties
     // remember_token, and sends the member to the page that
-    // asked for a sign-in, or to the dashboard.
-    //
-    // Known bug (medium): nothing limits the guesses. This
-    // method replaces the trait's login and leaves out its
-    // ThrottlesLogins calls, so the guard checks every
-    // password posted (LoginController.php:189), and the form
-    // has no reCAPTCHA either; pinned as login-throttle. Fix:
-    // count the failures per email and address and refuse for
-    // a while after too many, as the trait's login does.
+    // asked for a sign-in, or to the dashboard. The form has
+    // no reCAPTCHA, so the guesses are limited the way the
+    // trait's login limits them: every refusal counts against
+    // the email and the address it came from, and once the
+    // pair has ten (the properties above), every post of it —
+    // the right password included — goes back to the form
+    // with auth.throttle in the session's language until
+    // fifteen minutes after the first refusal. A sign-in
+    // clears the count.
     //
     // Known bug (low): the refusal goes through intended()
-    // (LoginController.php:202), so a visitor whom a member
+    // (LoginController.php:217), so a visitor whom a member
     // page sent to the form is sent back to that page, which
     // bounces them to the form again — and the flashed error
     // is spent on the bounce: the form comes back without a
@@ -186,7 +192,14 @@ class LoginController extends BaseController
             'password' => 'required|min:12|max:50'
         ]);
 
+        if ($this->hasTooManyLoginAttempts($request)) {
+            $this->fireLockoutEvent($request);
+            return $this->sendLockoutResponse($request);
+        }
+
         if (Auth::guard('mem')->attempt(['email' => $request->email, 'password' => $request->password, 'status'=>1])) {
+
+            $this->clearLoginAttempts($request);
 
             // Emptying remember_token cancels a pending password
             // reset: forgotpassword keeps the reset token there
@@ -198,6 +211,8 @@ class LoginController extends BaseController
             return redirect()->intended(route('dashboard'));
 
         }
+
+        $this->incrementLoginAttempts($request);
 
         return redirect()->intended(route('login'))->withErrors([__('main.auth_failed')]);
     }
@@ -268,27 +283,20 @@ class LoginController extends BaseController
     // POST /forgot-password
     //
     // Mails a password-reset link. The form needs an email and
-    // a solved reCAPTCHA. When exactly one member has that
-    // email, a 50-character token from random_string goes out
-    // in a SendRemindLink mail and is then stored in the
-    // member's remember_token. Every address gets the same
-    // forgot_pass_msg answer, mail or no mail, so the form
-    // does not tell who has an account.
-    //
-    // Known bug (low): the reCAPTCHA rule
-    // (LoginController.php:304) has anhskohbo/no-captcha ask
-    // Google with no error handling, so while Google cannot be
-    // reached the form answers with the 500 page instead of an
-    // error — the same failure captcha-outage-500 pins on the
-    // registration form. Fix: catch the connection error and
-    // send the form back with a message.
-    // Pinned as captcha-outage-reset.
+    // a solved reCAPTCHA — while Google cannot be reached the
+    // reCAPTCHA counts as unsolved (AppServiceProvider::boot).
+    // When exactly one member has that email, a 50-character
+    // token from random_string goes out in a SendRemindLink
+    // mail and is then stored in the member's remember_token.
+    // Every address gets the same forgot_pass_msg answer, mail
+    // or no mail, so the form does not tell who has an
+    // account.
     //
     // Known bug (low): remember_token is the column Laravel's
     // session guard keeps for remember-me, and the guard's
     // logout replaces a non-empty one with a random string.
     // A member still signed in elsewhere who signs out there
-    // after asking for a link (LoginController.php:313) kills
+    // after asking for a link (LoginController.php:321) kills
     // the link before it is opened. Fix: keep the reset token
     // in a column of its own.
     // Pinned as reset-link-logout.

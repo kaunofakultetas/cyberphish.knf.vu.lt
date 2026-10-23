@@ -100,18 +100,11 @@ Route::get('cp/dashboard', 'ManagerMainController@dashboard')->name('dashboard')
 Route::post('cp/change-pass', array('before' => 'csrf', 'uses' => 'ManagerMainController@change_pass'))->middleware('auth:mem');
 
 // The links the mails carry: the sign-up mail's
-// verification link, and the reset mail's link, which mails
-// a new password — validate.reset answers a token that no
-// member, or more than one, holds with a 404.
-//
-// Known bug (medium): the verification link has no such
-// guard (web_user.php:115). ValidateVerify would be one, but
-// no alias names it, and RegisterController::verify
-// switches on every member whose token matches: a blank
-// token matches every verified account, so every account
-// an admin switched off is back on; pinned as
-// verify-blank-token. Fix: register ValidateVerify and put
-// it on this route, as validate.reset guards the reset link.
+// verification link, whose action checks its token itself —
+// only a token one member holds switches anything on — and
+// the reset mail's link, which mails a new password —
+// validate.reset answers a token that no member, or more
+// than one, holds with a 404.
 Route::get('verify/{verify_token}', 'Auth\RegisterController@verify');
 
 Route::get('reset/{reset_token}', 'Auth\LoginController@reset_pass')->middleware('validate.reset');
@@ -132,8 +125,8 @@ Route::post('cp/change-fullname', array('before' => 'csrf', 'uses' => 'ManagerMa
 //
 // Known bug (medium): {lang} takes any value and this file
 // loads before web_admin.php, so {lang}/news
-// (web_user.php:148) answers admin-panel/news, and
-// {lang}/news/{slug}/{uid} (web_user.php:150) answers the
+// (web_user.php:141) answers admin-panel/news, and
+// {lang}/news/{slug}/{uid} (web_user.php:143) answers the
 // panel's news edit, delete and delete_picture links: the
 // panel shows the public list and articles, and no admin
 // can edit or delete an article there; pinned as
@@ -212,17 +205,9 @@ Route::get('{lang}/ranks/simulations', 'RanksController@simulations');
 Route::get('cp/badges', 'BadgesController@index')->middleware(['auth:mem']);
 
 // The knowledge test: its page, the start of an attempt,
-// and the attempt's questions and answers.
-//
-// Known bug (medium): unlike the self-evaluation and the
-// simulation run, the attempt's routes (web_user.php:230,
-// 232) check neither that the attempt exists nor that it is
-// the member's: an unknown public id is a 500, and a member
-// who has another member's public id sees and answers that
-// attempt; pinned as knowledge-unknown-attempt and
-// knowledge-attempt-owner. Fix: guard both with an
-// existence and owner check, as r_exists:sim_public_id
-// guards the simulation run.
+// and the attempt's questions and answers — the controller
+// answers an attempt that is not the member's own with a
+// 404.
 Route::get('{lang}/knowledge_test', 'KnowledgeTestController@index')->middleware(['auth:mem']);
 
 Route::post('{lang}/knowledge_start', 'KnowledgeTestController@start')->middleware(['auth:mem']);

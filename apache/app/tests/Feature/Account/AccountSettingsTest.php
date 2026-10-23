@@ -6,11 +6,14 @@
 //  The three forms of the dashboard (ManagerMainController
 //  on the member side): cp/change-pass checks the current
 //  password and the repetition before it stores a new hash,
-//  cp/change-username keeps names unique between members,
+//  cp/change-username keeps names unique between members
+//  and within the column's 45 characters,
 //  cp/change-fullname takes the name printed on the
 //  certificate (at least 6 characters). Visitors are sent
-//  to the login form. The defects of these forms are pinned
-//  in AccountDefectsTest — the full name's limit of 20
+//  to the login form. The dashboard opens for a member of
+//  any country, one the questionnaire links do not know
+//  included. The defects of these forms are pinned in
+//  AccountDefectsTest — the full name's limit of 20
 //  characters among them.
 //
 //  Used by:
@@ -273,6 +276,53 @@ class AccountSettingsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testUsernameTheColumnCannotHoldIsRefused
+    // -----------------------------------------------------------
+    //
+    // A name over the column's 45 characters fails validation
+    // instead of being cut short, and the old name stays.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUsernameTheColumnCannotHoldIsRefused(): void
+    {
+        $this->submit('/cp/change-username', ['username' => str_repeat('n', 46)])->assertSessionHasErrors();
+
+        $this->assertSame($this->member->username, Members::find($this->member->id)->username);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUsernameOfFortyFiveCharactersIsTaken
+    // -----------------------------------------------------------
+    //
+    // A name that fills the column exactly is stored whole.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUsernameOfFortyFiveCharactersIsTaken(): void
+    {
+        $name = 'Phish' . str_repeat('n', 40);
+
+        $this->submit('/cp/change-username', ['username' => $name])->assertSessionHas('success');
+
+        $this->assertSame($name, Members::find($this->member->id)->username);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testFullNameIsStored
     // -----------------------------------------------------------
     //
@@ -317,6 +367,32 @@ class AccountSettingsTest extends FeatureTestCase
         }
 
         $this->assertNull(Members::find($this->member->id)->fullname);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMemberOfAnUnknownCountryOpensTheDashboard
+    // -----------------------------------------------------------
+    //
+    // Registration takes the form's countries, 0 to 5, but a
+    // row from before it checked may hold any number. Every
+    // page of such a member looks up the questionnaire link of
+    // the country, and the dashboard still opens — with no
+    // link, like country 0 (Other).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMemberOfAnUnknownCountryOpensTheDashboard(): void
+    {
+        $member = $this->world->member(['country' => 9]);
+
+        $this->signInMember($member)->get('/cp/dashboard')->assertOk();
     }
 
 

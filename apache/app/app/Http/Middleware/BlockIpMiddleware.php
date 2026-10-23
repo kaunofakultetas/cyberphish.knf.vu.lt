@@ -56,18 +56,12 @@ class BlockIpMiddleware
     // -----------------------------------------------------------
     //
     // Checks the visitor's address against blockIps. The
-    // address comes from SettingsController::getUserIP, which
-    // reads the server variables itself — a request built
-    // in-process, as in the Feature suite, has no REMOTE_ADDR
-    // unless the test sets one (TestCase::setUp does).
-    //
-    // Known bug (low): getUserIP believes a CF-Connecting-IP
-    // or Client-IP header before the address Apache saw
-    // (BlockIpMiddleware.php:78), and the endpoint passes both
-    // on, so a blocked visitor gets past the list by sending
-    // one — pinned as client-ip-header. Harmless while the
-    // list is empty. Fix: let getUserIP return the address
-    // Apache resolved.
+    // address comes from SettingsController::getUserIP — the
+    // one Apache resolved, which no header a client sends can
+    // change — and it reads the server variables itself: a
+    // request built in-process, as in the Feature suite, has
+    // no REMOTE_ADDR unless the test sets one (TestCase::setUp
+    // does).
     //
     // Used by:
     //   - Laravel's HTTP kernel, for every request

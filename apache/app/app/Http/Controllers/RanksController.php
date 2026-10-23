@@ -65,6 +65,7 @@ use App\Models\ViewMaxPointsSelfEvalCat;
 //
 //   self_evaluation — the self-evaluation ranking
 //   simulations     — the simulation ranking
+//   with_badges     — the badges of every ranked member
 //
 // Used by:
 //   - routes/web_user.php — the two {lang}/ranks/ routes
@@ -110,15 +111,8 @@ class RanksController extends BaseController
     // The self-evaluation ranking of the language, open to
     // everyone: per member the sum of their best points in
     // each self-evaluation category, highest first, shown by
-    // rank_self_eval.blade.php with user names and badges.
-    //
-    // Known bug (low): the badges cost one query per ranked
-    // member (RanksController.php:139), so the public page
-    // grows by a query for every member who ever finished a
-    // self-evaluation in the language. Fix: fetch the badges
-    // of all ranked members in one query and group them by
-    // user id.
-    // Pinned as ranks-query-per-member.
+    // rank_self_eval.blade.php with user names and badges
+    // (with_badges).
     //
     // Used by:
     //   - layouts/main.blade.php — the ranks menu of the top
@@ -134,13 +128,7 @@ class RanksController extends BaseController
         ->get()
         ->toArray();
 
-        foreach($ranks as $k => $v){
-
-            $ranks[$k]['badges'] = Badges::selectraw("DISTINCT(name) as name")->where(['user_id'=>$v['id']])->get()->toArray();
-
-        }
-
-        return view('rank_self_eval', ['ranking_table'=>$ranks]);
+        return view('rank_self_eval', ['ranking_table'=>RanksController::with_badges($ranks)]);
     }
 
 
@@ -157,14 +145,8 @@ class RanksController extends BaseController
     // The simulation ranking of the language, open to
     // everyone: per member the sum of their best points in
     // each simulation, highest first, shown by
-    // rank_simulations.blade.php with user names and badges.
-    //
-    // Known bug (low): the same query per ranked member as
-    // self_evaluation (RanksController.php:185), growing with
-    // every member who ever finished a simulation in the
-    // language. Fix: one query for the badges of all ranked
-    // members, grouped by user id.
-    // Pinned as ranks-query-per-member.
+    // rank_simulations.blade.php with user names and badges
+    // (with_badges).
     //
     // Used by:
     //   - layouts/main.blade.php — the ranks menu of the top
@@ -180,12 +162,43 @@ class RanksController extends BaseController
         ->get()
         ->toArray();
 
-        foreach($ranks as $k => $v){
+        return view('rank_simulations', ['ranking_table'=>RanksController::with_badges($ranks)]);
+    }
 
-            $ranks[$k]['badges'] = Badges::selectraw("DISTINCT(name) as name")->where(['user_id'=>$v['id']])->get()->toArray();
+
+
+
+
+
+    // -----------------------------------------------------------
+    // with_badges
+    // -----------------------------------------------------------
+    //
+    // Gives every ranked member its badges: the distinct badge
+    // names it holds, in the order it first earned them, each
+    // as a row with its name, as the templates read them. One
+    // query reads the badges of all the ranked members, and
+    // they are dealt out by user id, so a ranking costs the
+    // same queries however many members it lists.
+    //
+    // Used by:
+    //   - self_evaluation, simulations (above)
+    // -----------------------------------------------------------
+
+    private static function with_badges(array $ranks)
+    {
+        $badges = [];
+        foreach(Badges::select(['user_id', 'name'])->whereIn('user_id', array_column($ranks, 'id'))->orderBy('id')->get()->toArray() as $badge){
+
+            // A name seen before keeps its first place
+            $badges[$badge['user_id']][$badge['name']] = ['name'=>$badge['name']];
 
         }
 
-        return view('rank_simulations', ['ranking_table'=>$ranks]);
+        foreach($ranks as $k => $v){
+            $ranks[$k]['badges'] = array_values($badges[$v['id']] ?? []);
+        }
+
+        return $ranks;
     }
 }

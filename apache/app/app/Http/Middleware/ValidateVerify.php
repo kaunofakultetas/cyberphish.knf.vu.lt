@@ -34,13 +34,13 @@ use App\Models\Members as Members;
 // ValidateVerify
 // -----------------------------------------------------------
 //
-// Would guard GET /verify/{verify_token}, which today goes
-// straight to RegisterController::verify. That action has
-// no exactly-one check, which is how a token of blanks
-// switches every deactivated account back on (pinned as
-// verify-blank-token); this check would refuse it, since
-// it leaves the empty tokens out. Would refuse with a
-// redirect to the login page.
+// Would guard GET /verify/{verify_token}, which goes
+// straight to RegisterController::verify. That action makes
+// the same checks itself — a blank token, or one more than
+// one member holds, switches nothing on and ends on the
+// login page — so registering this would change nothing a
+// visitor sees. Would refuse with a redirect to the login
+// page.
 //
 // Used by:
 //   - nothing calls this at the moment — never registered

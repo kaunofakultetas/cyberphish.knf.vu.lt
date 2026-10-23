@@ -7,8 +7,8 @@
 //  it lists the country managers, creates new ones switched
 //  off (status 0) until a main admin switches them on,
 //  updates a manager's address and password and deletes
-//  managers. A main admin can be neither deleted nor
-//  switched off from here.
+//  managers. A main admin can be neither deleted, switched
+//  off nor rewritten from here.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -267,6 +267,40 @@ class AdminManagersTest extends FeatureTestCase
 
         $this->assertNotNull(Managers::find($other->id));
         $this->assertEquals(1, Managers::find($other->id)->status);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMainAdminIsNeverRewritten
+    // -----------------------------------------------------------
+    //
+    // The update passes over main admins too, which the page
+    // never lists: a post naming another main admin's id
+    // leaves its address and password as they were.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMainAdminIsNeverRewritten(): void
+    {
+        $other = $this->world->manager();
+
+        $this->signInManager($this->admin)->from('/admin-panel/settings/managers')
+            ->post('/admin-panel/manager/update', [
+                'uid'    => $other->id,
+                'email'  => 'main-admin-rewritten@example.test',
+                'pass'   => 'Rewritten-Pass-4',
+                'repass' => 'Rewritten-Pass-4',
+            ]);
+
+        $row = Managers::find($other->id);
+        $this->assertSame($other->email, $row->email);
+        $this->assertTrue(Hash::check(World::PASSWORD, $row->password));
     }
 
 

@@ -12,8 +12,9 @@
 //  blocks separated by "::", a question line "Q\: text",
 //  "=" before a correct option and "~" before a wrong one.
 //  A self-evaluation question's correct options share 100
-//  points. The Greek import and the lesson that cannot be
-//  deleted are pinned in AdminDefectsTest.
+//  points. A file's delete link opened twice is harmless.
+//  The Greek import and the lesson that cannot be deleted
+//  are pinned in AdminDefectsTest.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -234,6 +235,35 @@ class AdminLearningTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testRepeatedFileDeleteLinkIsHarmless
+    // -----------------------------------------------------------
+    //
+    // A delete link opened a second time — or one on a stale
+    // page — finds no row and answers like the first: back to
+    // the list, not a server error.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRepeatedFileDeleteLinkIsHarmless(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+        $file = $this->world->lmFile($lesson);
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->get("/admin-panel/lm/files/delete/$file");
+        $this->assertFalse(DB::table('bei_lm_content_files')->where('id', $file)->exists());
+
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->get("/admin-panel/lm/files/delete/$file")
+            ->assertRedirect("/admin-panel/lm/files/$lesson")
+            ->assertSessionHas('success');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testSelfEvaluationQuestionsAreImported
     // -----------------------------------------------------------
     //
@@ -373,6 +403,29 @@ class AdminLearningTest extends FeatureTestCase
             ->get("/admin-panel/lm/knowledge_test/delete/{$question['question']}");
         $this->assertFalse(DB::table('bei_knowledge_test')->where('id', $question['question'])->exists());
         $this->assertFalse(DB::table('bei_knowledge_option')->where('question_id', $question['question'])->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testQuestionFormPathIsNotFound
+    // -----------------------------------------------------------
+    //
+    // admin-panel/lm/self_eval/question_{type}/{uid} is served
+    // no more — its route named a method SelfevalController
+    // never had, and nothing linked to it — so the path is the
+    // panel's 404, like any other the panel does not serve.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionFormPathIsNotFound(): void
+    {
+        $this->admin()->get("/admin-panel/lm/self_eval/question_new/{$this->category}")->assertNotFound();
     }
 
 

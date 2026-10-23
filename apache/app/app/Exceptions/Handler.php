@@ -36,15 +36,6 @@ use Throwable;
 // Reports and renders through Laravel's handler unchanged;
 // the two lists below are all it sets.
 //
-// Known bug (low): dontFlash holds Laravel's password
-// fields only (Handler.php:64), so a failed validation
-// flashes the registration form's password2, or the
-// manager form's pass and repass, into the session with
-// the rest of the old input — plain-text passwords in the
-// session store until the next request takes them out.
-// Fix: add those names to the list.
-// Pinned as password-flash.
-//
 // Used by:
 //   - bootstrap/app.php — bound as the exception handler
 //   - Laravel's HTTP and console kernels — every uncaught
@@ -60,10 +51,20 @@ class Handler extends ExceptionHandler
     ];
 
     // The inputs never flashed back to the form after a
-    // failed validation
+    // failed validation: Laravel's password fields and every
+    // password field of the app's forms — the sign-up form's
+    // repeat, the two change-password forms' new password and
+    // its repeat, the manager form's pair — so no password
+    // typed sits in the session store. None of these fields
+    // shows its old value anyway.
     protected $dontFlash = [
         'password',
         'password_confirmation',
+        'password2',
+        'newpass',
+        'renewpass',
+        'pass',
+        'repass',
     ];
 
 

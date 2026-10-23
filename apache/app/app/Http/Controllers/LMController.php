@@ -575,20 +575,16 @@ class LMController extends BaseController
     // redirects back to the question page. The question comes
     // as pbid, the MD5 of the MD5 of its id (unsalted, unlike
     // the lesson hash, so it hides nothing), and the chosen
-    // options as the list a. Each option becomes a
-    // bei_users_selfeval row carrying that option's own
-    // correct flag and points; FinishedSe scores the attempt
-    // from those rows when it closes it. Without options
-    // nothing is stored.
-    //
-    // Known bug (medium): the loop (LMController.php:614)
-    // stores every option id posted — options of any question,
-    // as often as they come, for a question answered before
-    // too — so a forged or resubmitted form scores far above
-    // the attempt's maximum, and the public ranking shows it;
-    // pinned as selfeval-foreign-options. Fix: keep only
-    // distinct options of that question, and refuse a
-    // question the attempt has answered.
+    // options as the list a — one from the radio buttons of a
+    // single-answer question, any number from the checkboxes
+    // of a multi-answer one. Each chosen option of that
+    // question becomes one bei_users_selfeval row carrying
+    // the option's own correct flag and points; FinishedSe
+    // scores the attempt from those rows when it closes it.
+    // Nothing is stored without options, for a question of
+    // another category, or for a question the attempt has
+    // answered, so a forged or resubmitted form scores no
+    // more than an honest one.
     //
     // Used by:
     //   - self-eval.blade.php — the question form, posted back
@@ -597,21 +593,30 @@ class LMController extends BaseController
 
     public function self_eval_test_save(Request $request, $public_id, $cat_id)
     {
-        // STEP 1: the chosen options, the question behind pbid
-        // and the attempt behind the public id
-        // ====================================================
+        // STEP 1: the chosen options, the question behind pbid —
+        // one of the attempt's category — and the attempt
+        // behind the public id
+        // ======================================================
         $a = $request->get('a');
 
-        $question_id = SelfEval::select('id')->whereRaw("MD5(MD5(id))=?", [$request->get('pbid')])->get()->pluck('id')->first();
+        $question_id = SelfEval::select('id')->whereRaw("MD5(MD5(id))=?", [$request->get('pbid')])->where(['cat_id'=>$cat_id])->get()->pluck('id')->first();
 
         $test_id = SelfEvalUserTest::select('id')->where(['public_id'=>$public_id])->get()->pluck('id')->first();
 
+        // A question the attempt has answered takes no second
+        // answer
+        $answered = SelfEvalUser::where(['test_id'=>$test_id, 'question_id'=>$question_id])->count() > 0;
 
-        // STEP 2: one answer row per posted option, scored by
-        // that option's own correct flag and points
-        // ===================================================
-        if(is_array($a) && count($a)>0){
-            foreach($a as $k => $v){
+
+        // STEP 2: one answer row per chosen option of the
+        // question, each once, scored by that option's own
+        // correct flag and points
+        // ================================================
+        if($question_id != null && !$answered && is_array($a) && count($a)>0){
+
+            $options = SelfEvalOption::where(['question_id'=>$question_id])->whereIn('id', array_unique($a))->get();
+
+            foreach($options as $option){
 
                 $addRecord = new SelfEvalUser;
                 $addRecord->user_id = Auth::guard('mem')->id();
@@ -619,9 +624,9 @@ class LMController extends BaseController
                 $addRecord->cat_id = $cat_id;
                 $addRecord->test_id = $test_id;
                 $addRecord->public_id = $public_id;
-                $addRecord->option_id = $v;
-                $addRecord->correct = SelfEvalOption::select('correct')->where(['id'=>$v])->get()->pluck('correct')->first();
-                $addRecord->points = SelfEvalOption::select('points')->where(['id'=>$v])->get()->pluck('points')->first();
+                $addRecord->option_id = $option->id;
+                $addRecord->correct = $option->correct;
+                $addRecord->points = $option->points;
                 $addRecord->save();
 
             }
@@ -643,7 +648,7 @@ class LMController extends BaseController
     // digits from SettingsController::random_string, checked
     // against the ids bei_users_selfeval_test already holds.
     //
-    // Known bug (low): the retry (LMController.php:666) calls
+    // Known bug (low): the retry (LMController.php:671) calls
     // SelfEvalUserTest::gen_test_id, a method that model does
     // not have, so the one id that collides fails the request
     // with a BadMethodCallException instead of drawing again —
@@ -785,16 +790,11 @@ class LMController extends BaseController
     // form, for the member's country — by the ids of the
     // registration form: 1 Lithuania, 2 Estonia, 3 Greece /
     // Cyprus, 4 Latvia, 5 Malta. Country 0 (Other, and every
-    // visitor) has none. The page shows the link once the
-    // member holds badge_finished_course.
-    //
-    // Known bug (medium): registration accepts any integer as
-    // the country, but the lookup (LMController.php:815) knows
-    // 0 to 5 only, and BaseController calls this on every page
-    // of a signed-in member — an undefined index, a 500 on
-    // every page of that member; pinned as
-    // country-out-of-range. Fix: answer an empty link for an
-    // unknown country.
+    // visitor) has none, and neither has any other number: a
+    // member row from before registration checked the range
+    // would otherwise break every page of its member, since
+    // BaseController asks on every page. The page shows the
+    // link once the member holds badge_finished_course.
     //
     // Used by:
     //   - BaseController — shared with every view as pq_link,
@@ -812,6 +812,6 @@ class LMController extends BaseController
             5=>'https://forms.gle/wz2YtVcwCnz7kjXq6'
         ];
 
-        return $links[$country];
+        return $links[$country] ?? '';
     }
 }

@@ -6,9 +6,9 @@
 //  GET /verify/{verify_token} (RegisterController::verify):
 //  the token of an unverified member activates the account
 //  (status 1) and is used up; an unknown token changes
-//  nothing. Both answers send the visitor to the login
-//  form. The blank-token defect is pinned in
-//  AuthDefectsTest.
+//  nothing, and neither does a token of blanks, which MySQL
+//  would match against every emptied token. Every answer
+//  sends the visitor to the login form.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -122,5 +122,35 @@ class VerificationTest extends FeatureTestCase
 
         $this->assertSame(0, Members::find($member->id)->status);
         $this->assertSame(self::TOKEN, Members::find($member->id)->verify_token);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBlankLinkLeavesDeactivatedAccountsAlone
+    // -----------------------------------------------------------
+    //
+    // An account an admin switched off after it was verified
+    // has an empty token, which a token of one space matches
+    // in MySQL, trailing spaces being ignored. The account
+    // stays off, and the login form shows no verified
+    // message.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBlankLinkLeavesDeactivatedAccountsAlone(): void
+    {
+        $deactivated = $this->world->member(['status' => 0]);
+
+        $this->get('/verify/%20')
+            ->assertRedirect('/login')
+            ->assertSessionMissing('success');
+
+        $this->assertSame(0, Members::find($deactivated->id)->status);
     }
 }

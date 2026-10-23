@@ -42,14 +42,14 @@ use Illuminate\Notifications\Notifiable;
 // Columns: email (unique, the login), password (a bcrypt
 // hash), username (unique, at most 45 characters; sign-up
 // makes one up from "User" and a number), fullname (the
-// name the certificate prints), country (the pages know
-// ids 0 to 5, though registration takes any integer —
-// pinned as country-out-of-range), status (0 until the
-// e-mailed link is followed or once an admin switches the
-// account off, 1 active; only 1 signs in), verify_token
-// (emptied once used), remember_token — here the pending
-// password-reset token, not Laravel's remember-me token —
-// and last_login / last_ip.
+// name the certificate prints), country (registration
+// takes the form's ids 0 to 5; the pages treat any other
+// number like 0, with no questionnaire link), status (0
+// until the e-mailed link is followed or once an admin
+// switches the account off, 1 active; only 1 signs in),
+// verify_token (emptied once used), remember_token — here
+// the pending password-reset token, not Laravel's
+// remember-me token — and last_login / last_ip.
 //
 // Known bug (medium): bei_users is a latin1 table
 // (mysql/init.sql:56) while the connection speaks utf8mb4.

@@ -89,14 +89,6 @@ class BaseController extends Controller
     // and the questionnaire link of the member's country, is
     // shared with every view.
     //
-    // Known bug (low): the questionnaire link is looked up on
-    // every page (BaseController.php:178), but
-    // LMController::pc_questionare_link knows countries 0 to
-    // 5 only while registration accepts any integer, so a
-    // member with any other country gets a 500 on every
-    // page. Pinned as country-out-of-range. Fix: an empty
-    // link for a country pc_questionare_link does not know.
-    //
     // Used by:
     //   - the constructors of the controllers named in the
     //     header, first thing

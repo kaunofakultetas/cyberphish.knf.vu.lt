@@ -7,11 +7,12 @@
 //  sits behind the man guard, and every one carrying the
 //  Perms middleware is for main admins only — a country
 //  manager gets a 404 there and keeps the dashboard and
-//  the member reports. These tests read the routes from the
-//  live route table, so a route added tomorrow is checked
-//  the same way. Country managers reading other countries'
-//  members, and the panel's news pages the public news
-//  routes answer instead, are pinned in AdminDefectsTest.
+//  the reports of its own country's members, another
+//  country's member being a 404 too. The sweeps read the
+//  routes from the live route table, so a route added
+//  tomorrow is checked the same way. The panel's news
+//  pages, which the public news routes answer instead, are
+//  pinned in AdminDefectsTest.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -20,7 +21,9 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Members;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route as Router;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
@@ -173,6 +176,81 @@ class AdminAccessTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testCountryManagerReadsOnlyItsCountrysReports
+    // -----------------------------------------------------------
+    //
+    // The four member reports — the self-evaluation and the
+    // simulation history, one run, one knowledge test — open
+    // for a member of the manager's country and are a 404 for
+    // a member of another, whatever id the URL carries.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCountryManagerReadsOnlyItsCountrysReports(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+
+        foreach ([2 => 200, 1 => 404] as $country => $status) {
+            foreach ($this->reportsOf($this->world->member(['country' => $country])) as $report) {
+                $this->signInManager($manager)->get($report)->assertStatus($status);
+            }
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMainAdminReadsEveryCountrysReports
+    // -----------------------------------------------------------
+    //
+    // A main admin opens the reports of a member of any
+    // country, its own country (0) aside.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMainAdminReadsEveryCountrysReports(): void
+    {
+        $admin = $this->world->manager();
+
+        foreach ($this->reportsOf($this->world->member(['country' => 1])) as $report) {
+            $this->signInManager($admin)->get($report)->assertOk();
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUnknownKnowledgeReportIsNotFound
+    // -----------------------------------------------------------
+    //
+    // The knowledge report of a public id no attempt has is a
+    // 404, even for a main admin.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUnknownKnowledgeReportIsNotFound(): void
+    {
+        $this->signInManager($this->world->manager())->get('/admin-panel/user/knowledge_results/no-such-attempt')->assertNotFound();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testMainAdminOpensThePanelPages
     // -----------------------------------------------------------
     //
@@ -228,6 +306,38 @@ class AdminAccessTest extends FeatureTestCase
         return array_combine($pages, array_map(function (string $page) {
             return [$page];
         }, $pages));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // reportsOf
+    // -----------------------------------------------------------
+    //
+    // The paths of the member's four reports in English, after
+    // giving the member a finished simulation run and a
+    // finished knowledge test for the two that show one.
+    //
+    // Used by:
+    //   - testCountryManagerReadsOnlyItsCountrysReports,
+    //     testMainAdminReadsEveryCountrysReports (above)
+    // -----------------------------------------------------------
+
+    private function reportsOf(Members $member): array
+    {
+        $en = $this->world->language('en');
+        $run = $this->world->scenarioAttempt($member->id, $this->world->scenario($en), $en);
+        $attempt = $this->world->knowledgeAttempt($member->id, $en);
+
+        return [
+            "/admin-panel/user/self_evaluation_history/$en/{$member->id}",
+            "/admin-panel/user/simulations_history/$en/{$member->id}",
+            '/admin-panel/user/simulation/report/' . DB::table('bei_users_scenarios')->where('id', $run)->value('public_id'),
+            '/admin-panel/user/knowledge_results/' . DB::table('bei_users_knowledge_test')->where('id', $attempt)->value('public_id'),
+        ];
     }
 
 

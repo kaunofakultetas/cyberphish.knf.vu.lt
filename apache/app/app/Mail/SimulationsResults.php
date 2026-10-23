@@ -33,10 +33,9 @@ use Illuminate\Queue\SerializesModels;
 // The view emails/simulationsresults.blade.php, a subject
 // of main.simulations and main.results joined by a space,
 // and points as the view's variable. The end page sends it
-// on every visit to a finished run, not once — the
-// sender's defect, pinned as simulation-results-mail-repeat.
-// The mail goes out at once: the class imports ShouldQueue
-// without implementing it.
+// once, on the visit that closes the run. The mail goes out
+// at once: the class imports ShouldQueue without
+// implementing it.
 //
 // Used by:
 //   - SimulationsController::simulation_do_stuff — GET

@@ -10,9 +10,6 @@
 //  the test fails as the cue to remove its pin and move it
 //  into its home file.
 //
-//    selfeval-foreign-options — a self-evaluation scores any
-//                               option ids posted for a
-//                               question, as often as posted
 //    course-progress-selfeval — the progress counts finished
 //                               self-evaluations against the
 //                               number of questions
@@ -24,9 +21,6 @@
 //    selfeval-short-category  — an attempt longer than its
 //                               category's questions never
 //                               closes
-//    selfeval-reclose         — every visit closes a
-//                               finished attempt again and
-//                               moves its end date
 //    selfeval-badge-count     — a member who left an attempt
 //                               unfinished never gets the
 //                               self-evaluation badge
@@ -102,46 +96,6 @@ class LearningDefectsTest extends FeatureTestCase
         parent::setUp();
         $this->en = $this->world->language('en');
         $this->member = $this->world->member();
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testSelfEvaluationNeverScoresAboveItsMaximum
-    // -----------------------------------------------------------
-    //
-    // LMController::self_eval_test_save stores every option id
-    // posted for a question — any option of any question, as
-    // many times as it comes — and FinishedSe adds the
-    // question's best points for each correct row. Two
-    // questions worth 100 each cannot honestly make more than
-    // 200, yet posting a correct option three times for the
-    // first one makes 400, and the public ranking shows it.
-    // Wanted: the score stays within 200.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testSelfEvaluationNeverScoresAboveItsMaximum(): void
-    {
-        $this->world->setting(2, 'self_eval_pertime', null, null, 2);
-        $category = $this->world->lmCategory($this->en);
-        $first = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
-        $second = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
-        $publicId = $this->startSelfEvaluation($this->member, $category);
-        $correct = $first['options'][0];
-        $this->answerSelfEvaluation($this->member, $publicId, $category, $first['question'], [$correct, $correct, $correct]);
-        $this->answerSelfEvaluation($this->member, $publicId, $category, $second['question'], [$second['options'][0]]);
-        $this->signInMember($this->member)->get("/cp/se/$publicId/$category");
-
-        $this->pinDefect('selfeval-foreign-options', function () use ($publicId) {
-            $points = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('points');
-            $this->assertLessThanOrEqual(200, $points, 'the attempt scored more than its questions are worth');
-        });
     }
 
 
@@ -300,46 +254,6 @@ class LearningDefectsTest extends FeatureTestCase
             $finished = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('finished');
             $this->assertEquals(1, $finished, 'the attempt is still open');
             $response->assertRedirect("/cp/se_r/$publicId");
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testFinishedAttemptKeepsItsEndDate
-    // -----------------------------------------------------------
-    //
-    // FinishedSe::handle closes an attempt whenever as many
-    // questions are answered as an attempt asks, without
-    // looking at finished: every later visit of the test
-    // page closes it again, moves ended — on the result page
-    // and in both histories — to that visit, and works the
-    // points out again. The knowledge test's twin is pinned
-    // as knowledge-reclose. Wanted: a closed attempt keeps
-    // its end date.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testFinishedAttemptKeepsItsEndDate(): void
-    {
-        $this->world->setting(2, 'self_eval_pertime', null, null, 1);
-        $category = $this->world->lmCategory($this->en);
-        $question = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
-        $publicId = $this->startSelfEvaluation($this->member, $category);
-        $this->answerSelfEvaluation($this->member, $publicId, $category, $question['question'], [$question['options'][0]]);
-        $this->signInMember($this->member)->get("/cp/se/$publicId/$category")->assertRedirect("/cp/se_r/$publicId");
-        DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->update(['ended' => '2020-01-01 00:00:00']);
-
-        $this->signInMember($this->member)->get("/cp/se/$publicId/$category");
-
-        $this->pinDefect('selfeval-reclose', function () use ($publicId) {
-            $ended = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('ended');
-            $this->assertSame('2020-01-01 00:00:00', $ended, 'the visit moved the end date');
         });
     }
 

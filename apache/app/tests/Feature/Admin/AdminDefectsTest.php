@@ -9,18 +9,11 @@
 //  until a fix makes one pass — then the test fails as the
 //  cue to remove its pin and move it into its home file.
 //
-//    manager-country-scope      — a country manager reads any
-//                                 member's history and reports
 //    admin-get-deletes          — deleting and switching off
 //                                 answer a plain GET, so a
 //                                 link can do it
-//    admin-login-throttle       — the admin login takes any
-//                                 number of password guesses
 //    selfeval-greek-import      — the import never finds a
 //                                 Greek question line
-//    seed-settings-rows         — a fresh install has no
-//                                 settings rows 1 and 3 to save
-//                                 into
 //    lesson-delete-missing-file — a lesson whose file is gone
 //                                 from disk cannot be deleted
 //    empty-body-500             — news, pages and lessons
@@ -55,23 +48,13 @@
 //                                 its questions behind
 //    lesson-file-missing        — a file post without a file
 //                                 still says "Created!"
-//    lesson-file-delete-unknown — deleting a file that is
-//                                 already gone is a 500
-//    selfeval-form-route        — a self-evaluation route
-//                                 names a method its
-//                                 controller lacks: a 500
 //    language-rules             — a name another language
 //                                 has is a 500, not a form
 //                                 error
 //    language-delete-in-use     — deleting a language that
 //                                 still has content is a 500
-//    knowledge-report-unknown   — the panel's report of an
-//                                 unknown attempt is a 500
 //    manager-country-update     — editing a manager drops
 //                                 the country
-//    manager-update-main        — the manager dialog rewrites
-//                                 a main admin's address and
-//                                 password
 //    simulation-update-descr    — a simulation without steps
 //                                 loses its description edit
 //    simulations-pdf-categories — every scenario of the
@@ -91,10 +74,8 @@ namespace Tests\Feature\Admin;
 use App\Models\Managers;
 use App\Models\Members;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Tests\FeatureTestCase;
 use Tests\Support\Sheets;
-use Tests\Support\World;
 
 
 
@@ -153,38 +134,6 @@ class AdminDefectsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // testCountryManagerSeesOnlyItsCountrysMembers
-    // -----------------------------------------------------------
-    //
-    // The member reports a country manager may open —
-    // user/self_evaluation_history, user/simulations_history,
-    // user/simulation/report, user/knowledge_results — take
-    // the member from the URL and check no country, so a
-    // Latvian manager reads a Lithuanian member's address and
-    // results by changing the id. Wanted: a 404.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testCountryManagerSeesOnlyItsCountrysMembers(): void
-    {
-        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
-        $foreigner = $this->world->member(['country' => 1]);
-
-        $this->pinDefect('manager-country-scope', function () use ($manager, $foreigner) {
-            $this->signInManager($manager)
-                ->get("/admin-panel/user/simulations_history/{$this->en}/{$foreigner->id}")
-                ->assertNotFound();
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
     // testDeletingAMemberNeedsMoreThanALink
     // -----------------------------------------------------------
     //
@@ -207,36 +156,6 @@ class AdminDefectsTest extends FeatureTestCase
 
         $this->pinDefect('admin-get-deletes', function () use ($member) {
             $this->assertNotNull(Members::find($member->id), 'a GET request deleted the member');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testRepeatedWrongPasswordsLockTheAdminLogin
-    // -----------------------------------------------------------
-    //
-    // AdminLoginController::login replaces Laravel's login
-    // without ThrottlesLogins and has no reCAPTCHA: the panel
-    // that runs the whole site takes unlimited guesses.
-    // Wanted: after ten wrong passwords even the right one is
-    // refused for a while.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testRepeatedWrongPasswordsLockTheAdminLogin(): void
-    {
-        $this->pinDefect('admin-login-throttle', function () {
-            for ($guess = 1; $guess <= 10; $guess++) {
-                $this->from('/admin-panel')->post('/admin-panel', ['email' => $this->admin->email, 'password' => 'Wrong-' . $guess]);
-            }
-            $this->from('/admin-panel')->post('/admin-panel', ['email' => $this->admin->email, 'password' => World::PASSWORD]);
-            $this->assertGuest('man');
         });
     }
 
@@ -270,36 +189,6 @@ class AdminDefectsTest extends FeatureTestCase
 
         $this->pinDefect('selfeval-greek-import', function () use ($category) {
             $this->assertSame(1, DB::table('bei_selfeval_question')->where('cat_id', $category)->count());
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testFreshInstallSavesItsAboutText
-    // -----------------------------------------------------------
-    //
-    // mysql/init.sql seeds settings row 2 only, while the
-    // settings page saves the about text into row 1 and the
-    // knowledge-test limits into row 3 with an UPDATE — on a
-    // fresh install both saves change nothing, and the
-    // knowledge test cannot start without its limits. Wanted:
-    // the about text is saved.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testFreshInstallSavesItsAboutText(): void
-    {
-        $this->signInManager($this->admin)->from('/admin-panel/settings/other')
-            ->post('/admin-panel/settings/about_us_save', ['about' => [$this->en => ['descr' => 'About us', 'link' => '']]]);
-
-        $this->pinDefect('seed-settings-rows', function () {
-            $this->assertStringContainsString('About us', (string) DB::table('bei_settings')->where('id', 1)->value('val1'));
         });
     }
 
@@ -826,74 +715,6 @@ class AdminDefectsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // testRepeatedFileDeleteLinkIsHarmless
-    // -----------------------------------------------------------
-    //
-    // LMController::files_delete builds the path to unlink
-    // from the file name of the row the id names, without
-    // checking that the row exists. For an id with no row — a
-    // delete link opened twice, or one on a stale page — the
-    // path is the upload folder itself, which exists, so
-    // unlink runs on it and fails: a 500 instead of the list.
-    // Wanted: the repeated link answers without a server
-    // error.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testRepeatedFileDeleteLinkIsHarmless(): void
-    {
-        $lesson = $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
-        $file = $this->world->lmFile($lesson);
-        $this->signInManager($this->admin)->from("/admin-panel/lm/files/$lesson")->get("/admin-panel/lm/files/delete/$file");
-        $this->assertFalse(DB::table('bei_lm_content_files')->where('id', $file)->exists(), 'the first delete left the row');
-
-        $repeated = $this->signInManager($this->admin)->from("/admin-panel/lm/files/$lesson")->get("/admin-panel/lm/files/delete/$file");
-
-        $this->pinDefect('lesson-file-delete-unknown', function () use ($repeated) {
-            $this->assertLessThan(500, $repeated->getStatusCode(), 'the repeated delete link is a ' . $repeated->getStatusCode());
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testQuestionFormPathIsNotFound
-    // -----------------------------------------------------------
-    //
-    // routes/web_admin.php sends GET
-    // admin-panel/lm/self_eval/question_{type}/{uid} to
-    // SelfevalController::form, a method the controller does
-    // not have. Nothing links to the route, yet a main admin
-    // who opens it gets a 500 rather than the panel's
-    // not-found page. Wanted: a 404, as for any other path
-    // the panel does not serve.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testQuestionFormPathIsNotFound(): void
-    {
-        $category = $this->world->lmCategory($this->en);
-
-        $response = $this->signInManager($this->admin)->get("/admin-panel/lm/self_eval/question_new/$category");
-
-        $this->pinDefect('selfeval-form-route', function () use ($response) {
-            $response->assertNotFound();
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
     // testTakenLanguageNameIsRefused
     // -----------------------------------------------------------
     //
@@ -965,35 +786,6 @@ class AdminDefectsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // testUnknownKnowledgeReportIsNotFound
-    // -----------------------------------------------------------
-    //
-    // Admin\ManagerMainController::knowledge_report looks the
-    // attempt up by the public id from the URL and goes on
-    // whether or not one was found: for an unknown id the
-    // question set decodes to null, and the foreach over it
-    // stops with a 500. The member side fails the same way,
-    // pinned as knowledge-unknown-attempt. Wanted: a 404.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testUnknownKnowledgeReportIsNotFound(): void
-    {
-        $response = $this->signInManager($this->admin)->get('/admin-panel/user/knowledge_results/no-such-attempt');
-
-        $this->pinDefect('knowledge-report-unknown', function () use ($response) {
-            $response->assertNotFound();
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
     // testManagerCountryChangeIsSaved
     // -----------------------------------------------------------
     //
@@ -1023,45 +815,6 @@ class AdminDefectsTest extends FeatureTestCase
 
         $this->pinDefect('manager-country-update', function () use ($manager) {
             $this->assertSame(4, Managers::find($manager->id)->country, 'the country posted was not saved');
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testMainAdminIsNeverRewritten
-    // -----------------------------------------------------------
-    //
-    // Admin\ManagersController::manager_status and
-    // manager_delete pass over main admins, but
-    // manager_update rewrites whichever row the posted uid
-    // names: a post with a main admin's id replaces that
-    // admin's address and password, though the managers page
-    // never lists main admins. Wanted: a main admin's row
-    // stays as it was.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testMainAdminIsNeverRewritten(): void
-    {
-        $other = $this->world->manager();
-
-        $this->signInManager($this->admin)->from('/admin-panel/settings/managers')->post('/admin-panel/manager/update', [
-            'uid'    => $other->id,
-            'email'  => 'main-admin-rewritten@example.test',
-            'pass'   => 'Rewritten-Pass-4',
-            'repass' => 'Rewritten-Pass-4',
-        ]);
-
-        $this->pinDefect('manager-update-main', function () use ($other) {
-            $row = Managers::find($other->id);
-            $this->assertSame($other->email, $row->email, "the update rewrote a main admin's address");
-            $this->assertTrue(Hash::check(World::PASSWORD, $row->password), "the update rewrote a main admin's password");
         });
     }
 

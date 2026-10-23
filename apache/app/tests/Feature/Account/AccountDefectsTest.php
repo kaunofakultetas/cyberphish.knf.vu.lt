@@ -12,8 +12,6 @@
 //
 //    username-lithuanian — a user name with Lithuanian
 //                          letters is a 500
-//    username-length     — a user name longer than its
-//                          column is cut without a word
 //    password-policy     — a changed password may be 6
 //                          characters, a new one needs 12
 //    fullname-latin1     — Lithuanian letters of the full
@@ -86,36 +84,6 @@ class AccountDefectsTest extends FeatureTestCase
                 ->post('/cp/change-username', ['username' => 'Vaiva Vaitkevičiūtė'])
                 ->assertRedirect('/cp/dashboard');
             $this->assertSame('Vaiva Vaitkevičiūtė', Members::find($member->id)->username);
-        });
-    }
-
-
-
-
-
-
-    // -----------------------------------------------------------
-    // testUsernameTheColumnCannotHoldIsRefused
-    // -----------------------------------------------------------
-    //
-    // change_username accepts up to 100 characters for a
-    // column of 45, and the non-strict SQL mode the
-    // connection runs in cuts the rest off silently. Wanted:
-    // the name is refused and the old one kept.
-    //
-    // Used by:
-    //   - PHPUnit — the Feature suite (runTests.sh)
-    // -----------------------------------------------------------
-
-    public function testUsernameTheColumnCannotHoldIsRefused(): void
-    {
-        $member = $this->world->member();
-
-        $this->pinDefect('username-length', function () use ($member) {
-            $this->signInMember($member)->from('/cp/dashboard')
-                ->post('/cp/change-username', ['username' => str_repeat('n', 60)])
-                ->assertSessionHasErrors();
-            $this->assertSame($member->username, Members::find($member->id)->username);
         });
     }
 

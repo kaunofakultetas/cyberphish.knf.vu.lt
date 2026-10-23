@@ -6,11 +6,11 @@
 //  The Apache half of the image, read from its files: the
 //  virtual host serves public/ on port 8080, the upload
 //  folder runs no PHP whatever a file is called, folder
-//  listings are off, mod_rewrite and mod_remoteip are on,
+//  listings are off, mod_rewrite and mod_remoteip are on —
+//  trusting only private addresses to name the visitor —
 //  and mod_php reads the production php.ini with nothing in
 //  Apache's configuration loosening it. The Apache suite
-//  proves the same rules over HTTP. The over-wide range of
-//  trusted proxies is pinned in PlatformDefectsTest.
+//  proves the same rules over HTTP.
 //
 //  Used by:
 //    - PHPUnit — the Platform suite (runTests.sh)
@@ -44,6 +44,9 @@ class ApacheConfigTest extends TestCase
 
     // The virtual host the Dockerfile installs
     private const VHOST = '/etc/apache2/sites-available/000-default.conf';
+
+    // The private address ranges a trusted proxy may sit in
+    private const PRIVATE_RANGES = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
 
 
 
@@ -175,6 +178,36 @@ class ApacheConfigTest extends TestCase
 
 
     // -----------------------------------------------------------
+    // testOnlyPrivateProxiesAreTrusted
+    // -----------------------------------------------------------
+    //
+    // RemoteIPInternalProxy lets the addresses it names put
+    // the visitor's address in X-Forwarded-For — the one the
+    // access log records, the log the compromise review read.
+    // Every range it names lies inside the private ones, so
+    // no client on a public address can.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOnlyPrivateProxiesAreTrusted(): void
+    {
+        preg_match_all('#^RemoteIPInternalProxy\s+(.+)$#m', $this->vhost(), $lines);
+        $ranges = preg_split('/\s+/', trim(implode(' ', $lines[1])));
+        $this->assertNotEmpty($ranges);
+
+        foreach ($ranges as $range) {
+            $this->assertTrue($this->isPrivate($range), "$range is trusted but not private");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // vhost
     // -----------------------------------------------------------
     //
@@ -183,11 +216,41 @@ class ApacheConfigTest extends TestCase
     // Used by:
     //   - testVirtualHostServesThePublicFolderOnPort8080,
     //     testUploadFolderRunsNoPhp, testFolderListingsAreOff,
-    //     testRewriteAndRemoteIpAreEnabled (above)
+    //     testRewriteAndRemoteIpAreEnabled,
+    //     testOnlyPrivateProxiesAreTrusted (above)
     // -----------------------------------------------------------
 
     private function vhost(): string
     {
         return file_get_contents(self::VHOST);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // isPrivate
+    // -----------------------------------------------------------
+    //
+    // True when the CIDR range lies wholly inside one of the
+    // PRIVATE_RANGES.
+    //
+    // Used by:
+    //   - testOnlyPrivateProxiesAreTrusted (above)
+    // -----------------------------------------------------------
+
+    private function isPrivate(string $range): bool
+    {
+        list($address, $bits) = array_pad(explode('/', $range), 2, '32');
+        foreach (self::PRIVATE_RANGES as $private) {
+            list($network, $privateBits) = explode('/', $private);
+            $mask = -1 << (32 - (int) $privateBits);
+            if ((int) $bits >= (int) $privateBits && (ip2long($address) & $mask) === (ip2long($network) & $mask)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

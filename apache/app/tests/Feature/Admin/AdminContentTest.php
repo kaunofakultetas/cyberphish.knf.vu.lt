@@ -10,10 +10,10 @@
 //  /upload/feat/…), information pages (InfoController) and
 //  the settings of SiteSettingsController — the about text
 //  (settings row 1), the self-evaluation length (row 2) and
-//  the knowledge-test limits (row 3). The news list, edit,
-//  delete and picture links never reach the panel, and a
-//  fresh install has no rows 1 and 3 to save into — both
-//  pinned in AdminDefectsTest.
+//  the knowledge-test limits (row 3), saved into the rows
+//  mysql/init.sql seeds. The news list, edit, delete and
+//  picture links never reach the panel — pinned in
+//  AdminDefectsTest.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -267,9 +267,10 @@ class AdminContentTest extends FeatureTestCase
     // testSettingsAreSaved
     // -----------------------------------------------------------
     //
-    // With settings rows 1 and 3 in place, the three forms
-    // store the about text the home page shows, the
-    // self-evaluation length and the knowledge-test limits.
+    // The three forms store the about text the home page
+    // shows, the self-evaluation length and the knowledge-test
+    // limits. They save with an UPDATE, so this runs on the
+    // rows mysql/init.sql seeds, as a fresh install would.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -277,8 +278,6 @@ class AdminContentTest extends FeatureTestCase
 
     public function testSettingsAreSaved(): void
     {
-        $this->world->setting(1, 'about_us', null);
-        $this->world->setting(3, 'knowledge_test', null);
         $category = $this->world->lmCategory($this->en);
 
         $this->admin()->from('/admin-panel/settings/other')->post('/admin-panel/settings/about_us_save', [

@@ -9,10 +9,10 @@
 //  page asked for — while the visit is recorded (last login,
 //  last address, the login log) and any pending password
 //  reset is cancelled. A wrong password, an unknown address
-//  and an unverified account all get the same refusal. The
-//  ten-days-in-a-row badge is earned at sign-in. The
-//  missing brute-force protection is pinned in
-//  AuthDefectsTest.
+//  and an unverified account all get the same refusal, and
+//  ten of them for one email from one address lock that
+//  pair out for a while, the right password included. The
+//  ten-days-in-a-row badge is earned at sign-in.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -253,6 +253,66 @@ class LoginTest extends FeatureTestCase
         $this->signIn($member->email, 'short')->assertSessionHasErrors('password');
 
         $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTenWrongPasswordsLockTheLogin
+    // -----------------------------------------------------------
+    //
+    // After ten wrong passwords for one email from one
+    // address even the right one is refused — with the
+    // lockout message on the email field, not auth_failed —
+    // and the member stays a visitor.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTenWrongPasswordsLockTheLogin(): void
+    {
+        $member = $this->world->member();
+        for ($guess = 1; $guess <= 10; $guess++) {
+            $this->signIn($member->email, 'Wrong-Guess-' . $guess);
+        }
+
+        $this->signIn($member->email, World::PASSWORD)
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNineWrongPasswordsStillLetTheMemberIn
+    // -----------------------------------------------------------
+    //
+    // Nine wrong passwords are not enough for the lock: the
+    // right one still signs the member in.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNineWrongPasswordsStillLetTheMemberIn(): void
+    {
+        $member = $this->world->member();
+        for ($guess = 1; $guess <= 9; $guess++) {
+            $this->signIn($member->email, 'Wrong-Guess-' . $guess);
+        }
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+
+        $this->assertAuthenticated('mem');
     }
 
 
