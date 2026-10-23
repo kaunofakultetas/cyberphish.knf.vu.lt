@@ -14,6 +14,7 @@
 //    - Admin\LMController, Admin\ManagerMainController
 //      (Http/Controllers/Admin/)
 //    - CourseProgressTest (tests/Feature/Learning/)
+//    - AdminDashboardTest (tests/Feature/Admin/)
 // -----------------------------------------------------------
 
 
@@ -39,6 +40,9 @@ use Illuminate\Database\Eloquent\Model;
 //
 //   get_users_progress — the lessons a member completed
 //   course_progress    — a member's course progress
+//   country_progress   — the course progress of a whole
+//                        country's members, every language
+//                        at once
 //
 // Used by:
 //   - BaseController::__construct — both helpers, on every
@@ -49,8 +53,9 @@ use Illuminate\Database\Eloquent\Model;
 //     lessons are all done
 //   - Admin\LMController::delete — the rows go with their
 //     lesson
-//   - Admin\ManagerMainController::dashboard — each member's
-//     progress per language
+//   - Admin\ManagerMainController::dashboard — every
+//     member's progress per language, through
+//     country_progress
 // -----------------------------------------------------------
 
 class LMUsers extends Model
@@ -136,10 +141,10 @@ class LMUsers extends Model
     // Used by:
     //   - BaseController::__construct — the progress bar of
     //     every member page
-    //   - Admin\ManagerMainController::dashboard — each
-    //     member's progress per language
     //   - CourseProgressTest (tests/Feature/Learning/) — runs
     //     it on the real function
+    //   - AdminDashboardTest (tests/Feature/Admin/) — the
+    //     figure each dashboard row is checked against
     // -----------------------------------------------------------
 
     public static function course_progress($user_id, $lang_id)
@@ -151,5 +156,54 @@ class LMUsers extends Model
         } else {
             return 0;
         }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // country_progress
+    // -----------------------------------------------------------
+    //
+    // The course progress of every member of the country in
+    // every language, keyed by language id and then member
+    // id, from one statement. The stored function runs only
+    // for the member and language pairs that have a row of
+    // the member's own in one of the four tables its shares
+    // count — a completed lesson of the language, a finished
+    // self-evaluation, knowledge test or simulation run —
+    // because every other pair is 0 by the function's own
+    // sums, as mysql/init.sql notes beside it. A pair missing
+    // from the result is therefore 0. Most members work in
+    // one language, so most pairs never reach the function,
+    // which the dashboard of a large country once called for
+    // every member in every language. A NULL from the
+    // function comes back as 0, as in course_progress.
+    //
+    // Used by:
+    //   - Admin\ManagerMainController::dashboard — the course
+    //     progress of every language tab
+    // -----------------------------------------------------------
+
+    public static function country_progress($country)
+    {
+        $rows = DB::select("SELECT pairs.user_id, pairs.lang_id, bei_user_course_progress(pairs.user_id, pairs.lang_id) AS progress
+            FROM (
+                SELECT bei_lm_users.user_id, bei_lm_content.lang_id FROM bei_lm_users JOIN bei_lm_content ON bei_lm_content.id = bei_lm_users.content_id
+                UNION SELECT user_id, lang_id FROM bei_users_selfeval_test WHERE finished = 1
+                UNION SELECT user_id, lang_id FROM bei_users_knowledge_test WHERE finished = 1
+                UNION SELECT user_id, lang_id FROM bei_users_scenarios WHERE finished = 1
+            ) AS pairs
+            JOIN bei_users ON bei_users.id = pairs.user_id
+            WHERE bei_users.country = ?", [$country]);
+
+        $progress = array();
+        foreach($rows as $row){
+            $progress[$row->lang_id][$row->user_id] = $row->progress ?? 0;
+        }
+
+        return $progress;
     }
 }

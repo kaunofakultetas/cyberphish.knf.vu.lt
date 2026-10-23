@@ -5,8 +5,9 @@
 //
 //  run.sh loads mysql/init.sql into a fresh MySQL 5.7.42,
 //  the way the production stack's first start does. It
-//  must create every table the app uses, the two ranking
-//  views, the course-progress function, and the seed rows:
+//  must create every table the app uses, with a key on the
+//  columns the app finds rows by, the two ranking views,
+//  the course-progress function, and the seed rows:
 //  English, the three settings rows the settings page saves
 //  into, and the main admin — whose password nobody knows.
 //
@@ -73,6 +74,30 @@ class SchemaTest extends TestCase
         'bei_users_scenarios_options',
         'bei_users_selfeval',
         'bei_users_selfeval_test',
+    ];
+
+    // The columns the app finds rows by, per table — the
+    // member and language of the progress function and the
+    // admin dashboard, the public id of an attempt, the
+    // category of a question, the place of a simulation step;
+    // each list must lead a key of its table
+    private const LOOKUPS = [
+        'bei_knowledge_option'        => [['question_id']],
+        'bei_knowledge_test'          => [['cat_id']],
+        'bei_scenarios'               => [['lang_id']],
+        'bei_scenarios_in_attributes' => [['scenario_id']],
+        'bei_scenarios_in_category'   => [['scenario_id']],
+        'bei_scenarios_options'       => [['scenario_id', 'parent_option_id', 'level']],
+        'bei_selfeval_option'         => [['question_id']],
+        'bei_selfeval_question'       => [['cat_id']],
+        'bei_users_badges'            => [['user_id', 'lang_id']],
+        'bei_users_knowledge_options' => [['test_id']],
+        'bei_users_knowledge_test'    => [['user_id', 'lang_id'], ['public_id']],
+        'bei_users_loginlog'          => [['user_id']],
+        'bei_users_scenarios'         => [['user_id', 'lang_id'], ['public_id']],
+        'bei_users_scenarios_options' => [['user_scenario_public_id']],
+        'bei_users_selfeval'          => [['test_id'], ['public_id']],
+        'bei_users_selfeval_test'     => [['user_id', 'lang_id'], ['public_id']],
     ];
 
 
@@ -163,6 +188,51 @@ class SchemaTest extends TestCase
 
         $this->assertSame([], $tables);
         $this->assertSame('utf8mb4', DB::table('information_schema.SCHEMATA')->whereRaw('SCHEMA_NAME = DATABASE()')->value('DEFAULT_CHARACTER_SET_NAME'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLookupsAreKeyed
+    // -----------------------------------------------------------
+    //
+    // Every column list of LOOKUPS leads a key of its table,
+    // so the lookup reads only its own rows. Without them the
+    // course-progress function and the dashboard read whole
+    // member tables per member and language, and the
+    // dashboard of the largest country took over a minute.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLookupsAreKeyed(): void
+    {
+        $keys = [];
+        $columns = DB::table('information_schema.STATISTICS')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->orderBy('SEQ_IN_INDEX')
+            ->get();
+        foreach ($columns as $column) {
+            $keys[$column->TABLE_NAME][$column->INDEX_NAME][] = $column->COLUMN_NAME;
+        }
+
+        $unkeyed = [];
+        foreach (self::LOOKUPS as $table => $lookups) {
+            foreach ($lookups as $lookup) {
+                $led = array_filter($keys[$table] ?? [], function (array $key) use ($lookup) {
+                    return array_slice($key, 0, count($lookup)) === $lookup;
+                });
+                if ($led === []) {
+                    $unkeyed[] = $table . ' (' . implode(', ', $lookup) . ')';
+                }
+            }
+        }
+
+        $this->assertSame([], $unkeyed);
     }
 
 

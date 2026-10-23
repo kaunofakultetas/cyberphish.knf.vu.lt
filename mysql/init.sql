@@ -22,6 +22,14 @@ ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 --  Tables (ordered for foreign key dependencies)
 -- ========================================================
 
+-- Besides the primary and foreign keys, every table the app
+-- searches keeps a key on the columns it finds the rows by —
+-- the member and the language, an attempt's public id, a
+-- question's category, a simulation step's place — so no
+-- lookup reads a whole table; the member tables run to tens
+-- of thousands of rows, and the course-progress function and
+-- the admin dashboard look rows up per member and language
+
 CREATE TABLE IF NOT EXISTS `bei_lang` (
   `id` int(21) NOT NULL AUTO_INCREMENT,
   `name` varchar(45) NOT NULL,
@@ -146,7 +154,8 @@ CREATE TABLE IF NOT EXISTS `bei_selfeval_question` (
   `cat_id` int(21) NOT NULL,
   `question` text NOT NULL,
   `q_type` tinyint(4) DEFAULT NULL COMMENT '1 - radio, 2 - checkbox',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `cat_id_idx` (`cat_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_selfeval_option` (
@@ -155,14 +164,16 @@ CREATE TABLE IF NOT EXISTS `bei_selfeval_option` (
   `option` text NOT NULL,
   `correct` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0 - incorrect, 1 - correct',
   `points` float(100,2) NOT NULL DEFAULT '0.00',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `question_id_idx` (`question_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_knowledge_test` (
   `id` int(21) NOT NULL AUTO_INCREMENT,
   `cat_id` int(21) NOT NULL,
   `question` longtext NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `cat_id_idx` (`cat_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_knowledge_option` (
@@ -170,7 +181,8 @@ CREATE TABLE IF NOT EXISTS `bei_knowledge_option` (
   `question_id` int(21) NOT NULL,
   `option` longtext NOT NULL,
   `correct` tinyint(1) DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `question_id_idx` (`question_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_scenarios` (
@@ -183,7 +195,8 @@ CREATE TABLE IF NOT EXISTS `bei_scenarios` (
   `image` text,
   `choose_type` varchar(45) DEFAULT NULL,
   `attack_type` varchar(45) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `lang_id_idx` (`lang_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_scenarios_category` (
@@ -205,7 +218,8 @@ CREATE TABLE IF NOT EXISTS `bei_scenarios_in_category` (
   `lang_id` int(21) NOT NULL,
   `cat_id` int(21) NOT NULL,
   `scenario_id` int(21) NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `scenario_id_idx` (`scenario_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_scenarios_in_attributes` (
@@ -213,7 +227,8 @@ CREATE TABLE IF NOT EXISTS `bei_scenarios_in_attributes` (
   `lang_id` int(21) NOT NULL,
   `scenario_id` int(21) NOT NULL,
   `attribute_id` int(21) NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `scenario_id_idx` (`scenario_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_scenarios_options` (
@@ -227,7 +242,8 @@ CREATE TABLE IF NOT EXISTS `bei_scenarios_options` (
   `link` text,
   `option_type` tinyint(4) NOT NULL COMMENT '0 - incorrect (0 points), 1 - semi-incorrect (50 points), 2 - semi-correct (100 points), 3 - correct (200 points)',
   `points` int(21) NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `scenario_step_idx` (`scenario_id`,`parent_option_id`,`level`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_badges` (
@@ -235,14 +251,16 @@ CREATE TABLE IF NOT EXISTS `bei_users_badges` (
   `lang_id` int(21) NOT NULL,
   `user_id` int(21) NOT NULL,
   `name` varchar(45) NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `user_lang_idx` (`user_id`,`lang_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_loginlog` (
   `id` int(21) NOT NULL AUTO_INCREMENT,
   `user_id` int(21) NOT NULL,
   `login_date` datetime NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `user_id_idx` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_selfeval` (
@@ -255,7 +273,9 @@ CREATE TABLE IF NOT EXISTS `bei_users_selfeval` (
   `question_id` int(21) NOT NULL,
   `correct` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0 - incorrect, 1 - correct',
   `points` int(21) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `test_id_idx` (`test_id`),
+  KEY `public_id_idx` (`public_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_selfeval_test` (
@@ -268,7 +288,9 @@ CREATE TABLE IF NOT EXISTS `bei_users_selfeval_test` (
   `started` datetime DEFAULT NULL,
   `ended` datetime DEFAULT NULL,
   `points` int(21) DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `user_lang_idx` (`user_id`,`lang_id`),
+  KEY `public_id_idx` (`public_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_knowledge_test` (
@@ -281,7 +303,9 @@ CREATE TABLE IF NOT EXISTS `bei_users_knowledge_test` (
   `ended` datetime DEFAULT NULL,
   `question_set` longtext NOT NULL,
   `results` int(21) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `user_lang_idx` (`user_id`,`lang_id`),
+  KEY `public_id_idx` (`public_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_knowledge_options` (
@@ -292,7 +316,8 @@ CREATE TABLE IF NOT EXISTS `bei_users_knowledge_options` (
   `user_id` int(21) NOT NULL,
   `question_id` int(21) NOT NULL,
   `correct` tinyint(1) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `test_id_idx` (`test_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_scenarios` (
@@ -305,7 +330,9 @@ CREATE TABLE IF NOT EXISTS `bei_users_scenarios` (
   `started` datetime DEFAULT NULL,
   `ended` datetime DEFAULT NULL,
   `points` int(11) DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `user_lang_idx` (`user_id`,`lang_id`),
+  KEY `public_id_idx` (`public_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users_scenarios_options` (
@@ -317,13 +344,23 @@ CREATE TABLE IF NOT EXISTS `bei_users_scenarios_options` (
   `option_id` int(21) NOT NULL,
   `option_type` tinyint(4) DEFAULT '0' COMMENT '0 - incorrect (0 points), 1 - semi-incorrect (50 points), 2 - semi-correct (100 points), 3 - correct (200 points)',
   `points` int(21) DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `public_id_idx` (`user_scenario_public_id`(45))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 -- ========================================================
 --  Stored function
 -- ========================================================
+
+-- Each of the four shares counts rows of the member's own —
+-- in bei_lm_users, bei_users_selfeval_test,
+-- bei_users_knowledge_test or bei_users_scenarios — so a
+-- member with none of them in a language stands at 0 there.
+-- LMUsers::country_progress relies on that and runs the
+-- function only for the member and language pairs that have
+-- such a row; a share counted from any other table has to
+-- join that list too.
 
 /*!50003 DROP FUNCTION IF EXISTS `bei_user_course_progress` */;
 DELIMITER ;;

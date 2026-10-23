@@ -120,11 +120,17 @@ class ManagerMainController extends BaseController
     // first, with that language's course progress, the
     // simulations count (the language's simulations, then the
     // distinct ones the member started, finished or not) and
-    // the knowledge results — a few queries per member and
-    // language. The country is read from the manager's row
-    // whatever main says, so a main admin, too, sees only the
-    // members of its own country. Open to every signed-in
-    // manager (auth.admin:man, no perms). Answers with
+    // the knowledge results. Every figure of every tab comes
+    // from a few queries over the whole country — the
+    // progress through LMUsers::country_progress, the rest
+    // grouped by member and language — so the page runs the
+    // same queries however many members the country has;
+    // when it asked per member and language, the dashboard of
+    // the largest country took over a minute. The country is
+    // read from the manager's row whatever main says, so a
+    // main admin, too, sees only the members of its own
+    // country. Open to every signed-in manager
+    // (auth.admin:man, no perms). Answers with
     // admin-panel/dashboard.blade.php.
     //
     // Used by:
@@ -140,38 +146,56 @@ class ManagerMainController extends BaseController
 
     public function dashboard()
     {
+        // STEP 1: the languages, and the members of the
+        // manager's country, newest first — none at all is
+        // the page's "No users" row
+        // ================================================
         $langlist = Langs::all()->pluck('name', 'id')->toArray();
+        $country = Managers::where(['id'=>Auth::guard('man')->id()])->value('country');
+        $members = Members::select(['id', 'username', 'email', 'last_login'])->where(['country'=>$country])->orderByDesc('id')->get()->toArray();
 
-        if(count(Members::where(['country'=>Managers::where(['id'=>Auth::guard('man')->id()])->get()->pluck('country')->first()])->get()->toArray()) > 0){
+        if(count($members) == 0){
+            return view('admin-panel.dashboard', ['langlist'=>$langlist, 'recordlist'=>array(), 'total_users'=>0]);
+        }
 
-            // Every language gets the same members: only the
-            // columns filled in below depend on the language
-            $arr = array();
-            foreach($langlist as $k => $v){
-                $arr[$k] = Members::where(['country'=>Managers::where(['id'=>Auth::guard('man')->id()])->get()->pluck('country')->first()])
-                ->orderByDesc('id')
-                ->get()
-                ->toArray();
+
+        // STEP 2: every figure of every language at once,
+        // keyed by language id and then member id; a member
+        // missing there has 0, or no results
+        // =================================================
+        $in_country = Members::select('id')->where(['country'=>$country]);
+        $progress = LMUsers::country_progress($country);
+        $simulations = Scenarios::selectRaw('lang_id, COUNT(*) AS total')->groupBy('lang_id')->pluck('total', 'lang_id')->toArray();
+
+        $started = array();
+        foreach(ScenariosUsers::selectRaw('user_id, lang_id, COUNT(DISTINCT scenario_id) AS tried')->whereIn('user_id', $in_country)->groupBy('user_id', 'lang_id')->get() as $row){
+            $started[$row->lang_id][$row->user_id] = $row->tried;
+        }
+
+        // Oldest first, the order the results line lists them
+        $results = array();
+        foreach(KnowledgeUserTest::select(['user_id', 'lang_id', 'public_id', 'results'])->where(['finished'=>1])->whereIn('user_id', $in_country)->orderBy('id')->get()->toArray() as $row){
+            $results[$row['lang_id']][$row['user_id']][] = $row;
+        }
+
+
+        // STEP 3: the same members in every language's tab,
+        // each with that language's figures
+        // =================================================
+        $arr = array();
+        foreach($langlist as $lang_id => $name){
+
+            foreach($members as $member){
+
+                $member['course_progress'] = $progress[$lang_id][$member['id']] ?? 0;
+                $member['simulations'] = ($simulations[$lang_id] ?? 0).' / '.($started[$lang_id][$member['id']] ?? 0);
+                $member['knowledge_results'] = ManagerMainController::knowledge_results($results[$lang_id][$member['id']] ?? array());
+                $arr[$lang_id][] = $member;
             }
-
-            foreach($arr as $kk => $vv){
-
-                foreach($vv as $kkk => $vvv){
-
-                    $arr[$kk][$kkk]['course_progress'] = LMUsers::course_progress($vvv['id'], $kk);
-                    $arr[$kk][$kkk]['simulations'] = Scenarios::where(['lang_id'=>$kk])->count().' / '.ScenariosUsers::selectraw("*")->where(['user_id'=>$vvv['id'], 'lang_id'=>$kk])->distinct('scenario_id')->count();
-                    $arr[$kk][$kkk]['knowledge_results'] = ManagerMainController::knowledge_results($vvv['id'], $kk);
-                }
-
-            }
-
-        } else {
-
-            $arr = array();
 
         }
 
-        return view('admin-panel.dashboard', ['langlist'=>$langlist, 'recordlist'=>$arr, 'total_users'=>count(Members::where(['country'=>Managers::where(['id'=>Auth::guard('man')->id()])->get()->pluck('country')->first()])->get()->toArray())]);
+        return view('admin-panel.dashboard', ['langlist'=>$langlist, 'recordlist'=>$arr, 'total_users'=>count($members)]);
     }
 
 
@@ -468,36 +492,28 @@ class ManagerMainController extends BaseController
     // knowledge_results
     // -----------------------------------------------------------
     //
-    // A member's finished knowledge tests in one language as
-    // one line of percentages, comma-separated, or an empty
-    // string when there are none. Each percentage still
-    // carries the link to its report (user/knowledge_results)
-    // inside HTML comments — the link was switched off that
-    // way — so the dashboard, which prints the line raw,
-    // shows bare percentages and nothing links to
-    // knowledge_report.
+    // A member's finished knowledge tests in one language —
+    // the rows dashboard gathered, each with its public id and
+    // result, oldest first — as one line of percentages,
+    // comma-separated, or an empty string when there are
+    // none. Each percentage still carries the link to its
+    // report (user/knowledge_results) inside HTML comments —
+    // the link was switched off that way — so the dashboard,
+    // which prints the line raw, shows bare percentages and
+    // nothing links to knowledge_report.
     //
     // Used by:
     //   - dashboard (above) — the Knowledge results column
     // -----------------------------------------------------------
 
-    public static function knowledge_results($user_id, $lang_id)
+    public static function knowledge_results($results)
     {
-        $results = KnowledgeUserTest::select(['public_id', 'results'])->where(['user_id'=>$user_id, 'lang_id'=>$lang_id, 'finished'=>1])->get()->toArray();
-
-        if(count($results)>0){
-            foreach($results as $k => $v){
-                $link[] = "<!--<a href=\"".env('APP_URL_ADMIN')."/user/knowledge_results/{$v['public_id']}\">-->{$v['results']}%<!--</a>-->";
-            }
-        } else {
-            $link = [];
+        $link = array();
+        foreach($results as $v){
+            $link[] = "<!--<a href=\"".env('APP_URL_ADMIN')."/user/knowledge_results/{$v['public_id']}\">-->{$v['results']}%<!--</a>-->";
         }
 
-        if(count($results)>0){
-            return implode(", ", $link);
-        } else {
-            return '';
-        }
+        return implode(", ", $link);
     }
 
 

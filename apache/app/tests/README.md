@@ -309,6 +309,21 @@ button back its "Εγγραφείτε".
 | `selfeval-progress-length` | `SelfEvaluationTest::testProgressBarCountsTowardsTheAttemptsLength` |
 | `duplicate-strings` | `RegistrationTest::testGreekSignUpButtonSaysRegister`, `ConfigTest::testTranslationFilesHoldEachKeyOnce` |
 
+The last one that day was speed. The admin dashboard, where every
+manager lands after signing in, took about half a minute for the main
+admin and over a minute for the largest country. It asked for every
+figure once per member and language, and the member tables had no key
+besides the primary one, so each of those queries read a whole table.
+The dashboard now gathers the figures for the whole country in a few
+queries. It runs the progress function only for a member and language
+with a row the function counts; every other pair is 0 by the function's
+own sums. `mysql/init.sql` now keys the columns the app finds rows by.
+
+| Id | Home test |
+|---|---|
+| `dashboard-query-per-member` | `AdminDashboardTest::testDashboardQueriesDoNotGrowWithTheMembers`, with `testEveryRowShowsTheMembersOwnFigures` holding every row to the figures the page used to work out one member at a time |
+| `lookups-unkeyed` | `SchemaTest::testLookupsAreKeyed` |
+
 No `*DefectsTest.php` file is left; a new pin starts its folder's file
 again.
 
