@@ -17,7 +17,7 @@
 //      (Http/Controllers/)
 //    - Admin\UsersController, Admin\ManagerMainController
 //      (Http/Controllers/Admin/)
-//    - ValidateReset, ValidateVerify (Http/Middleware/)
+//    - ValidateReset (Http/Middleware/)
 //    - the Feature and Apache suites (tests/)
 // -----------------------------------------------------------
 
@@ -74,8 +74,7 @@ use Illuminate\Notifications\Notifiable;
 //     member's address, country or full name
 //   - KnowledgeTestController::start — locks the member's
 //     row while an attempt is drawn
-//   - ValidateReset::handle, and ValidateVerify::handle —
-//     a middleware never registered, so it never runs
+//   - ValidateReset::handle
 //   - Admin\UsersController — index, delete, change_status
 //   - Admin\ManagerMainController — dashboard,
 //     self_evaluation_history, simulations_history,

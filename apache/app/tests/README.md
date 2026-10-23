@@ -334,8 +334,6 @@ production; others can't be tested deterministically.
   `SimulationsController::gen_test_id` retried through a method their
   models do not have; they now retry through their own class. The
   retry runs only when two random ids collide, so no test reaches it.
-- **Dead code.** The `ValidateVerify` middleware is never registered;
-  `RegisterController::verify` makes the same checks itself.
 - **Dependencies.** Since the PHP 8.4 upgrade the imports use
   phpoffice/phpspreadsheet 5.10.0, and `composer audit` finds no
   advisory for any locked package.

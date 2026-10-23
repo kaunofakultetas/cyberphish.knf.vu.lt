@@ -227,6 +227,36 @@ class SchemaTest extends TestCase
 
 
     // -----------------------------------------------------------
+    // testSeedSettingsSurviveAWorldThatReplacedThem
+    // -----------------------------------------------------------
+    //
+    // A test that replaces a seeded settings row leaves it as
+    // it found it: removeAll puts the seed back. The Apache
+    // suite has no transaction to roll the row back, and a
+    // World once deleted it outright, which would have left
+    // the tests after it without the self-evaluation length.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSeedSettingsSurviveAWorldThatReplacedThem(): void
+    {
+        $seed = (array) DB::table('bei_settings')->where('id', 2)->first();
+
+        $this->world->setting(2, 'self_eval_pertime', null, null, 9);
+        $this->world->setting(2, 'self_eval_pertime', null, null, 7);
+        $this->world->removeAll();
+
+        $this->assertEquals($seed, (array) DB::table('bei_settings')->where('id', 2)->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testSeededAdminHasNoKnownPassword
     // -----------------------------------------------------------
     //

@@ -53,11 +53,12 @@ use Illuminate\Support\Facades\Hash;
 //                         — the questions of both tests
 //   scenarioCategory, scenarioAttribute, scenario,
 //   scenarioOption        — the simulations
-//   loginLog, lessonDone, selfEvalAttempt,
+//   loginLog, lessonDone, badge, selfEvalAttempt,
 //   knowledgeAttempt, scenarioAttempt
 //                         — a member's history
 //   nextId                — the id a table gives next
-//   removeAll             — deletes the World's rows
+//   removeAll             — deletes the World's rows, puts
+//                           back the replaced settings
 //
 // Used by:
 //   - TestCase (tests/) — one World per test
@@ -94,6 +95,10 @@ class World
     // The rows this World inserted, as table and id pairs in
     // insertion order
     private $rows = [];
+
+    // The seeded bei_settings rows setting replaced, by id, as
+    // they were — removeAll puts them back
+    private $replacedSettings = [];
 
 
 
@@ -133,7 +138,9 @@ class World
     // Writes one bei_settings row — the site keeps its
     // settings in rows with fixed ids (1 the about text, 2 the
     // self-evaluation length, 3 the knowledge test limits) —
-    // replacing what the seed may have put there.
+    // replacing what the seed may have put there. The row it
+    // replaces is kept, the first time only, for removeAll to
+    // put back.
     //
     // Used by:
     //   - CourseProgressTest, SelfEvaluationTest
@@ -144,6 +151,11 @@ class World
 
     public function setting(int $id, string $name, ?string $val1, ?string $val2 = null, int $val3 = 0): void
     {
+        $seed = DB::table('bei_settings')->where('id', $id)->first();
+        if ($seed !== null && !array_key_exists($id, $this->replacedSettings)) {
+            $this->replacedSettings[$id] = (array) $seed;
+        }
+
         DB::table('bei_settings')->where('id', $id)->delete();
         DB::table('bei_settings')->insert([
             'id'   => $id,
@@ -809,12 +821,15 @@ class World
     //
     // Deletes every row this World inserted, newest first, and
     // for each of its members the rows the app wrote in
-    // MEMBER_TABLES. A settings row is deleted outright, not
-    // put back the way mysql/init.sql seeds rows 1 to 3; no
-    // Apache test writes a setting at the moment.
+    // MEMBER_TABLES, then puts back as they were the seeded
+    // settings rows that setting replaced, so the tests after
+    // it find the rows mysql/init.sql seeds — the Apache suite
+    // has no transaction to roll them back.
     //
     // Used by:
     //   - ApacheTestCase::tearDown (tests/)
+    //   - SchemaTest (Platform/) — shows the seeded settings
+    //     come back
     // -----------------------------------------------------------
 
     public function removeAll(): void
@@ -828,6 +843,11 @@ class World
             DB::table($table)->where('id', $id)->delete();
         }
         $this->rows = [];
+
+        foreach ($this->replacedSettings as $row) {
+            DB::table('bei_settings')->insert($row);
+        }
+        $this->replacedSettings = [];
     }
 
 
