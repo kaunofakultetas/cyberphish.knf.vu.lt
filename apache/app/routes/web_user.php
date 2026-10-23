@@ -68,7 +68,7 @@
 //  Used by:
 //    - RouteServiceProvider::mapWebUserRoutes — loads it
 //      under the web middleware group, with no prefix,
-//      before web_admin.php
+//      after web_admin.php
 // -----------------------------------------------------------
 
 

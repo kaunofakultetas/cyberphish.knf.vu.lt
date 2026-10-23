@@ -133,8 +133,9 @@ return [
         // The app's own providers. With the broadcast one
         // switched off, nothing loads routes/channels.php;
         // AzureStorageServiceProvider is not listed, so it
-        // never runs — matthewbdaly/laravel-azure-storage
-        // registers the azure disk driver instead
+        // never runs, and since the upgrade dropped
+        // matthewbdaly/laravel-azure-storage no package
+        // registers an azure disk driver either
         App\Providers\AppServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
         // App\Providers\BroadcastServiceProvider is switched off

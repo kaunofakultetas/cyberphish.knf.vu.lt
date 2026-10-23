@@ -884,8 +884,8 @@ class SimulationsController extends BaseController
     // bei_scenarios_options.option_type keeps it: Incorrect 0,
     // Semi-incorrect 1, Semi-correct 2, Correct 3. Any other
     // name — a typo, an empty cell beside a situation — is an
-    // undefined index, and the import stops with a 500 before
-    // any row is written.
+    // undefined array key, and the import stops with a 500
+    // before any row is written.
     //
     // Used by:
     //   - xlsx_process_questions (above)

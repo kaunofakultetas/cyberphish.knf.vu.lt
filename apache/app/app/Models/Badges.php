@@ -7,9 +7,9 @@
 //  language. A badge is a key the pages translate and draw:
 //  the first lesson, a category's lessons all done, every
 //  lesson, every simulation, the whole course, a knowledge
-//  test passed at the first finished attempt, the first
-//  self-evaluation, ten days of logins in a row. Both
-//  helpers work for the member signed in on the mem guard.
+//  test passed at whichever try, the first self-evaluation,
+//  ten days of logins in a row. Both helpers work for the
+//  member signed in on the mem guard.
 //
 //  Used by:
 //    - BaseController, BadgesController, LMController,
@@ -55,8 +55,8 @@ use App\Models\Langs;
 //     SimulationsController::simulation_do_stuff,
 //     FinishedSe::handle, LoginLog::if_login_10 — the badges
 //     they award
-//   - RanksController::self_evaluation, simulations — the
-//     badges beside each ranked member
+//   - RanksController::with_badges — the badges beside
+//     each ranked member of both rank tables
 // -----------------------------------------------------------
 
 class Badges extends Model

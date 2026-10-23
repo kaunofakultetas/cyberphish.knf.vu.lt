@@ -11,6 +11,8 @@
 //
 //  Used by:
 //    - LoginController::forgotpassword (Auth/)
+//    - PasswordResetTest (tests/Feature/Auth/) — reads the
+//      token and the link out of the sent mail
 // -----------------------------------------------------------
 
 
@@ -43,6 +45,8 @@ use Illuminate\Queue\SerializesModels;
 //   - LoginController::forgotpassword (Auth/) — POST
 //     /forgot-password, for an address that belongs to one
 //     member
+//   - PasswordResetTest (tests/Feature/Auth/) — reads the
+//     token and the link out of the sent mail
 // -----------------------------------------------------------
 
 class SendRemindLink extends Mailable
@@ -90,6 +94,8 @@ class SendRemindLink extends Mailable
     //
     // Used by:
     //   - Laravel's mailer, when the sender sends the mail
+    //   - TestCase::mailLink (tests/) — builds the faked mail
+    //     to read its link
     // -----------------------------------------------------------
 
     public function build()

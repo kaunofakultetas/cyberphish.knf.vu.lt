@@ -129,8 +129,12 @@ class ManagerMainController extends BaseController
     // Used by:
     //   - AdminLoginController::login — the redirect after
     //     signing in
+    //   - RedirectIfAuthenticated — guest:man sends a
+    //     signed-in manager here from the admin login
     //   - admin-panel/sidebar.blade.php — the Home entry of
     //     the menu
+    //   - admin-panel/layouts/main.blade.php — the brand link
+    //     of the top bar
     // -----------------------------------------------------------
 
     public function dashboard()
@@ -260,6 +264,8 @@ class ManagerMainController extends BaseController
     // Used by:
     //   - admin-panel/dashboard.blade.php — the Self
     //     Evaluation History link of each member row
+    //   - admin-panel/user_self_eval_history.blade.php — its
+    //     page links
     // -----------------------------------------------------------
 
     public function self_evaluation_history(Request $request, $lang_id, $user_id)
@@ -358,6 +364,8 @@ class ManagerMainController extends BaseController
     // Used by:
     //   - admin-panel/dashboard.blade.php — the Simulations
     //     History link of each member row
+    //   - admin-panel/user_simulations_history.blade.php — its
+    //     page links
     // -----------------------------------------------------------
 
     public function simulations_history(Request $request, $lang_id, $user_id)

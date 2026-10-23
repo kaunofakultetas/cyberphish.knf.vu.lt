@@ -8,18 +8,19 @@
 //  language, and the import that turns the project's
 //  simulation spreadsheet into a simulation — its texts in
 //  C19 to C30, the categories and attributes marked "Yes"
-//  in rows 34 to 53 (found by name), and its steps from row
-//  58 down: level, situation, answer type (Incorrect,
+//  (categories in rows 34 to 40, attributes in rows 34 to
+//  53, found by name), and its steps in rows 58 to 141:
+//  level, situation, answer type (Incorrect,
 //  Semi-incorrect, Semi-correct, Correct — 0, 50, 100 and
 //  200 points) and feedback, each step hanging under the
 //  last step one level up. The names are looked up in the
-//  import's language only, and a sheet naming a category
-//  the language lacks is refused before anything is saved.
-//  Editing changes the texts — the description of a
-//  simulation without steps too; deleting removes the
-//  simulation with everything that hangs off it, and the
-//  delete icons of categories and attributes reach their
-//  routes.
+//  import's language only, and a sheet marking a category
+//  or attribute the language lacks is refused before
+//  anything is saved. Editing changes the texts — the
+//  description of a simulation without steps too; deleting
+//  removes the simulation with everything that hangs off
+//  it, and the delete icons of categories and attributes
+//  reach their routes.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -386,6 +387,7 @@ class AdminSimulationsTest extends FeatureTestCase
     //
     // Used by:
     //   - the tests of this class
+    //   - deleteLink (below)
     // -----------------------------------------------------------
 
     private function admin(): self

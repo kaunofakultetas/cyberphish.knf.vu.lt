@@ -43,9 +43,9 @@ use App\Models\Members;
 //
 // Every action works on the signed-in member's own row of
 // bei_users. The forms check lengths with Laravel's
-// validator, and those differ from what the pages ask for
-// in the browser. A name keeps every letter typed, the
-// table being utf8mb4.
+// validator; only the user name's, 6 to 45, differs from
+// what its page asks for in the browser, 3 to 20. A name
+// keeps every letter typed, the table being utf8mb4.
 //
 //   dashboard       — the member's own page
 //   change_pass     — a new password

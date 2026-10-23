@@ -6,7 +6,7 @@
 //  One bei_selfeval_option row per answer option of a
 //  self-evaluation question (SelfEval): the text, whether it
 //  is right, and the points it is worth. The panel's
-//  spreadsheet import writes them with their questions.
+//  plain-text import writes them with their questions.
 //
 //  Used by:
 //    - LMController (Http/Controllers/)

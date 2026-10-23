@@ -11,6 +11,8 @@
 //
 //  Used by:
 //    - LoginController::reset_pass (Auth/)
+//    - PasswordResetTest (tests/Feature/Auth/) — reads the
+//      new password out of the sent mail
 // -----------------------------------------------------------
 
 
@@ -41,6 +43,8 @@ use Illuminate\Queue\SerializesModels;
 // Used by:
 //   - LoginController::reset_pass (Auth/) — GET
 //     /reset/{reset_token}, the link SendRemindLink carries
+//   - PasswordResetTest (tests/Feature/Auth/) — reads the
+//     new password out of the sent mail
 // -----------------------------------------------------------
 
 class SendNewPass extends Mailable

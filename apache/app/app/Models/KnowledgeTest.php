@@ -12,8 +12,8 @@
 //
 //  Used by:
 //    - KnowledgeTestController (Http/Controllers/)
-//    - Admin\KnowledgeController, Admin\ManagerMainController
-//      (Http/Controllers/Admin/)
+//    - Admin\KnowledgeController, Admin\ManagerMainController,
+//      Admin\LMController (Http/Controllers/Admin/)
 // -----------------------------------------------------------
 
 
@@ -48,6 +48,8 @@ use Illuminate\Database\Eloquent\Model;
 //     question_edit, question_update, question_delete
 //   - Admin\ManagerMainController::knowledge_report — a
 //     member's attempt, question by question
+//   - Admin\LMController::categories_delete — a category
+//     that still holds questions is not deleted
 // -----------------------------------------------------------
 
 class KnowledgeTest extends Model

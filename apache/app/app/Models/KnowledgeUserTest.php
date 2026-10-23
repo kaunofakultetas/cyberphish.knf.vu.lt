@@ -36,15 +36,17 @@ use Illuminate\Database\Eloquent\Model;
 // Columns: public_id, user_id, lang_id, finished (0 or 1),
 // started, ended, question_set — a JSON object from
 // question id to 0 (unanswered) or 1 (answered) — and
-// results, the percentage of the answered questions whose
-// answer is correct.
+// results, the percentage of the drawn questions answered
+// correctly; a question left without an answer counts as
+// wrong.
 //
 //   getPrivateId — an attempt's id from its public id
 //   getQIds      — an attempt's question set
 //
 // Used by:
 //   - KnowledgeTestController — index, start, gen_test_id,
-//     progress, progress_save, knowledge_results
+//     progress, progress_save, calculate_results,
+//     knowledge_results
 //   - CertController::download — the passed attempt and its
 //     date
 //   - Admin\ManagerMainController — knowledge_results,
@@ -108,14 +110,17 @@ class KnowledgeUserTest extends Model
     //
     // The attempt's question set decoded into an array, from
     // question id to 0 (unanswered) or 1 (answered); null for
-    // an unknown attempt, which both callers have answered
-    // with a 404 before they ask.
+    // an unknown attempt, which progress and progress_save
+    // have answered with a 404 before they ask —
+    // calculate_results runs only behind progress's check.
     //
     // Used by:
     //   - KnowledgeTestController::progress — the next
     //     unanswered question
     //   - KnowledgeTestController::progress_save — marks the
     //     answered question
+    //   - KnowledgeTestController::calculate_results — the
+    //     number of questions the attempt drew
     // -----------------------------------------------------------
 
     public static function getQIds($id)

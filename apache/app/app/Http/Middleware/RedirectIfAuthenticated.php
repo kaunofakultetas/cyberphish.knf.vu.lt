@@ -33,10 +33,10 @@ use Illuminate\Support\Facades\Auth;
 // -----------------------------------------------------------
 //
 // Guards the pages meant for visitors — the two login
-// forms, forgot-password, the reset link — by redirecting
-// a user the named guard already has signed in: guest:man
-// to the admin dashboard, guest:mem to the home page. It
-// never refuses with an error.
+// forms, the sign-up form, forgot-password, the reset
+// link — by redirecting a user the named guard already has
+// signed in: guest:man to the admin dashboard, guest:mem
+// to the home page. It never refuses with an error.
 //
 // Used by:
 //   - Kernel::$routeMiddleware — the alias guest

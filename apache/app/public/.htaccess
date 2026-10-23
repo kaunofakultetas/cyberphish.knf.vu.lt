@@ -1,3 +1,25 @@
+# -----------------------------------------------------------
+#  [*] public/.htaccess — the front controller's rewrites
+#
+#  Laravel's stock rules for public/, which Apache reads
+#  because 000-default.conf allows overrides in the app's
+#  folder. A path that names a file or a folder of public/
+#  is left to Apache — the themes, the scripts, the
+#  uploads; any other goes to index.php, where Laravel
+#  answers it. A path ending in a slash that names no
+#  folder is first sent with a 301 to the same path without
+#  the slash, on https, since the virtual host's ServerName
+#  carries the scheme. The Authorization header reaches PHP
+#  as HTTP_AUTHORIZATION, which nothing in the app reads.
+#  All of it needs mod_rewrite, which the Dockerfile
+#  enables.
+#
+#  Used by:
+#    - Apache, on every request (000-default.conf)
+#    - FrontControllerTest (app/tests/Apache) — the rules
+#      over HTTP
+# -----------------------------------------------------------
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

@@ -10,11 +10,11 @@
 //  attempt of bei_users_knowledge_test; its question set —
 //  a JSON map of question id to answered flag — is the
 //  whole state of the test. The progress page asks the
-//  unanswered questions one by one, each answer adds rows
-//  to bei_users_knowledge_options, and once nothing is left
-//  the attempt closes with the share of correct answer rows
-//  as its result. Above 74 passes. Every route sits behind
-//  auth:mem.
+//  unanswered questions one by one, each answer adds at
+//  most one row to bei_users_knowledge_options, and once
+//  nothing is left the attempt closes with the share of its
+//  questions answered correctly as its result. Above 74
+//  passes. Every route sits behind auth:mem.
 //
 //  Used by:
 //    - routes/web_user.php — {lang}/knowledge_test,
@@ -56,8 +56,10 @@ use App\Models\KnowledgeUserOptions;
 // -----------------------------------------------------------
 //
 // An attempt is known to the pages by its random public id.
-// The scoring trusts whatever is posted; the method banners
-// name the pinned defects that follow from it.
+// Only the member's own attempt opens, an answer is taken
+// only for a drawn question still unanswered in an open
+// attempt, and it scores only with one of that question's
+// own options.
 //
 //   index             — the test page: tries, results, start
 //   start             — draws a new attempt or resumes one
@@ -123,6 +125,8 @@ class KnowledgeTestController extends BaseController
     //   - parts/lm_left_sidebar.blade.php — the knowledge-test
     //     button, shown once the member holds
     //     badge_all_presentations
+    //   - start (below) — its redirects back after three tries
+    //     or when there is nothing to draw
     // -----------------------------------------------------------
 
     public function index(Request $request, $lang)
@@ -322,6 +326,9 @@ class KnowledgeTestController extends BaseController
 
     public function progress(Request $request, $lang, $public_id)
     {
+        // STEP 1: the member's own attempt — any other public
+        // id is a 404
+        // ===================================================
         $lang_id = Langs::getLangId($lang);
         $attempt = KnowledgeUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->first();
 
@@ -332,8 +339,11 @@ class KnowledgeTestController extends BaseController
         $id = $attempt->id;
         $qids = KnowledgeUserTest::getQIds($id);
 
-        // The first question still at 0 is the one to ask —
-        // category by category, in the order start drew them
+
+        // STEP 2: the question to ask — the first one still at
+        // 0, category by category, in the order start drew
+        // them; those before it count as answered
+        // ====================================================
         $finished = 1;
         $answered = 0;
         foreach($qids as $k => $v){
@@ -347,6 +357,12 @@ class KnowledgeTestController extends BaseController
             }
         }
 
+
+        // STEP 3: while a question is left, it and its options
+        // in random order; else the result — the stored one of
+        // an attempt closed before, or a new one that closes
+        // the attempt and earns badge_final_test on a pass
+        // ====================================================
         if($finished == 0){
 
             $options = KnowledgeOption::where(['question_id'=>$q_id])->inRandomOrder()->get()->toArray();
@@ -391,6 +407,10 @@ class KnowledgeTestController extends BaseController
 
         }
 
+
+        // STEP 4: the page, knowledge_progress.blade.php, for
+        // a question and for the result alike
+        // ===================================================
         return view('knowledge_progress', [
             'test_id'=>$id,
             'question_id'=>$q_id,
@@ -522,8 +542,8 @@ class KnowledgeTestController extends BaseController
     // scores 0; an attempt that drew nothing scores 0 too.
     //
     // Used by:
-    //   - progress (above) — whenever it finds every question
-    //     answered
+    //   - progress (above) — when it closes an attempt whose
+    //     every question is answered
     // -----------------------------------------------------------
 
     public static function calculate_results($test_id)

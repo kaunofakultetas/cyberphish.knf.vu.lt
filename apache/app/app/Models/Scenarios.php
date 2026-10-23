@@ -48,7 +48,8 @@ use Illuminate\Database\Eloquent\Model;
 //     simulations_import, simulation_edit, simulation_update,
 //     simulation_delete
 //   - Admin\SiteSettingsController::SimulationsDownloadPdf —
-//     the simulations as a PDF
+//     the printable page of every simulation, HTML despite
+//     the name
 //   - Admin\ManagerMainController::dashboard,
 //     simulation_report — the members' runs
 // -----------------------------------------------------------

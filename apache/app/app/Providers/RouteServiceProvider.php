@@ -65,8 +65,10 @@ class RouteServiceProvider extends ServiceProvider
     // boot
     // -----------------------------------------------------------
     //
-    // Laravel's own boot, which loads the routes through map;
-    // nothing added.
+    // Laravel's own boot, which is empty in Laravel 13;
+    // nothing added. The routes load through map from the
+    // booted callback that Laravel's register method sets
+    // up, which runs right after this boot.
     //
     // Used by:
     //   - Laravel, once every provider is registered
@@ -96,8 +98,10 @@ class RouteServiceProvider extends ServiceProvider
     // can shadow no member page.
     //
     // Used by:
-    //   - Laravel's RouteServiceProvider::boot, while the app
-    //     boots — the image never caches its routes
+    //   - Laravel's RouteServiceProvider::loadRoutes, from the
+    //     booted callback its register sets up, right after
+    //     this provider boots — the image never caches its
+    //     routes
     // -----------------------------------------------------------
 
     public function map()

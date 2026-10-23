@@ -1,3 +1,35 @@
+# -----------------------------------------------------------
+#  [*] Apache — production image
+#
+#  The image the cyberphish-apache container runs: PHP
+#  8.4.27 under Apache from the official php image, with
+#  the pdo_mysql, gd (JPEG and FreeType, for the
+#  certificate) and zip extensions, mod_rewrite for the
+#  front controller of public/.htaccess and mod_remoteip
+#  for the visitor's address behind the endpoint. Apache
+#  listens on port 8080 (ports.conf) with the virtual host
+#  of 000-default.conf. The app goes to /var/www/html,
+#  where composer installs its vendor without the
+#  development packages; public/upload, where the pages
+#  link the uploads, becomes a link to storage/app/public,
+#  where the panel stores them. php.ini is PHP's production
+#  file with expose_php off, so no response names PHP's
+#  version, and with a disable_functions list that takes
+#  away the functions that start programs and readfile,
+#  symlink and link, while the ones the app needs stay —
+#  PhpRuntimeTest (app/tests/Platform) pins both lists.
+#  The image runs as user 1000, as docker-compose.yml runs
+#  the container too. The build context is this folder;
+#  .dockerignore keeps the test suite out.
+#
+#  Used by:
+#    - pushDockerhub.sh (this folder) — builds it and
+#      publishes it as vuknf/cyberphish-apache, the image
+#      docker-compose.yml runs
+#    - runTests.sh (this folder) — builds it as
+#      cyberphish-apache-check, the base Dockerfile.tests
+#      adds the suite to
+# -----------------------------------------------------------
 FROM php:8.4.27-apache
 
 # MySQL deps

@@ -7,11 +7,14 @@
 //  question. Questions are filed under the learning-material
 //  categories (LMCategory), and a self-evaluation asks a
 //  category's questions in random order, as many as
-//  settings row 2 says. The options live in SelfEvalOption.
+//  settings row 2 says, or all of them in a category that
+//  has fewer. The options live in SelfEvalOption.
 //
 //  Used by:
 //    - LMController (Http/Controllers/)
-//    - Admin\SelfevalController (Http/Controllers/Admin/)
+//    - FinishedSe (Http/Middleware/)
+//    - Admin\SelfevalController, Admin\LMController
+//      (Http/Controllers/Admin/)
 // -----------------------------------------------------------
 
 
@@ -39,8 +42,13 @@ use Illuminate\Database\Eloquent\Model;
 //   - LMController — self_eval_test (the next question),
 //     self_eval_test_save (the answered question, found by
 //     its hashed id), self_eval_test_results
+//   - FinishedSe::handle — the category's number of
+//     questions, which ends an attempt early when it is
+//     below the self-evaluation length
 //   - Admin\SelfevalController — index, import_questions,
 //     question_edit, question_update, question_delete
+//   - Admin\LMController::categories_delete — a category
+//     that still holds questions is not deleted
 // -----------------------------------------------------------
 
 class SelfEval extends Model

@@ -10,13 +10,16 @@
 //  never rotated by Laravel; docker-compose.yml binds that
 //  folder to _LOGS/apache/laravel_logs on the host. The app
 //  writes no log line of its own — what lands there are the
-//  errors the exception handler reports. None of the other
-//  variables here is set either.
+//  errors the exception handler reports: every uncaught
+//  one, and the reCAPTCHA connection errors the captcha
+//  rule of AppServiceProvider::boot catches. None of the
+//  other variables here is set either.
 //
 //  Used by:
 //    - Laravel's LogManager — the exception handler
 //      (app/Exceptions/Handler.php) reports every uncaught
-//      error through it
+//      error through it, and the errors
+//      AppServiceProvider::boot hands it with report()
 // -----------------------------------------------------------
 
 

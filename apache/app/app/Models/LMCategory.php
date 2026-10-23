@@ -13,8 +13,8 @@
 //    - LMController, KnowledgeTestController
 //      (Http/Controllers/)
 //    - Admin\LMController, Admin\KnowledgeController,
-//      Admin\SelfevalController, Admin\SiteSettingsController
-//      (Http/Controllers/Admin/)
+//      Admin\SelfevalController, Admin\SiteSettingsController,
+//      Admin\LanguagesController (Http/Controllers/Admin/)
 //    - R_Exists (Http/Middleware/)
 // -----------------------------------------------------------
 
@@ -54,6 +54,8 @@ use Illuminate\Database\Eloquent\Model;
 //     Admin\SelfevalController::index,
 //     Admin\SiteSettingsController::other — the category
 //     lists of those pages
+//   - Admin\LanguagesController::delete — a language that
+//     still has categories is not deleted
 // -----------------------------------------------------------
 
 class LMCategory extends Model

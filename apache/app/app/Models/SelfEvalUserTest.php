@@ -6,7 +6,8 @@
 //  One bei_users_selfeval_test row per self-evaluation a
 //  member starts in a category. It closes, with its score,
 //  once the member has answered as many questions as
-//  settings row 2 asks for. Its random public id is what
+//  settings row 2 asks for — or every question of a
+//  category that has fewer. Its random public id is what
 //  the self-evaluation URLs carry.
 //
 //  Used by:

@@ -53,7 +53,9 @@ use Illuminate\Notifications\Notifiable;
 //     manager_status, manager_create, manager_update,
 //     manager_delete
 //   - Admin\ManagerMainController — dashboard (the
-//     manager's country), change_pass
+//     manager's country), change_pass, member_in_scope
+//     (main and country, which decide whose reports the
+//     manager may read)
 //   - World::manager and TestCase::signInManager (tests/),
 //     AdminLoginTest and AdminManagersTest
 //     (tests/Feature/Admin/)

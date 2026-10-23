@@ -37,8 +37,11 @@ use Illuminate\Database\Eloquent\Model;
 // option_type and points.
 //
 // Used by:
-//   - SimulationsController::simulation_do_stuff — the step
-//     the run has reached, and the feedback list at its end
+//   - SimulationsController::simulation_do_stuff — whether
+//     the run holds a choice yet, and the feedback list at
+//     its end
+//   - SimulationsController::step_options — the latest
+//     choice and its level, which pick the current step
 //   - SimulationsController::simulation_do_stuff_save — a
 //     row per choice
 //   - SimulationsController::simulation_total_points — the

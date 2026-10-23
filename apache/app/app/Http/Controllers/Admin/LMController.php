@@ -64,9 +64,9 @@ use Illuminate\Support\Facades\Validator;
 //                    — the files of one lesson
 //
 // Production mounts public/upload read-only
-// (docker-compose.yml), so there the actions that write to
-// it — files_create, and the unlink of delete and
-// files_delete — end in a 500.
+// (docker-compose.yml): there files_create's move ends in a
+// 500, while delete and files_delete leave the file on disk
+// and remove its row all the same.
 //
 // Used by:
 //   - routes/web_admin.php — every action
@@ -259,11 +259,11 @@ class LMController extends BaseController
     // Writes the lesson form over the lesson in the hidden
     // uid — category, title (1 to 255 characters), body and
     // hours — and goes back with "Updated!". An emptied body
-    // or hours does not fail here the way it does in create:
-    // strict mode is off (config/database.php), so MySQL's
-    // UPDATE stores the column's implicit default instead of
-    // the NULL, an empty body or 0 hours. Main admins only
-    // (auth.admin:man, perms).
+    // or hours ends as in create, an empty body or 0 hours,
+    // but through MySQL rather than the code: strict mode is
+    // off (config/database.php), so MySQL's UPDATE stores the
+    // column's implicit default instead of the NULL. Main
+    // admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content_form.blade.php — the lesson

@@ -19,7 +19,8 @@
 //    - the controllers, middleware and models that flash a
 //      message or build a text — Auth\LoginController,
 //      Auth\RegisterController, ManagerMainController,
-//      LMController, SimulationsController,
+//      Admin\ManagerMainController (the panel's password
+//      change), LMController, SimulationsController,
 //      KnowledgeTestController, BaseController, FinishedSe
 //      and LoginLog
 //    - the mailables, for their subjects — SendVerification,
@@ -162,8 +163,9 @@ return [
     // Nothing shows only_3 at the moment
     'only_3'=>'You are only allowed a maximum of three attempts for this test.',
     'not_anymore'=>'You cannot do it anymore',
-    // no_questions again: PHP keeps this entry, so the
-    // category text further up never shows
+    // The knowledge test page's text when the language has
+    // no questions; a self-evaluation category without
+    // questions shows no_selfeval_questions instead
     'no_questions'=>'No questions',
     'total_tries'=>'Total number of attempts so far',
     'you_failed'=>'You failed!',

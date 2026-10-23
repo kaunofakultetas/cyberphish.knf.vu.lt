@@ -10,6 +10,8 @@
 //
 //  Used by:
 //    - RegisterController::register (Auth/)
+//    - RegistrationTest (tests/Feature/Auth/) — reads the
+//      token and the link out of the sent mail
 // -----------------------------------------------------------
 
 
@@ -42,6 +44,8 @@ use Illuminate\Queue\SerializesModels;
 // Used by:
 //   - RegisterController::register (Auth/) — POST
 //     /register, for an address no member has yet
+//   - RegistrationTest (tests/Feature/Auth/) — reads the
+//     token and the link out of the sent mail
 // -----------------------------------------------------------
 
 class SendVerification extends Mailable
@@ -91,6 +95,8 @@ class SendVerification extends Mailable
     //
     // Used by:
     //   - Laravel's mailer, when the sender sends the mail
+    //   - TestCase::mailLink (tests/) — builds the faked mail
+    //     to read its link
     // -----------------------------------------------------------
 
     public function build()

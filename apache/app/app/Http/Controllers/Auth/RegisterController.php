@@ -263,6 +263,8 @@ class RegisterController extends BaseController
     //
     // Used by:
     //   - register (above)
+    //   - RegistrationTest (tests/Feature/Auth/) — measures
+    //     the memory one draw takes
     // -----------------------------------------------------------
 
     public static function getUsername()

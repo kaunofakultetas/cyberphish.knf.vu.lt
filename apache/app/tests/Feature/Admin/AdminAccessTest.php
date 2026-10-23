@@ -264,7 +264,9 @@ class AdminAccessTest extends FeatureTestCase
     // panelPages
     // -----------------------------------------------------------
     //
-    // The pages of the panel's menu and its new-item forms.
+    // The pages of the panel's menu and its new-item forms,
+    // plus the printout of every simulation and the password
+    // dialog.
     //
     // Used by:
     //   - testMainAdminOpensThePanelPages (above)

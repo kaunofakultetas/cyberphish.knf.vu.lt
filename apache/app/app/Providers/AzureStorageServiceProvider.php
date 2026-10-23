@@ -8,10 +8,11 @@
 //  storage account, from the name, key and container the
 //  disk's settings hold. It is dead code: config/app.php
 //  does not list it. The azure disk of
-//  config/filesystems.php gets its driver from
-//  matthewbdaly/laravel-azure-storage instead, whose own
-//  provider of the same name package discovery loads — and
-//  no code uses that disk; the default disk is local.
+//  config/filesystems.php took its driver from
+//  matthewbdaly/laravel-azure-storage until the move to
+//  PHP 8.4 dropped that package, so no driver serves the
+//  disk now — and no code uses it; the default disk is
+//  local.
 //
 //  Used by:
 //    - nothing at the moment — not in the providers list of
@@ -43,11 +44,10 @@ use WindowsAzure\Common\ServicesBuilder;
 // -----------------------------------------------------------
 //
 // Registers the azure driver at boot and binds nothing.
-// Even registered, it could not run as written: the
-// AzureAdapter it builds on comes from the package
-// league/flysystem-azure, which composer.lock does not
-// hold — the lock has league/flysystem-azure-blob-storage,
-// a different adapter.
+// Even registered, it could not run as written:
+// composer.lock holds neither league/flysystem-azure, whose
+// AzureAdapter it builds on, nor microsoft/windowsazure,
+// whose ServicesBuilder it calls.
 //
 // Used by:
 //   - nothing at the moment — not in config/app.php

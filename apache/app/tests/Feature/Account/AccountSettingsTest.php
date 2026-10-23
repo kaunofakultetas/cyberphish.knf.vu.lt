@@ -3,18 +3,19 @@
 // -----------------------------------------------------------
 //  [*] AccountSettingsTest — a member's own account forms
 //
-//  The three forms of the dashboard (ManagerMainController
-//  on the member side): cp/change-pass checks the current
-//  password and the repetition before it stores a new hash,
+//  The member's three account forms (ManagerMainController
+//  on the member side). Two sit on the dashboard:
+//  cp/change-pass checks the current password and the
+//  repetition before it stores a new hash, and
 //  cp/change-username keeps names unique between members
-//  and within the column's 45 characters,
-//  cp/change-fullname takes the name printed on the
-//  certificate (6 to 100 characters). Both names keep
-//  Lithuanian letters as typed. Visitors are sent to the
-//  login form. The dashboard opens for a member of any
-//  country, one the questionnaire links do not know
-//  included. The Estonian strings of the user-name form
-//  speak of the user name.
+//  and within the column's 45 characters. The third,
+//  cp/change-fullname, sits on the knowledge-test pages and
+//  takes the name printed on the certificate (6 to 100
+//  characters). Both names keep Lithuanian letters as
+//  typed. Visitors are sent to the login form. The
+//  dashboard opens for a member of any country, one the
+//  questionnaire links do not know included. The Estonian
+//  strings of the user-name form speak of the user name.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -378,9 +379,9 @@ class AccountSettingsTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // The name the certificate prints comes back exactly as
-    // typed, Lithuanian letters included, where the latin1
-    // table bei_users once was stored question marks without
-    // an error.
+    // typed, Lithuanian letters included, where bei_users,
+    // while it was a latin1 table, stored question marks
+    // without an error.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -542,8 +543,9 @@ class AccountSettingsTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // Posts one of the forms as the test's member, sent from
-    // the dashboard — the forms live there and answer with
-    // back().
+    // the dashboard, where the password and user-name forms
+    // live; every form answers with back(), so each one
+    // returns there.
     //
     // Used by:
     //   - the user-name and full-name tests of this class

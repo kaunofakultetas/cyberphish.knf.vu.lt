@@ -41,14 +41,16 @@ use Illuminate\Database\Eloquent\Model;
 // (200).
 //
 // Used by:
-//   - SimulationsController::simulation_do_stuff — the
-//     choices of the next step
+//   - SimulationsController::step_options — the choices of
+//     the current step, which simulation_do_stuff shows and
+//     simulation_do_stuff_save accepts
 //   - SimulationsController::simulation_do_stuff_save — the
 //     chosen option's type, points and feedback
 //   - Admin\SimulationsController — simulations_import,
 //     simulation_edit, simulation_update, simulation_delete
 //   - Admin\SiteSettingsController::SimulationsDownloadPdf —
-//     the simulations as a PDF
+//     the printable page of every simulation, HTML despite
+//     the name
 //   - Admin\ManagerMainController::simulation_report — a
 //     member's run
 // -----------------------------------------------------------

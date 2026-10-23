@@ -71,6 +71,7 @@ use App\Models\ScenariosUsersOptions;
 //   gen_test_id                    — a fresh public id
 //   simulation_do_stuff,
 //   simulation_do_stuff_save       — one step of a run
+//   step_options                   — the choices of a step
 //   simulation_total_points        — the score of a run
 //   history                        — every run of the member
 //   check_if_all_simulations_finished

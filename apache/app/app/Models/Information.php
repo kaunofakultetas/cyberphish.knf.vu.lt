@@ -8,8 +8,8 @@
 //  and an alias, the slug the page's URL carries.
 //
 //  Used by:
-//    - InfoController, Admin\InfoController
-//      (Http/Controllers/)
+//    - InfoController, Admin\InfoController,
+//      Admin\LanguagesController (Http/Controllers/)
 //    - PageExists (Http/Middleware/)
 // -----------------------------------------------------------
 
@@ -40,6 +40,8 @@ use Illuminate\Database\Eloquent\Model;
 //   - PageExists::handle — the 404 for an unknown page id
 //   - Admin\InfoController — index, form, create, update,
 //     delete
+//   - Admin\LanguagesController::delete — a language that
+//     still has information pages is not deleted
 // -----------------------------------------------------------
 
 class Information extends Model

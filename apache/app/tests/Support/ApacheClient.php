@@ -10,8 +10,7 @@
 //  never throw, so a test sees exactly what Apache answered.
 //  Cookies are kept by hand rather than in Guzzle's jar,
 //  which would hold back a Secure cookie over plain HTTP —
-//  the session must survive the day the session cookie
-//  gets its Secure flag.
+//  and since Laravel 13 the session cookie is Secure.
 //
 //  Used by:
 //    - ApacheTestCase (tests/) — one client per test

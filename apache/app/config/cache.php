@@ -8,16 +8,20 @@
 //  docker-compose.yml, so the default store is file, under
 //  storage/framework/cache — a tmpfs in the
 //  cyberphish-apache container, emptied by every restart.
-//  Nothing uses the cache at the moment: the app makes no
-//  Cache call, and the only throttles — the api group's and
+//  The store holds one thing: the failed sign-in counts of
+//  the member and admin logins (ThrottlesLogins, through
+//  Laravel's rate limiter), so a restart also lifts every
+//  lockout. The app makes no Cache call of its own, and
+//  the other throttles — the api group's and
 //  VerificationController's — never run, because
 //  routes/api.php holds no route and no route reaches
 //  VerificationController. No other variable of this file
 //  is set either.
 //
 //  Used by:
-//    - Laravel's CacheManager, which nothing calls at the
-//      moment
+//    - Laravel's CacheManager — the rate limiter behind the
+//      login throttles of LoginController::login and
+//      AdminLoginController::login
 // -----------------------------------------------------------
 
 

@@ -49,6 +49,8 @@ image.
 | `TestCase.php` | Base of every test: the World, `Mail::fake`, the captcha double (`solveCaptcha`), the sign-in helpers (`signInMember`, `signInManager`), `mailLink`, `uploadedFile` |
 | `FeatureTestCase.php` | `TestCase` plus `DatabaseTransactions` |
 | `ApacheTestCase.php` | `TestCase` plus an `ApacheClient`, World cleanup, and `signInOverHttp` |
+| `CreatesApplication.php` | The fresh app every test gets, built from `bootstrap/app.php` |
+| `bootstrap.php` | PHPUnit's bootstrap: the app's autoloader, the test tools' from `/opt/test-tools`, and the `Tests` namespace |
 | `Support/World.php` | Builders for every kind of row the app reads, with valid defaults |
 | `Support/Flows.php` | Multi-step member flows: starting and answering self-evaluations, simulations and the knowledge test |
 | `Support/Sheets.php` | The simulation spreadsheet the panel's import reads, with cells a test can replace |
@@ -57,10 +59,11 @@ image.
 | `container/` | `run.sh`, the image's entrypoint, plus `my.cnf` for MySQL and the composer files of the test tools |
 | `Platform/`, `Feature/<Area>/`, `Apache/` | The suites |
 
-Three files outside `tests/` belong to the suite:
+Four files outside `tests/` belong to the suite:
 
 - `apache/runTests.sh` runs everything.
 - `apache/Dockerfile.tests` builds the test image.
+- `apache/app/phpunit.xml` names the three suites and their bootstrap.
 - `apache/.dockerignore` keeps the tests out of the production image.
 
 ## Rules
@@ -74,9 +77,10 @@ Three files outside `tests/` belong to the suite:
     values in place of the secrets.
   - The app's `vendor/` stays `--no-dev`. PHPUnit and Mockery live
     apart, in `/opt/test-tools`.
-- **Every test builds its own rows** through the World. A test relies on
-  nothing but the seed rows of `init.sql`. Emails, user names and titles
-  carry a serial number that is unique for the whole run.
+- **Every test builds its own rows** through the World; a badge, which
+  the World has no builder for, the test inserts itself. A test relies
+  on nothing but the seed rows of `init.sql`. Emails, user names and
+  titles carry a serial number that is unique for the whole run.
 - **No bug is fixed from here.** A test that finds a defect does not
   change the app. It pins the defect in its folder's `*DefectsTest.php`
   with `pinDefect('id', fn)`:

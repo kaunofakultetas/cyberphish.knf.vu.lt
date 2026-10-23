@@ -13,6 +13,8 @@
 //  Used by:
 //    - bootstrap/app.php — bound as the HTTP kernel
 //    - public/index.php — runs every request through it
+//    - the Feature suite (tests/Feature) — Laravel's test
+//      client runs every in-process request through it
 // -----------------------------------------------------------
 
 
@@ -41,6 +43,8 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 // Used by:
 //   - bootstrap/app.php — bound as the HTTP kernel
 //   - public/index.php — runs every request through it
+//   - the Feature suite (tests/Feature) — Laravel's test
+//     client runs every in-process request through it
 // -----------------------------------------------------------
 
 class Kernel extends HttpKernel

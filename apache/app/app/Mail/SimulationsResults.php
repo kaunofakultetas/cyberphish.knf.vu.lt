@@ -9,6 +9,8 @@
 //
 //  Used by:
 //    - SimulationsController::simulation_do_stuff
+//    - SimulationsTest (tests/Feature/Simulations/) — reads
+//      the points out of the sent mail
 // -----------------------------------------------------------
 
 
@@ -41,6 +43,8 @@ use Illuminate\Queue\SerializesModels;
 //   - SimulationsController::simulation_do_stuff — GET
 //     /{lang}/simulation/progress/{public_id}, once the run
 //     has no step left
+//   - SimulationsTest (tests/Feature/Simulations/) — reads
+//     the points out of the sent mail
 // -----------------------------------------------------------
 
 class SimulationsResults extends Mailable

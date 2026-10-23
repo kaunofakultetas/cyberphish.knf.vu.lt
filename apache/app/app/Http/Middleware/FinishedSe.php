@@ -96,6 +96,10 @@ class FinishedSe
 
     public function handle($request, Closure $next)
     {
+        // STEP 1: the attempt of the URL — exactly one of the
+        // signed-in member's has its public id and category, or
+        // the answer is a 404
+        // =====================================================
         $public_id = $request->route('public_id');
         $cat_id = $request->route('cat_id');
 
@@ -103,6 +107,11 @@ class FinishedSe
 
             $test_id = SelfEvalUserTest::select('id')->where(['public_id'=>$public_id])->get()->pluck('id')->first();
 
+
+            // STEP 2: how many answered questions close the
+            // attempt — val3 of settings row 2, or the category's
+            // number of questions when it has fewer
+            // ===================================================
             $total_questions = (int)Settings::where(['id'=>2])->pluck('val3')->first();
 
             // A category with fewer questions runs out first:
@@ -113,6 +122,11 @@ class FinishedSe
                 $total_questions = $in_category;
             }
 
+
+            // STEP 3: the distinct questions answered so far — that
+            // many close the attempt and lead to the results, fewer
+            // let the request through to the page or the save
+            // =====================================================
             $answered = SelfEvalUser::select("question_id")->where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id])->groupby('question_id')->get()->toArray();
 
             if($total_questions == count($answered)){

@@ -133,8 +133,9 @@ class PhpRuntimeTest extends TestCase
     // testGdReadsJpegAndFreetype
     // -----------------------------------------------------------
     //
-    // The Dockerfile builds gd with JPEG and FreeType, which
-    // the certificate's background image and fonts need.
+    // gd has the JPEG and FreeType support the Dockerfile
+    // builds it with, and the PNG support the certificate's
+    // background image needs.
     //
     // Used by:
     //   - PHPUnit — the Platform suite (runTests.sh)

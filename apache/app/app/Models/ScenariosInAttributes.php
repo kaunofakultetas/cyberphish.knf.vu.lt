@@ -41,7 +41,8 @@ use Illuminate\Database\Eloquent\Model;
 //   - Admin\SimulationsController — simulations_import,
 //     attributes_delete, simulation_delete
 //   - Admin\SiteSettingsController::SimulationsDownloadPdf —
-//     the simulations as a PDF
+//     the printable page of every simulation, HTML despite
+//     the name
 // -----------------------------------------------------------
 
 class ScenariosInAttributes extends Model

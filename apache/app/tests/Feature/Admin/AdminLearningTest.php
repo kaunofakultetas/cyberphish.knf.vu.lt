@@ -12,15 +12,16 @@
 //  blocks separated by "::", a question line "Q\: text",
 //  "=" before a correct option and "~" before a wrong one.
 //  A self-evaluation question's correct options share 100
-//  points; a Greek question line is recognised, an option
-//  keeps every "=" and "~" after its marker, and a question
-//  without options still saves its text. A lesson goes
-//  with its file rows, its file gone from disk or not; a
-//  category with questions is refused. Deletes redirect to
-//  the row's language tab, work on a read-only upload
-//  folder, and a file's delete link opened twice is
-//  harmless. A file posted without its Embed box is listed
-//  for download, and a post without a file gets an error.
+//  points, and the self-evaluation import recognises a
+//  Greek question line; an option keeps every "=" and "~"
+//  after its marker, and a question without options still
+//  saves its text. A lesson goes with its file rows, its
+//  file gone from disk or not; a category with questions is
+//  refused. Deletes redirect to the row's language tab,
+//  work on a read-only upload folder, and a file's delete
+//  link opened twice is harmless. A file posted without its
+//  Embed box is listed for download, and a post without a
+//  file gets an error.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)

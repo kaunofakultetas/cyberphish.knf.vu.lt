@@ -115,6 +115,8 @@ class SettingsController extends Controller
     //   - gen_test_id of the member side's LMController,
     //     KnowledgeTestController and SimulationsController —
     //     attempt and run ids
+    //   - PasswordResetTest (tests/Feature/Auth/) — seeds the
+    //     Mersenne Twister twice to show the tokens ignore it
     // -----------------------------------------------------------
 
     public static function random_string($length = 16)

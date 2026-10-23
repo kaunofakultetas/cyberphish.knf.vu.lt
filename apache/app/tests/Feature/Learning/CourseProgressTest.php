@@ -368,8 +368,8 @@ class CourseProgressTest extends FeatureTestCase
     //
     // Takes the category's self-evaluation the way a member
     // does: starts it, answers each of the questions given
-    // right and opens the result page, which marks the
-    // attempt finished.
+    // right and opens its question page once more, where
+    // FinishedSe closes the attempt.
     //
     // Used by:
     //   - testEverythingDoneIsAHundred,

@@ -35,9 +35,15 @@ use Illuminate\Http\Request;
 //
 // Takes the scheme, host, port and client address the
 // forwarded headers name from any peer, and refuses
-// nothing. No code of the app reads Laravel's client
-// address: SettingsController::getUserIP reads the server
-// variables itself.
+// nothing. Laravel 13 reads the wildcard as every address,
+// so Laravel's client address is the leftmost
+// X-Forwarded-For entry that reaches PHP, or the address
+// Apache resolved when none does. It keys the login
+// throttle of LoginController and AdminLoginController
+// (Laravel's ThrottlesLogins) and goes to Google with the
+// captcha check (AppServiceProvider::boot).
+// SettingsController::getUserIP, behind last_ip and
+// BlockIpMiddleware, reads the server variables itself.
 //
 // Used by:
 //   - Kernel::$middleware — the global stack, every request

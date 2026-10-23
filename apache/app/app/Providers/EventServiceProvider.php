@@ -58,8 +58,10 @@ class EventServiceProvider extends ServiceProvider
     // boot
     // -----------------------------------------------------------
     //
-    // Laravel's own boot, which registers the mapping above;
-    // nothing added.
+    // Laravel's own boot, which is empty in Laravel 13;
+    // nothing added. The mapping above is registered by the
+    // booting callback that Laravel's register method sets
+    // up, which runs just before this boot.
     //
     // Used by:
     //   - Laravel, once every provider is registered

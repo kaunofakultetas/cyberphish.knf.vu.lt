@@ -101,6 +101,7 @@ class InfoController extends BaseController
     // Used by:
     //   - admin-panel/sidebar.blade.php — the Information menu
     //     entry
+    //   - admin-panel/information.blade.php — its page links
     //   - admin-panel/information_form.blade.php — the
     //     Information breadcrumb
     //   - create (below) — its redirect, by the route name
@@ -251,10 +252,11 @@ class InfoController extends BaseController
     // Saves the edit form over the page named by uid: the
     // title and its slug, the body and the language as
     // posted. Answers a redirect back to the form. An empty
-    // body is stored as an empty string, where create fails:
-    // config/database.php turns MySQL's strict mode off, and
-    // outside it an UPDATE setting a NOT NULL column to NULL
-    // stores the column's default with a warning.
+    // body is stored as an empty string, as in create, but by
+    // MySQL rather than the code: config/database.php turns
+    // strict mode off, and outside it an UPDATE setting a NOT
+    // NULL column to NULL stores the column's default with a
+    // warning.
     //
     // Used by:
     //   - admin-panel/information_form.blade.php — the form,

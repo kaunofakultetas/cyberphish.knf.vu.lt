@@ -13,6 +13,8 @@
 //    - bootstrap/app.php — bound as the console kernel
 //    - artisan — every command; composer install runs its
 //      package:discover while the image is built
+//    - CreatesApplication (tests/) — bootstraps the app of
+//      every test through it
 // -----------------------------------------------------------
 
 
@@ -41,6 +43,7 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 // Used by:
 //   - bootstrap/app.php — bound as the console kernel
 //   - artisan — every command
+//   - CreatesApplication (tests/) — every test's app
 // -----------------------------------------------------------
 
 class Kernel extends ConsoleKernel
@@ -88,8 +91,9 @@ class Kernel extends ConsoleKernel
     // only the scaffold's inspire.
     //
     // Used by:
-    //   - Laravel's console kernel, before Artisan runs a
-    //     command
+    //   - Laravel's console kernel, whenever it bootstraps —
+    //     before Artisan runs a command, and when
+    //     CreatesApplication (tests/) builds a test's app
     // -----------------------------------------------------------
 
     protected function commands()

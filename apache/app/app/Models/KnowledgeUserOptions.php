@@ -5,8 +5,10 @@
 //
 //  One bei_users_knowledge_options row per option a member
 //  chose while taking the knowledge test, with the option's
-//  correct flag copied in. The attempt's result is the share
-//  of these rows that are correct.
+//  correct flag copied in. The attempt's result is the
+//  number of correct rows over the questions the attempt
+//  drew, so a question left without an answer counts as
+//  wrong.
 //
 //  Used by:
 //    - KnowledgeTestController (Http/Controllers/)
@@ -39,8 +41,8 @@ use Illuminate\Database\Eloquent\Model;
 // Used by:
 //   - KnowledgeTestController::progress_save — a row per
 //     answered question
-//   - KnowledgeTestController::calculate_results — correct
-//     rows over all rows of the attempt
+//   - KnowledgeTestController::calculate_results — the
+//     attempt's correct rows, over the questions it drew
 //   - Admin\ManagerMainController::knowledge_report — a
 //     member's attempt, question by question
 // -----------------------------------------------------------

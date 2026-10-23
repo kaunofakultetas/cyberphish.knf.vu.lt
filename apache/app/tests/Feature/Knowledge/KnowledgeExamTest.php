@@ -720,6 +720,8 @@ class KnowledgeExamTest extends FeatureTestCase
     //     testLimitDrawsOnlyThatMany,
     //     testAnswerMarksTheQuestionAndRecordsTheChoice,
     //     testThreeRightAnswersPass, testTwoRightOfThreeFail,
+    //     testSkippedQuestionsCountAsWrong,
+    //     testTestWithEveryQuestionSkippedCloses,
     //     testRepeatedOptionCountsOnce,
     //     testFinishedAttemptStaysClosed (above)
     // -----------------------------------------------------------

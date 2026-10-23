@@ -11,14 +11,16 @@
 //  and served as /upload/feat/… through the public/upload
 //  link the Dockerfile makes. Production mounts
 //  storage/app/public read-only (docker-compose.yml), so
-//  there a picture can be neither stored nor removed — the
-//  move or the unlink fails, a 500. Every route sits behind
-//  auth.admin:man and perms: main admins only.
+//  there a new picture cannot be stored — the move fails, a
+//  500 — and removing one only empties feat_img, the file
+//  staying. Every route sits behind auth.admin:man and
+//  perms: main admins only.
 //
 //  RouteServiceProvider loads routes/web_admin.php before
 //  the public {lang}/news routes, which would otherwise take
-//  admin-panel for a language and answer the list, the edit
-//  form and the delete links with the public pages.
+//  admin-panel for a language and answer the list and the
+//  edit form with the public pages. The posts are safe
+//  either way: the public routes answer GET only.
 //
 //  Used by:
 //    - routes/web_admin.php — the admin-panel/news routes
@@ -52,9 +54,7 @@ use Illuminate\Support\Facades\Validator;
 // -----------------------------------------------------------
 //
 // The panel side of bei_news. The public side, the
-// {lang}/news pages, is App\Http\Controllers\NewsController,
-// the class whose routes answer four of the URLs meant for
-// this one.
+// {lang}/news pages, is App\Http\Controllers\NewsController.
 //
 //   index          — the articles, one tab per language
 //   form           — the new-article and edit form
@@ -200,8 +200,8 @@ class NewsController extends BaseController
     // or svg, at most 2048 KB), the time, and the signed-in
     // manager as its author. Answers a redirect to the news
     // route on the article's language tab — the panel's list,
-    // the only route that keeps that name (web_user.php) —
-    // whose URL the public list answers (see index above).
+    // the only route that keeps that name, as the public list
+    // has none (web_user.php).
     //
     // An empty editor arrives as NULL
     // (ConvertEmptyStringsToNull) and is stored as an empty
@@ -262,15 +262,11 @@ class NewsController extends BaseController
     // Saves the edit form over the article named by uid: the
     // title and its slug, the body and the language as posted,
     // and the picture when one comes; answers a redirect back
-    // to the form. An empty body is stored as an empty string
-    // here rather than failing as in create:
-    // config/database.php turns MySQL's strict mode off, and
-    // outside it an UPDATE that sets a NOT NULL column to NULL
-    // stores the column's default with a warning.
-    //
-    // The route itself is not shadowed, but the form that
-    // posts here opens only at the shadowed edit URL (see form
-    // above), so no admin reaches it from the panel today.
+    // to the form. An empty body is stored as an empty string,
+    // as in create, but by MySQL rather than the code:
+    // config/database.php turns strict mode off, and outside
+    // it an UPDATE that sets a NOT NULL column to NULL stores
+    // the column's default with a warning.
     //
     // Used by:
     //   - admin-panel/news_form.blade.php — the form, opened

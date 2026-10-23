@@ -77,7 +77,8 @@ use Illuminate\Notifications\Notifiable;
 //   - Admin\UsersController — index, delete, change_status
 //   - Admin\ManagerMainController — dashboard,
 //     self_evaluation_history, simulations_history,
-//     simulation_report, knowledge_report
+//     simulation_report, knowledge_report, member_in_scope
+//     (whether a country manager may read the member)
 //   - World::member, TestCase::signInMember,
 //     ApacheTestCase::signInOverHttp and Flows (tests/), and
 //     the tests that read a member back

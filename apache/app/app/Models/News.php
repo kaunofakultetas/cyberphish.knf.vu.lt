@@ -11,8 +11,8 @@
 //  alone.
 //
 //  Used by:
-//    - HomeController, NewsController, Admin\NewsController
-//      (Http/Controllers/)
+//    - HomeController, NewsController, Admin\NewsController,
+//      Admin\LanguagesController (Http/Controllers/)
 //    - NewsExists (Http/Middleware/)
 // -----------------------------------------------------------
 
@@ -48,6 +48,8 @@ use Illuminate\Database\Eloquent\Model;
 //   - NewsExists::handle — the 404 for an unknown article
 //   - Admin\NewsController — index, form, create, update,
 //     delete, delete_picture
+//   - Admin\LanguagesController::delete — a language that
+//     still has news is not deleted
 // -----------------------------------------------------------
 
 class News extends Model

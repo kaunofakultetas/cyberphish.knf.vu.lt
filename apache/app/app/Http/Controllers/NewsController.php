@@ -38,9 +38,7 @@ use App\Models\News;
 // -----------------------------------------------------------
 //
 // Not the panel's controller of the same name,
-// Admin\NewsController, which writes the articles — though
-// the routes here answer some of its URLs (see index and
-// content).
+// Admin\NewsController, which writes the articles.
 //
 //   index   — the list, twelve articles a page
 //   content — one article

@@ -15,6 +15,8 @@
 //
 //  Used by:
 //    - TestCase (tests/) — one World per test
+//    - ApacheTestCase (tests/), the Feature and Apache
+//      suites — PASSWORD, to type or check a password
 // -----------------------------------------------------------
 
 
@@ -59,6 +61,8 @@ use Illuminate\Support\Facades\Hash;
 //
 // Used by:
 //   - TestCase (tests/) — one World per test
+//   - ApacheTestCase (tests/), the Feature and Apache
+//     suites — PASSWORD, to type or check a password
 // -----------------------------------------------------------
 
 class World
@@ -782,8 +786,9 @@ class World
     //
     // Deletes every row this World inserted, newest first, and
     // for each of its members the rows the app wrote in
-    // MEMBER_TABLES. A settings row goes back to nothing, the
-    // way mysql/init.sql leaves rows 1 and 3.
+    // MEMBER_TABLES. A settings row is deleted outright, not
+    // put back the way mysql/init.sql seeds rows 1 to 3; no
+    // Apache test writes a setting at the moment.
     //
     // Used by:
     //   - ApacheTestCase::tearDown (tests/)
@@ -814,7 +819,9 @@ class World
     // Inserts one row and remembers it; returns its id.
     //
     // Used by:
-    //   - every builder of this class
+    //   - every builder of this class but setting, which
+    //     replaces its fixed-id row itself, and
+    //     knowledgeLimits, which goes through setting
     // -----------------------------------------------------------
 
     private function insert(string $table, array $columns): int

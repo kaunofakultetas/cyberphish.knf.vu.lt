@@ -6,7 +6,7 @@
 //  The answer options of the knowledge-test questions
 //  (KnowledgeTest), one bei_knowledge_option row each: the
 //  text the member picks and whether it is a right answer.
-//  The panel's spreadsheet import writes them together with
+//  The panel's plain-text import writes them together with
 //  their questions.
 //
 //  Used by:

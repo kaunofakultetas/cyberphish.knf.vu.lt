@@ -9,8 +9,9 @@
 //  pinDefect turns such a test inside out: while the
 //  defect reproduces, the failing check marks the test
 //  incomplete, tagged with the defect's id, so the run
-//  stays green and PHPUnit's verbose report lists every
-//  pinned defect; the day the check passes, the test fails
+//  stays green and the report lists every pinned defect
+//  after the run (displayDetailsOnIncompleteTests in
+//  phpunit.xml); the day the check passes, the test fails
 //  and says so — the cue to remove the pin and move the
 //  test into its home file. Only an assertion failure
 //  counts as the defect: any other error (a broken test, a

@@ -97,8 +97,9 @@ class BaseController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            // The locale: the route's {lang} when it is a site
-            // language, else the session's, else English
+            // STEP 1: the locale — the route's {lang} when it is
+            // a site language, else the session's, else English
+            // ==================================================
             if ($request->route('lang') !== null && in_array($request->route('lang'), ['en', 'lt', 'ee', 'lv', 'gr'])) {
 
                 App::setLocale($request->route('lang'));
@@ -119,8 +120,10 @@ class BaseController extends Controller
                 }
             }
 
-            // The signed-in member's data; visitors get empty
-            // values in the else branch
+
+            // STEP 2: the signed-in member's data; visitors get
+            // empty values in the else branch
+            // =================================================
             if(Auth::guard('mem')->check()){
                 $user_email = Members::select('email')->where(['id'=>Auth::guard('mem')->id()])->get()->pluck('email')->first();
                 $user_id = Auth::guard('mem')->id();
@@ -159,8 +162,10 @@ class BaseController extends Controller
                 $badge_finished_course = false;
             }
 
-            // What the layout, the sidebars and
+
+            // STEP 3: what the layout, the sidebars and
             // parts/notif.blade.php read on every page
+            // =========================================
             View::share('user_email', $user_email);
             View::share('category_content_list', LMController::category_content_list());
             View::share('user_progress', $user_progress);

@@ -12,8 +12,10 @@
 //  the attempt, read from its redirect.
 //
 //  Used by:
-//    - the Learning, Simulations and Knowledge tests
-//      (Feature/)
+//    - CourseProgressTest, SelfEvaluationTest
+//      (Feature/Learning/)
+//    - KnowledgeExamTest (Feature/Knowledge/)
+//    - SimulationsTest (Feature/Simulations/)
 // -----------------------------------------------------------
 
 
@@ -42,8 +44,10 @@ use Illuminate\Testing\TestResponse;
 //   startKnowledgeTest, answerKnowledgeQuestion
 //
 // Used by:
-//   - the Learning, Simulations and Knowledge tests
-//     (Feature/)
+//   - CourseProgressTest, SelfEvaluationTest
+//     (Feature/Learning/)
+//   - KnowledgeExamTest (Feature/Knowledge/)
+//   - SimulationsTest (Feature/Simulations/)
 // -----------------------------------------------------------
 
 trait Flows

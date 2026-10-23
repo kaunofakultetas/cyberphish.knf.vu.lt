@@ -3,19 +3,22 @@
 // -----------------------------------------------------------
 //  [*] UserFactory — Laravel's stock factory for App\User
 //
-//  How a factory call would build a fake App\User: a name,
-//  a unique email, a verified address, the hash of
-//  Laravel's stock password and a remember token. Laravel's
-//  factory loader requires the file with the factory
-//  registry in $factory. Dead code: App\User does not exist
-//  (members are bei_users rows, managers bei_managers
-//  rows), Faker is a development package the image does
-//  not install, and nothing asks for a factory — the tests
-//  build their rows with Tests\Support\World.
+//  How a Laravel 7 factory call would build a fake
+//  App\User: a name, a unique email, a verified address,
+//  the hash of Laravel's stock password and a remember
+//  token. Laravel 7's factory loader required the file with
+//  the factory registry in $factory; Laravel 8 replaced
+//  such factories with factory classes, and
+//  laravel/legacy-factories, which keeps the old loader, is
+//  not installed. Dead code: nothing loads the file —
+//  Composer's classmap of database/factories finds no class
+//  in it — App\User does not exist (members are bei_users
+//  rows, managers bei_managers rows), composer.json
+//  requires no Faker, and the tests build their rows with
+//  Tests\Support\World.
 //
 //  Used by:
-//    - nothing calls it at the moment (Laravel's factory
-//      loader would read it on the first factory call)
+//    - nothing loads it at the moment
 // -----------------------------------------------------------
 
 

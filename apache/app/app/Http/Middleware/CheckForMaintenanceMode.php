@@ -5,8 +5,10 @@
 //
 //  Laravel's maintenance-mode check: while Artisan's down
 //  command is in effect, every request is answered with 503
-//  before any route runs, save those from an address the
-//  command allows.
+//  before any route runs, save those of a browser that has
+//  opened the secret path the command may set, which hands
+//  it a cookie to pass. Laravel 13's down command has no
+//  list of addresses to let through.
 //
 //  Used by:
 //    - Kernel::$middleware (app/Http/Kernel.php) — every

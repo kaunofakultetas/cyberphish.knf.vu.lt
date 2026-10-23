@@ -490,9 +490,11 @@ class LMController extends BaseController
         }
 
 
-        // STEP 3: the progress bar — the share of the attempt's
-        // questions answered, in percent
-        // =====================================================
+        // STEP 3: the progress bar — the questions answered as
+        // a share of val3, in percent, so in a category with
+        // fewer questions the attempt closes before the bar is
+        // full
+        // ====================================================
         if(count($answered) == 0){
             $progress = 0;
         } else {
@@ -668,8 +670,8 @@ class LMController extends BaseController
 
             foreach($answ as $kk => $vv){
 
-                // a count, not a flag: a forged form can choose
-                // one option several times
+                // a count, not a flag; self_eval_test_save stores
+                // a chosen option once, and the view marks a 1
                 $results[$i]['answers'][$kk]['selected'] = SelfEvalUser::where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'option_id'=>$vv['id']])->count();
 
             }

@@ -12,7 +12,8 @@
 //  Used by:
 //    - Laravel's paginator — links() in news.blade.php and in
 //      the admin lists of members, information pages, a
-//      lesson's files and a member's histories
+//      lesson's files, a category's self-evaluation and
+//      knowledge test questions, and a member's histories
 // -----------------------------------------------------------
 
 

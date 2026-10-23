@@ -41,8 +41,8 @@ use Tests\FeatureTestCase;
 // -----------------------------------------------------------
 //
 // Every test is a visitor with no session; English is the
-// seeded language (id 3), Lithuanian is added where a test
-// needs a second one.
+// seeded language (id 3), and setUp adds Lithuanian for
+// every test, as the second language some tests need.
 //
 // Used by:
 //   - PHPUnit — the Feature suite (runTests.sh)
@@ -88,8 +88,8 @@ class PublicPagesTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // The home page renders with nothing but the seed rows of
-    // mysql/init.sql — settings row 1 without an about text,
-    // and no news.
+    // mysql/init.sql and the Lithuanian row of setUp —
+    // settings row 1 without an about text, and no news.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)

@@ -146,8 +146,9 @@ return [
     // Nothing shows only_3 at the moment
     'only_3'=>'Jūs atļāvāt izmēģināt šo testu tikai 3 reizes',
     'not_anymore'=>'Jūs to vairs nevarat izdarīt',
-    // no_questions again: PHP keeps this entry, so the
-    // category text further up never shows
+    // The knowledge test page's text when the language has
+    // no questions; a self-evaluation category without
+    // questions shows no_selfeval_questions instead
     'no_questions'=>'Nav jautājumu',
     'total_tries'=>'Testēšana',
     'you_failed'=>'Tev neizdevās!',

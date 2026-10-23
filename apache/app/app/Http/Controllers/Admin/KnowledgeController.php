@@ -204,10 +204,10 @@ class KnowledgeController extends BaseController
     // Nothing runs in a transaction, and broken input ends
     // in a 500 with the blocks before it already stored: a
     // question line without a backslash-colon is an
-    // undefined offset, and an option before any question
-    // was stored meets an undefined $addQ. A block without a
-    // Q line files its options under the question of an
-    // earlier block.
+    // undefined array key, and an option before any
+    // question was stored meets an undefined $addQ. A block
+    // without a Q line files its options under the question
+    // of an earlier block.
     //
     // Used by:
     //   - admin-panel/dialog/knowledge.blade.php — the import

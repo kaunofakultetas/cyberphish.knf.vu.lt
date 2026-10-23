@@ -45,7 +45,8 @@ use Illuminate\Database\Eloquent\Model;
 //     simulation_categories, simulation_categories_update,
 //     categories_delete, simulation_delete
 //   - Admin\SiteSettingsController::SimulationsDownloadPdf —
-//     the simulations as a PDF
+//     the printable page of every simulation, HTML despite
+//     the name
 // -----------------------------------------------------------
 
 class ScenariosInCategory extends Model

@@ -6,10 +6,10 @@
 //  The seeder artisan db:seed starts from, as Laravel's
 //  stub left it: an empty run. Nothing runs this at the
 //  moment — the seed rows (English, the main admin,
-//  settings row 2) come from mysql/init.sql, and neither
-//  apache/Dockerfile nor the test runner calls db:seed.
-//  Composer's classmap of database/seeds autoloads the
-//  class.
+//  settings rows 1 to 3) come from mysql/init.sql, and
+//  neither apache/Dockerfile nor the test runner calls
+//  db:seed. Composer's classmap of database/seeds
+//  autoloads the class.
 //
 //  Used by:
 //    - artisan db:seed, which nothing runs at the moment
