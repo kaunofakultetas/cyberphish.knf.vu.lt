@@ -57,8 +57,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
 
       # Web application 
-      - ./_DATA/apache/public:/var/www/html/storage/app/public:ro
-      - ./_DATA/apache/upload:/var/www/html/public/upload:ro
+      - ./_DATA/apache/public:/var/www/html/storage/app/public
+      - ./_DATA/apache/upload:/var/www/html/public/upload
 
       # Logs
       - ./_LOGS/apache/laravel_logs:/var/www/html/storage/logs
