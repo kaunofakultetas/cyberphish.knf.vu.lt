@@ -10,6 +10,8 @@ Try it at [cyberphish.knf.vu.lt](https://cyberphish.knf.vu.lt), hosted by
 Vilnius University Kaunas Faculty. CyberPhish was funded with support from the
 European Commission (Erasmus+).
 
+![Home page](_DOCS/img/image001.png)
+
 <br/>
 
 ## How the course works
