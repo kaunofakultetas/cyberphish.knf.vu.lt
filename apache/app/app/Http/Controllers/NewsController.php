@@ -85,12 +85,14 @@ class NewsController extends BaseController
     // The news list, news.blade.php, for everyone: the
     // articles of the session's language in id order — the
     // oldest first, the query names no order — twelve a page,
-    // sliced by hand from the full list into a paginator. A
-    // missing or non-numeric page number means page one; an
-    // empty list goes to the view as an empty array. The same
-    // query runs twice, once to count and once to fetch.
-    // The page links lead back to the list URL the visitor
-    // opened, {lang}/news.
+    // sliced by hand from the full list into a paginator. The
+    // page number comes through
+    // SettingsController::page_number, so text, a fraction or
+    // a number past PHP's integers is page one rather than a
+    // 500; an empty list goes to the view as an empty array.
+    // The same query runs twice, once to count and once to
+    // fetch. The page links lead back to the list URL the
+    // visitor opened, {lang}/news.
     //
     // Used by:
     //   - nothing links to it at the moment: the only link,
@@ -111,15 +113,9 @@ class NewsController extends BaseController
 
         }
 
-        if (empty($request->get('page')) || ! is_numeric($request->get('page'))) {
-
-            $curr_page = 1;
-        } else {
-
-            $curr_page = $request->get('page');
-        }
-
         $perPage = 12;
+
+        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 

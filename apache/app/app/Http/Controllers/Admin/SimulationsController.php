@@ -193,8 +193,10 @@ class SimulationsController extends BaseController
     //
     // Turns one filled-in copy of the project's simulation
     // spreadsheet into a simulation of the posted language.
-    // Only a file whose name ends in .xlsx passes; it is
-    // kept in public/upload/simulations under a random name.
+    // A post without a file goes back with "No file was
+    // uploaded!", as the lesson-file form does, and only a
+    // file whose name ends in .xlsx passes; it is kept in
+    // public/upload/simulations under a random name.
     // From the active sheet it reads the texts in column C —
     // description C19, goal C20, actors C21, source C22,
     // choose type C26, attack type C27, main image C30 — the
@@ -223,6 +225,10 @@ class SimulationsController extends BaseController
         // public/upload/simulations under a random name
         // ===============================================
         $lang_id = $request->get('lang_id');
+
+        if (!$request->hasFile('doc')) {
+            return back()->withErrors("No file was uploaded!");
+        }
 
         $extension = strtolower($request->file('doc')->getClientOriginalExtension());
         $allowed = ['xlsx'];

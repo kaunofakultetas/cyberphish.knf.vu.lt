@@ -56,7 +56,7 @@
 											<td align="center"><a href="{{ env('APP_URL') }}/admin-panel/user/self_evaluation_history/{{ $key1 }}/{{ $v['id'] }}">Self Evaluation History</a></td>
 											<td align="center"><a href="{{ env('APP_URL') }}/admin-panel/user/simulations_history/{{ $key1 }}/{{ $v['id'] }}">Simulations History ({{ $v['simulations'] }})</a></td>
 											<td align="center">{!! $v['knowledge_results'] !!}</td>
-											<td align="center">@if(date("Y-m-d H:i:s", strtotime($v['last_login'])) != '1970-01-01 00:00:00') {{ date("Y-m-d H:i:s", strtotime($v['last_login'])) }} @endif</td>
+											<td align="center">{{ \App\Http\Controllers\SettingsController::local_time($v['last_login']) }}</td>
 										</tr>
 										@endforeach
 

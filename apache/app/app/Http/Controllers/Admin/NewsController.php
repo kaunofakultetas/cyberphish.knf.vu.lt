@@ -260,9 +260,11 @@ class NewsController extends BaseController
     // POST /admin-panel/news/update
     //
     // Saves the edit form over the article named by uid: the
-    // title and its slug, the body and the language as posted,
-    // and the picture when one comes; answers a redirect back
-    // to the form. An empty body is stored as an empty string,
+    // title and its slug, the body and the language as posted
+    // — a language that exists, checked as in create, or the
+    // form comes back with the validator's message — and the
+    // picture when one comes; answers a redirect back to the
+    // form. An empty body is stored as an empty string,
     // as in create, but by MySQL rather than the code:
     // config/database.php turns strict mode off, and outside
     // it an UPDATE that sets a NOT NULL column to NULL stores
@@ -278,13 +280,14 @@ class NewsController extends BaseController
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
             'title' => [ 'required', 'min:1', 'max:255' ],
+            'lang_id' => ['required', 'exists:bei_lang,id'],
             'feat' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
         ]);
 
         $update = [
             'title'=>$validatedData['title'],
             'content'=>$request->get('content'),
-            'lang_id'=>$request->get('lang_id'),
+            'lang_id'=>$validatedData['lang_id'],
             'alias'=>Str::slug($validatedData['title']),
         ];
 

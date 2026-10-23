@@ -44,9 +44,9 @@ use Illuminate\Database\Eloquent\Model;
 //   getQIds      — an attempt's question set
 //
 // Used by:
-//   - KnowledgeTestController — index, start, gen_test_id,
-//     progress, progress_save, calculate_results,
-//     knowledge_results
+//   - KnowledgeTestController — index, draw_or_resume,
+//     gen_test_id, progress, save_answer, mark_answered,
+//     calculate_results, knowledge_results
 //   - CertController::download — the passed attempt and its
 //     date
 //   - Admin\ManagerMainController — knowledge_results,
@@ -90,7 +90,7 @@ class KnowledgeUserTest extends Model
     //
     // Used by:
     //   - nothing calls this at the moment —
-    //     KnowledgeTestController::progress and progress_save
+    //     KnowledgeTestController::progress and save_answer
     //     look the attempt up together with its member
     // -----------------------------------------------------------
 
@@ -110,15 +110,13 @@ class KnowledgeUserTest extends Model
     //
     // The attempt's question set decoded into an array, from
     // question id to 0 (unanswered) or 1 (answered); null for
-    // an unknown attempt, which progress and progress_save
-    // have answered with a 404 before they ask —
-    // calculate_results runs only behind progress's check.
+    // an unknown attempt, which progress has answered with a
+    // 404 before it asks — calculate_results runs only behind
+    // progress's check.
     //
     // Used by:
     //   - KnowledgeTestController::progress — the next
     //     unanswered question
-    //   - KnowledgeTestController::progress_save — marks the
-    //     answered question
     //   - KnowledgeTestController::calculate_results — the
     //     number of questions the attempt drew
     // -----------------------------------------------------------

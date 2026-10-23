@@ -656,6 +656,29 @@ class World
 
 
     // -----------------------------------------------------------
+    // badge
+    // -----------------------------------------------------------
+    //
+    // One badge of the member in the language, by its name —
+    // the knowledge test opens only for a member who holds
+    // badge_all_presentations; returns the row id.
+    //
+    // Used by:
+    //   - KnowledgeExamTest (Feature/Knowledge/)
+    //   - PublicPagesTest (Feature/Site/)
+    // -----------------------------------------------------------
+
+    public function badge(int $userId, int $langId, string $name): int
+    {
+        return $this->insert('bei_users_badges', ['user_id' => $userId, 'lang_id' => $langId, 'name' => $name]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // selfEvalAttempt
     // -----------------------------------------------------------
     //

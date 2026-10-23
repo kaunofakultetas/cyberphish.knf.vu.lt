@@ -77,8 +77,7 @@ Four files outside `tests/` belong to the suite:
     values in place of the secrets.
   - The app's `vendor/` stays `--no-dev`. PHPUnit and Mockery live
     apart, in `/opt/test-tools`.
-- **Every test builds its own rows** through the World; a badge, which
-  the World has no builder for, the test inserts itself. A test relies
+- **Every test builds its own rows** through the World. A test relies
   on nothing but the seed rows of `init.sql`. Emails, user names and
   titles carry a serial number that is unique for the whole run.
 - **No bug is fixed from here.** A test that finds a defect does not
@@ -239,6 +238,77 @@ count self-evaluations per category and treat a missing share as 0.
 | `course-progress-selfeval` | `CourseProgressTest::testFinishedSelfEvaluationsCountTheirFullShare` |
 | `course-progress-null` | `CourseProgressTest::testLanguageWithoutSimulationsStillShowsTheProgress`, `testPassedKnowledgeTestCountsWithoutLessons` |
 
+A fourth batch, the same month, fixed the low-severity defects a
+multi-agent review of the whole app found. Each test was seen failing on
+the code before its fix. Some changes are visible:
+
+- signing out posts a form from the member and admin menus;
+- the reset link opens a page whose button mails the new password;
+- dates show in Eastern European Time, and are still stored in UTC;
+- the knowledge test opens only once every lesson of the language is
+  done, as its sidebar button always waited for;
+- the user-name form asks for the 6 to 45 characters the server takes.
+
+| Id | Home test |
+|---|---|
+| `username-error-message` | `AccountSettingsTest::testRefusedUsernameSaysWhyInTheMembersLanguage`, `testUsernameFormAsksForWhatTheServerTakes`, `testRefusedFullNameSaysWhyInTheMembersLanguage` |
+| `logout-on-get` | `LoginTest::testSigningOutNeedsAPost`, `AdminLoginTest::testSigningOutNeedsAPost` |
+| `reset-link-prefetch` | `PasswordResetTest::testOpeningTheResetLinkChangesNothing` |
+| `selfeval-overshoot` | `SelfEvaluationTest::testAttemptWithMoreAnswersThanItsLengthCloses` |
+| `selfeval-length-zero` | `AdminContentTest::testSelfEvaluationLengthBelowOneIsRefused`, `SelfEvaluationTest::testLengthDroppingToZeroClosesTheAttempt` |
+| `selfeval-answer-race` | `SelfEvaluationTest::testAnswerStoredTwiceScoresOnce`, which checks the state a race leaves; the lock itself is not testable (see Found but not pinned) |
+| `selfeval-unanswerable-question` | `SelfEvaluationTest::testQuestionWithoutAnswersIsNeverAsked` |
+| `selfeval-other-language` | `SelfEvaluationTest::testAttemptTakesItsCategorysLanguage` |
+| `knowledge-without-lessons` | `KnowledgeExamTest::testTestNeedsEveryLessonDone` |
+| `knowledge-limit-blank` | `KnowledgeExamTest::testBlankLimitDrawsNothing`, `AdminContentTest::testBlankKnowledgeLimitIsStoredAsZero` |
+| `knowledge-start-race` | none — see Found but not pinned |
+| `dates-in-utc` | `SelfEvaluationTest::testTimesShowInLocalTime`, `CertificateTest::testCertificateIsDatedInLocalTime` |
+| `simulation-start-any-language` | `SimulationsTest::testRunOfAnotherLanguagesSimulationIsNotStarted` |
+| `simulation-mail-outage` | `SimulationsTest::testMailOutageStillShowsTheEndPage` |
+| `cookie-link-language` | `PublicPagesTest::testCookieNoticeKeepsTheLanguage` |
+| `page-number-overflow` | `PublicPagesTest::testHugePageNumberOpensTheNewsList`, `AdminUsersTest::testHugePageNumberOpensTheMemberList` |
+| `sim-import-missing-file` | `AdminSimulationsTest::testImportWithoutAFileSaysSo` |
+| `selfeval-history-denominator` | `AdminUsersTest::testSelfEvaluationHistoryCountsOutOfTheAttemptsQuestions` |
+| `update-lang-unchecked` | `AdminContentTest::testUpdatesNeedALanguageThatExists` |
+| `users-intended-redirect` | `AdminUsersTest::testMemberActionsReturnToTheMemberList` |
+| `language-delete-simulations` | `AdminContentTest::testLanguageWithSimulationsIsNotDeleted` |
+| `disable-functions-noop` | `PhpRuntimeTest::testDisabledListNamesNoLanguageConstruct` |
+| `recaptcha-language-codes` | `RegistrationTest::testCaptchaSpeaksGreekAndEstonian` |
+| `optional-before-required` | `PhpRuntimeTest::testNoFunctionTakesAnOptionalParameterBeforeARequiredOne` |
+
+A fifth batch, the same day, fixed the six medium-severity defects of
+that review. Each test was again seen failing on the code before its
+fix. Behaviour that changed:
+
+- an account switched off in the panel is signed out at its next page;
+- a manager's main flag and country follow the row at once;
+- deleting a member deletes every row of theirs;
+- a knowledge-test question that can no longer be answered counts as
+  wrong instead of holding the attempt open.
+
+| Id | Home test |
+|---|---|
+| `switched-off-session` | `AdminUsersTest::testSwitchingAMemberOffEndsTheirSession`, `AdminManagersTest::testSwitchedOffManagerLosesTheSession`, `testDemotedMainAdminLosesTheMainPages` |
+| `member-delete-orphans` | `AdminUsersTest::testDeletingAMemberLeavesNothingOfTheirs` |
+| `knowledge-deleted-question` | `KnowledgeExamTest::testDeletedQuestionDoesNotHoldTheAttempt`, `testQuestionWithoutOptionsIsNotDrawn` |
+| `knowledge-answer-race` | `KnowledgeExamTest::testAnswerStoredTwiceCountsOnce`, which checks the state a race leaves; the lock itself is not testable (see Found but not pinned) |
+| `simulation-choice-race` | `SimulationsTest::testChoiceStoredTwiceScoresOnce`, likewise |
+| `knowledge-import-markers` | `AdminLearningTest::testKnowledgeQuestionsOfEveryLanguageAreImported` |
+
+Three more followed the same day. `bei_managers` became utf8mb4, the
+last latin1 table, in production and in `mysql/init.sql`; so did the
+last two latin1 defaults, the table default of `bei_lm_category` and the
+database's own. The
+self-evaluation progress bar counts towards the attempt's real length.
+The translation files hold each key once, which gives the Greek sign-up
+button back its "Εγγραφείτε".
+
+| Id | Home test |
+|---|---|
+| `managers-latin1` | `SchemaTest::testEveryTextColumnIsUtf8mb4`, `testTablesAndTheDatabaseDefaultToUtf8mb4` |
+| `selfeval-progress-length` | `SelfEvaluationTest::testProgressBarCountsTowardsTheAttemptsLength` |
+| `duplicate-strings` | `RegistrationTest::testGreekSignUpButtonSaysRegister`, `ConfigTest::testTranslationFilesHoldEachKeyOnce` |
+
 No `*DefectsTest.php` file is left; a new pin starts its folder's file
 again.
 
@@ -247,17 +317,25 @@ again.
 These were found during review but not pinned. Some have no impact in
 production; others can't be tested deterministically.
 
+- **Races closed with row locks.** Posts that arrive at the same moment
+  each passed the app's check before either stored its row. This held
+  for two answers to one self-evaluation question, two knowledge-test
+  starts, two answers to one knowledge-test question, and two choices
+  for one simulation step. Each is now checked and stored inside a
+  transaction that first locks a row: the attempt's in
+  `LMController::self_eval_test_save` and
+  `KnowledgeTestController::save_answer`, the member's in
+  `KnowledgeTestController::start`, the run's in
+  `SimulationsController::simulation_do_stuff_save`. The suite runs its
+  requests one after another, so it cannot force the interleaving. The
+  three scorings are checked on the duplicates a race once left behind;
+  the knowledge start has no test.
 - **Unreachable retries.** `LMController::gen_test_id` and
   `SimulationsController::gen_test_id` retried through a method their
   models do not have; they now retry through their own class. The
   retry runs only when two random ids collide, so no test reaches it.
 - **Dead code.** The `ValidateVerify` middleware is never registered;
   `RegisterController::verify` makes the same checks itself.
-- **Duplicate strings.** `my_badges`, `register` and
-  `learning_material` are defined twice in most `main.php` files, and
-  PHP keeps the later entry. The two texts differ only in capitals, but
-  for the Greek `register`, which shows "Κανω ΕΓΓΡΑΦΗ" rather than
-  "Εγγραφείτε".
 - **Dependencies.** Since the PHP 8.4 upgrade the imports use
   phpoffice/phpspreadsheet 5.10.0, and `composer audit` finds no
   advisory for any locked package.
@@ -281,9 +359,9 @@ Things the suite learned the hard way:
     the link it carries.
   - Registration and forgot-password need `solveCaptcha()`; the member
     login has no captcha.
-- **Character sets.** `bei_users` is utf8mb4 and keeps every letter of
-  a name. `bei_managers` is still latin1, so a manager's e-mail address
-  must keep to the letters latin1 has.
+- **Character sets.** Every text column, every table default and the
+  database default are utf8mb4, so every letter is kept, as
+  `SchemaTest` checks.
 - **MySQL rounding.** The course-progress function rounds a double, and
   MySQL rounds half to even: 12.5 % shows as 12.
 - **PHPUnit 13 and Laravel 13.**

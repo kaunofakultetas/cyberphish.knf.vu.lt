@@ -42,7 +42,8 @@ use App\Models\Members as Members;
 //
 // Used by:
 //   - Kernel::$routeMiddleware — the alias validate.reset
-//   - routes/web_user.php — GET /reset/{reset_token}
+//   - routes/web_user.php — GET and POST
+//     /reset/{reset_token}, the page and its button
 // -----------------------------------------------------------
 
 class ValidateReset

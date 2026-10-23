@@ -73,8 +73,9 @@ class BaseController extends Controller
     // member login instead). The closure shares the session's
     // main flag (1 for a main admin) and country id with
     // every view as $main and $country. AdminLoginController::
-    // login writes both at sign-in, so a change to the
-    // manager's row shows only after the next sign-in. The
+    // login writes both at sign-in and SignOutSwitchedOff
+    // again on every request, so a change to the manager's
+    // row shows at the next page. The
     // sidebar and the managers pages read $main; no view
     // reads $country at the moment.
     //

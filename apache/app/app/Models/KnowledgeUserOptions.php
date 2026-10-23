@@ -39,7 +39,7 @@ use Illuminate\Database\Eloquent\Model;
 // whether it was right.
 //
 // Used by:
-//   - KnowledgeTestController::progress_save — a row per
+//   - KnowledgeTestController::save_answer — a row per
 //     answered question
 //   - KnowledgeTestController::calculate_results — the
 //     attempt's correct rows, over the questions it drew

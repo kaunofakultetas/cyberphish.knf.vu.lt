@@ -555,6 +555,42 @@ class AdminLearningTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testKnowledgeQuestionsOfEveryLanguageAreImported
+    // -----------------------------------------------------------
+    //
+    // The knowledge-test import takes the question markers the
+    // self-evaluation import takes — K for Lithuanian, J for
+    // Latvian, the capital epsilon for Greek — so files in
+    // those languages import whole; a block without a question
+    // line stores nothing, where its options once went under
+    // the question before or ended in a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testKnowledgeQuestionsOfEveryLanguageAreImported(): void
+    {
+        $file = $this->uploadedFile('questions.txt', "::\nK\\: Kuri nuoroda saugi?\n=Ta, kurią įvedėte patys\n~Nuoroda iš laiško\n"
+            . "::\nJ\\: Kura saite ir droša?\n=Tā, ko ierakstījāt pats\n~Saite no e-pasta\n"
+            . "::\nΕ\\: Ποιος σύνδεσμος είναι ασφαλής;\n=Αυτός που πληκτρολόγησες\n~Ο σύνδεσμος του email\n"
+            . "::\n=An option with no question\n");
+
+        $this->admin()->from("/admin-panel/lm/knowledge_test/{$this->category}")
+            ->post('/admin-panel/lm/knowledge_test/import', ['cat_id' => $this->category, 'doc' => $file])
+            ->assertSessionHas('success');
+
+        $questions = DB::table('bei_knowledge_test')->where('cat_id', $this->category)->orderBy('id')->pluck('question')->all();
+        $this->assertSame(['Kuri nuoroda saugi?', 'Kura saite ir droša?', 'Ποιος σύνδεσμος είναι ασφαλής;'], $questions);
+        $this->assertSame(6, DB::table('bei_knowledge_option')->whereIn('question_id', DB::table('bei_knowledge_test')->where('cat_id', $this->category)->pluck('id'))->count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testSelfEvaluationQuestionIsEditedAndDeleted
     // -----------------------------------------------------------
     //

@@ -41,7 +41,8 @@ use Illuminate\Database\Eloquent\Model;
 // Used by:
 //   - SimulationsController — simulations_list,
 //     simulation_progress, gen_test_id, simulation_do_stuff,
-//     simulation_do_stuff_save, history,
+//     simulation_do_stuff_save (the run's lock), save_choice,
+//     history,
 //     check_if_all_simulations_finished
 //   - R_Exists::handle — the sim_public_id check: the run
 //     exists and is the member's

@@ -235,6 +235,57 @@ class PublicPagesTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testHugePageNumberOpensTheNewsList
+    // -----------------------------------------------------------
+    //
+    // A page number past PHP's integers, a fraction or text
+    // opens the list's first page; one past the end, however
+    // large, an empty page. Such numbers once reached the
+    // slicing as floats and answered with a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHugePageNumberOpensTheNewsList(): void
+    {
+        $this->world->news($this->en, ['title' => 'The only article']);
+
+        $this->get('/en/news?page=99999999999999999999')->assertOk()->assertSee('The only article');
+        $this->get('/en/news?page=9223372036854775807')->assertOk()->assertDontSee('The only article');
+        $this->get('/en/news?page=1.5')->assertOk()->assertSee('The only article');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCookieNoticeKeepsTheLanguage
+    // -----------------------------------------------------------
+    //
+    // The cookie notice links the policy under the language the
+    // visitor is in, so following it no longer switches the
+    // whole site to English.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCookieNoticeKeepsTheLanguage(): void
+    {
+        $this->get('/lt/news')->assertOk()
+            ->assertSee('/lt/page/cookie-policy/19', false)
+            ->assertDontSee('/en/page/cookie-policy/19', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testNewsArticleOpens
     // -----------------------------------------------------------
     //
@@ -416,7 +467,7 @@ class PublicPagesTest extends FeatureTestCase
         $member = $this->world->member();
         $this->world->selfEvalAttempt($member->id, $this->world->lmCategory($this->en), $this->en, ['points' => 10]);
         foreach (['badge_login_10', 'badge_all_presentations', 'badge_login_10', 'badge_final_test'] as $badge) {
-            DB::table('bei_users_badges')->insert(['lang_id' => $this->en, 'user_id' => $member->id, 'name' => $badge]);
+            $this->world->badge($member->id, $this->en, $badge);
         }
 
         $page = $this->get('/en/ranks/self-evaluation')

@@ -9,8 +9,7 @@
 //  badges' descriptions. The other four languages hold the
 //  same keys in their own main.php. The admin panel never
 //  switches the locale, so the few main keys its controllers
-//  use come from this file too. A few keys appear twice; PHP
-//  keeps the later entry.
+//  use come from this file too.
 //
 //  Used by:
 //    - the views under resources/views — the layouts, the
@@ -57,7 +56,6 @@ return [
     'change_username' => 'Change username',
     'change_username2' => 'Change Username',
     'home'=>'Home',
-    'learning_material'=>'Learning Material',
     'contact'=>'Contact',
     'sign_in'=>'Sign In',
     'sign_up'=>'Sign Up',
@@ -70,7 +68,6 @@ return [
     'create_acc'=>'Create an Account!',
     'agree_terms'=>'I agree with Terms and Conditions',
     'already_acc_login'=>'Already have an account? Login!',
-    'register'=>'Register',
     'forgot_password_descr'=>'We get it, stuff happens. Just enter your email address below and we\'ll send you a link to reset your password!',
     'verify_email'=>'Verify Your Email Address',
     'link_sent'=>'A fresh verification link has been sent to your email address.',
@@ -78,6 +75,7 @@ return [
     'link_sent3'=>'If you did not receive the email',
     'request_another_link'=>'click here to request another',
     'reset_pass'=>'Reset Password',
+    'reset_pass_descr'=>'Press the button below and we will email you a new password.',
     'login_url'=>'Login URL',
     'your_new_pass'=>'Your new password',
     'link_new_login_info'=>'Click link below and you will receive new login information',
@@ -95,6 +93,7 @@ return [
     // change (ManagerMainController::change_username)
     'pass_updated'=>'Username updated!',
     'pass_unavailable'=>'Username is unavailable!',
+    'username_length'=>'The username must be :min to :max characters long.',
     'auth_failed'=>'Wrong email and/or password!',
     'forgot_pass_msg'=>'If email exists in our database, you will receive reset link.',
     'new_pass_emailed'=>'We just emailed you new password',
@@ -145,7 +144,6 @@ return [
     // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'For learning purposes',
     'simulation_pabaigoje'=>'For knowledge testing purposes',
-    'my_badges'=>'My Badges',
     // HTML: the success alert prints it unescaped
     // (parts/notif.blade.php), so the link works
     'new_badge'=>"You received new badge. Check <a href=\"/cp/badges\">My Badges</a>",
@@ -173,6 +171,7 @@ return [
     'download_certificate'=>'Download certificate',
     'change_fullname'=>'Change full name',
     'fullname'=>'Full name',
+    'fullname_length'=>'The full name must be :min to :max characters long.',
     'updated'=>'Updated!',
     'pq_questionare'=>'Post-Course Questionnaire'
 

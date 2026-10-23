@@ -76,17 +76,15 @@ class InfoController extends BaseController
     // bei_information row has with a 404, and the slug is
     // never read — {lang} only sets the language of the page
     // around it. The view gets the row as the model itself.
-    // The null default of $lang is dead weight: the route
-    // always passes all three parts, and PHP 8 warns about an
-    // optional parameter before required ones.
     //
     // Used by:
     //   - layouts/main.blade.php — the footer's contact link
     //     (page 6) and the cookie notice's policy link (page
-    //     19, always under /en/)
+    //     19, the English policy, under the language the
+    //     visitor is in)
     // -----------------------------------------------------------
 
-    public function content($lang=null, $slug, $uid)
+    public function content($lang, $slug, $uid)
     {
         return view('information', ['content'=>Information::where(['id'=>$uid])->get()->first()]);
     }

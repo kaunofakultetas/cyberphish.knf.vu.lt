@@ -11,10 +11,10 @@
 //  settings page edits all three.
 //
 //  Used by:
-//    - HomeController, LMController, KnowledgeTestController
+//    - HomeController, KnowledgeTestController
 //      (Http/Controllers/)
 //    - Admin\SiteSettingsController (Http/Controllers/Admin/)
-//    - FinishedSe (Http/Middleware/)
+//    - SelfEval (this folder)
 // -----------------------------------------------------------
 
 
@@ -43,9 +43,9 @@ use Illuminate\Database\Eloquent\Model;
 //
 // Used by:
 //   - HomeController::index — row 1
-//   - LMController::self_eval_test, FinishedSe::handle —
-//     row 2
-//   - KnowledgeTestController::start — row 3
+//   - SelfEval::attempt_length — row 2, for FinishedSe
+//     and LMController::self_eval_test
+//   - KnowledgeTestController::draw_or_resume — row 3
 //   - Admin\SiteSettingsController — other, self_eval_save,
 //     about_us_save, knowledge_test_settings_save
 // -----------------------------------------------------------

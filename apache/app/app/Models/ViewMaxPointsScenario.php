@@ -35,7 +35,7 @@ use Illuminate\Database\Eloquent\Model;
 // lang_id. Only members with a finished run appear. A run's
 // points are what its recorded choices add up to — each an
 // option of the step it answered, the only kind
-// SimulationsController::simulation_do_stuff_save records.
+// SimulationsController::save_choice records.
 //
 // Used by:
 //   - RanksController::simulations — the simulations

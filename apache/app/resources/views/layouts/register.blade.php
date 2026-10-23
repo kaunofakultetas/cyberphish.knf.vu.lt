@@ -37,7 +37,7 @@
 
     <!-- Custom scripts for all pages-->
     <script src="{{ env('APP_URL') }}/m_assets/js/sb-admin-2.min.js"></script>
-    {!! NoCaptcha::renderJs(Session::get('lang')) !!}
+    {!! NoCaptcha::renderJs(\App\Models\Langs::iso_code(Session::get('lang'))) !!}
 
 </body>
 

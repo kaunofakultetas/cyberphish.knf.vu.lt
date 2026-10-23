@@ -94,9 +94,9 @@ class InfoController extends BaseController
     // the name of its language, for
     // admin-panel/information.blade.php. The whole table is
     // read and cut into pages of 25 in PHP; a page number that
-    // is missing or not numeric means the first page, and an
-    // empty table hands the view an empty array instead of a
-    // paginator.
+    // is not a whole number from 1 means the first page
+    // (SettingsController::page_number), and an empty table
+    // hands the view an empty array instead of a paginator.
     //
     // Used by:
     //   - admin-panel/sidebar.blade.php — the Information menu
@@ -123,15 +123,9 @@ class InfoController extends BaseController
 
         }
 
-        if (empty($request->get('page')) || ! is_numeric($request->get('page'))) {
-
-            $curr_page = 1;
-        } else {
-
-            $curr_page = $request->get('page');
-        }
-
         $perPage = 25;
+
+        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 
@@ -251,7 +245,9 @@ class InfoController extends BaseController
     //
     // Saves the edit form over the page named by uid: the
     // title and its slug, the body and the language as
-    // posted. Answers a redirect back to the form. An empty
+    // posted — a language that exists, checked as in create,
+    // or the form comes back with the validator's message.
+    // Answers a redirect back to the form. An empty
     // body is stored as an empty string, as in create, but by
     // MySQL rather than the code: config/database.php turns
     // strict mode off, and outside it an UPDATE setting a NOT
@@ -268,13 +264,14 @@ class InfoController extends BaseController
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
             'title' => [ 'required', 'min:1', 'max:255' ],
+            'lang_id' => ['required', 'exists:bei_lang,id'],
         ]);
 
         $update = [
             'title'=>$validatedData['title'],
             'content'=>$request->get('content'),
             'alias'=>Str::slug($validatedData['title']),
-            'lang_id'=>$request->get('lang_id')
+            'lang_id'=>$validatedData['lang_id']
         ];
 
         Information::where(['id' => $validatedData['uid']])->update($update);

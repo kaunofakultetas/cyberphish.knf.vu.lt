@@ -241,4 +241,75 @@ class PhpRuntimeTest extends TestCase
             $this->assertTrue(function_exists($function), "$function() is disabled, but the app needs it");
         }
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDisabledListNamesNoLanguageConstruct
+    // -----------------------------------------------------------
+    //
+    // eval, include and their kin are language constructs,
+    // which disable_functions cannot reach, and create_function
+    // is gone since PHP 8.0: the list names none of them, so it
+    // claims no protection it cannot give.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDisabledListNamesNoLanguageConstruct(): void
+    {
+        $listed = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+
+        $this->assertSame([], array_values(array_intersect(['eval', 'include', 'include_once', 'require', 'require_once', 'create_function'], $listed)));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNoFunctionTakesAnOptionalParameterBeforeARequiredOne
+    // -----------------------------------------------------------
+    //
+    // PHP 8 deprecates a parameter with a default before one
+    // without — the default is ignored and the parameter is
+    // required anyway — and reflection no longer shows such a
+    // default, so the app's own signatures, one line each, are
+    // read from the source.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNoFunctionTakesAnOptionalParameterBeforeARequiredOne(): void
+    {
+        $offenders = [];
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(app_path()));
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            foreach (file($file->getPathname()) as $number => $line) {
+                if (!preg_match('/^\s*(?:public|protected|private)?\s*(?:static\s+)?function\s+\w+\s*\((.*)\)/', $line, $signature)) {
+                    continue;
+                }
+                $defaulted = false;
+                foreach (explode(',', $signature[1]) as $parameter) {
+                    if (str_contains($parameter, '=')) {
+                        $defaulted = true;
+                    } elseif ($defaulted && trim($parameter) !== '') {
+                        $offenders[] = basename($file->getPathname()) . ':' . ($number + 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        $this->assertSame([], $offenders);
+    }
 }

@@ -48,7 +48,7 @@
                                         @foreach ($recordlist[$key1] as $value)
                                             <tr>
                                             <td>{{ $value['title'] }}</td>
-                                            <td><center> {{ date("Y-m-d H:i:s", strtotime($value['created'])) }} </center></td>
+                                            <td><center> {{ \App\Http\Controllers\SettingsController::local_time($value['created']) }} </center></td>
                                             <td class="actions"><a class="icon" href="{{ env('APP_URL') }}/admin-panel/news/edit/{{ $value['id'] }}"><i class="mdi mdi-settings"></i></a></td>
                                             <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/news/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
                                           </tr>

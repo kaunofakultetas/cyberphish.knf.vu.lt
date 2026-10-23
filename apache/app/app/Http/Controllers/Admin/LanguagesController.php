@@ -29,6 +29,9 @@ use App\Models\Langs as Langs;
 use App\Models\Information;
 use App\Models\LMCategory;
 use App\Models\News;
+use App\Models\Scenarios;
+use App\Models\ScenariosAttributes;
+use App\Models\ScenariosCategory;
 use Illuminate\Support\Facades\Validator;
 
 
@@ -242,7 +245,10 @@ class LanguagesController extends BaseController
     // the languages page. A language that still has news,
     // information pages or learning-material categories —
     // their foreign keys refuse the delete — stays, and the
-    // page says why.
+    // page says why. So does one that still has simulations,
+    // or their categories or attributes: no foreign key holds
+    // those, and the delete would leave them under a language
+    // that no longer exists.
     //
     // Used by:
     //   - admin-panel/langs.blade.php — each row's delete
@@ -253,6 +259,10 @@ class LanguagesController extends BaseController
     {
         if(News::where(['lang_id'=>$uid])->count() > 0 || Information::where(['lang_id'=>$uid])->count() > 0 || LMCategory::where(['lang_id'=>$uid])->count() > 0){
             return back()->withErrors("The language still has news, information pages or categories!");
+        }
+
+        if(Scenarios::where(['lang_id'=>$uid])->count() > 0 || ScenariosCategory::where(['lang_id'=>$uid])->count() > 0 || ScenariosAttributes::where(['lang_id'=>$uid])->count() > 0){
+            return back()->withErrors("The language still has simulations, or their categories or attributes!");
         }
 
         Langs::destroy($uid);

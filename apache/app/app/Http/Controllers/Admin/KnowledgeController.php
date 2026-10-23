@@ -120,15 +120,9 @@ class KnowledgeController extends BaseController
 
         $name = LMCategory::where(['id'=>$uid])->pluck('name')->first();
 
-        if (empty($request->get('page')) || ! is_numeric($request->get('page'))) {
-
-            $curr_page = 1;
-        } else {
-
-            $curr_page = $request->get('page');
-        }
-
         $perPage = 25;
+
+        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 
@@ -195,19 +189,20 @@ class KnowledgeController extends BaseController
     // line whose text follows its first backslash-colon (up
     // to the next one), "=" before a correct option and "~"
     // before a wrong one — the option is everything after
-    // its marker — other lines skipped. Only a line
-    // starting with Q opens a question here, not the K, J or
-    // Greek epsilon the self-evaluation import also takes;
+    // its marker — other lines skipped. A question line starts
+    // with Q, K, J or the Greek capital epsilon, the markers
+    // the self-evaluation import takes, so the Lithuanian,
+    // Latvian and Greek files import as the English ones do;
     // options carry no points. Back with "Questions
     // imported!". Main admins only (auth.admin:man, perms).
     //
-    // Nothing runs in a transaction, and broken input ends
-    // in a 500 with the blocks before it already stored: a
-    // question line without a backslash-colon is an
-    // undefined array key, and an option before any
-    // question was stored meets an undefined $addQ. A block
-    // without a Q line files its options under the question
-    // of an earlier block.
+    // Each block starts with no question, so a block without
+    // a question line stores none of its options, where they
+    // once went under an earlier block's question or, in the
+    // first block, ended in a 500. Nothing runs in a
+    // transaction, and a question line without a
+    // backslash-colon still ends in a 500 — an undefined
+    // array key — with the blocks before it already stored.
     //
     // Used by:
     //   - admin-panel/dialog/knowledge.blade.php — the import
@@ -230,6 +225,10 @@ class KnowledgeController extends BaseController
 
                 $q = explode("\n", $v);
 
+                // No question yet: the block's own question line,
+                // if it has one, sets it
+                $addQ = null;
+
                 // Counted in the first pass and reset after the
                 // block, but nothing reads it — dead code
                 $correct_answers = 0;
@@ -242,7 +241,7 @@ class KnowledgeController extends BaseController
 
                     if(!empty($vv)){
 
-                        if($vv[0] == 'Q'){
+                        if($vv[0] == 'Q' || $vv[0] == 'K' || mb_substr($vv, 0, 1) == 'Ε' || trim($vv[0]) == 'J'){
 
                             $addQ = new KnowledgeTest;
                             $question = explode('\:', $vv);
@@ -265,11 +264,12 @@ class KnowledgeController extends BaseController
                 }
 
 
-                // STEP 3: second pass — the options, correct or not
-                // =================================================
+                // STEP 3: second pass — the options, correct or not,
+                // of the block's question; a block without one stores none
+                // ========================================================
                 foreach($q as $kk1 => $vv1){
 
-                    if(!empty($vv1)){
+                    if(!empty($vv1) && $addQ != null){
 
                         if($vv1[0] == '='){
 

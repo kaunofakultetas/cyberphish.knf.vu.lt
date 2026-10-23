@@ -49,7 +49,7 @@
                             @endif
                             </td>
 
-                            <td>@if(date('Y-m-d H:i:s', strtotime($value['last_login'])) != '1970-01-01 00:00:00'){{ date('Y-m-d H:i:s', strtotime($value['last_login'])) }}@endif</td>
+                            <td>{{ \App\Http\Controllers\SettingsController::local_time($value['last_login']) }}</td>
                             <td>{{ $value['last_ip'] }}</td>
 
                             <td class="actions"><a class="icon" href="#" onClick="managers_form('edit', {{ $value['id'] }})"><i class="mdi mdi-border-color"></i></a></td>

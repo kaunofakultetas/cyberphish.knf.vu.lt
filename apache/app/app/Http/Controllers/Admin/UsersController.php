@@ -23,7 +23,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use App\Http\Controllers\SettingsController;
 use App\Models\Members as Members;
-use App\Models\LMUsers as LMUsers;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 
@@ -50,6 +50,37 @@ use Illuminate\Support\Facades\Validator;
 
 class UsersController extends BaseController
 {
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // MEMBER_TABLES
+    // -----------------------------------------------------------
+    //
+    // Every table that holds rows of a member, by user_id —
+    // the logins, the badges, the completed lessons and each
+    // kind of attempt with its answers. delete empties them
+    // of the member, answers before their attempts, before it
+    // removes the account.
+    //
+    // Used by:
+    //   - delete (below)
+    // -----------------------------------------------------------
+
+    private const MEMBER_TABLES = [
+        'bei_users_loginlog',
+        'bei_users_badges',
+        'bei_lm_users',
+        'bei_users_selfeval',
+        'bei_users_selfeval_test',
+        'bei_users_knowledge_options',
+        'bei_users_knowledge_test',
+        'bei_users_scenarios_options',
+        'bei_users_scenarios',
+    ];
 
 
 
@@ -88,11 +119,12 @@ class UsersController extends BaseController
     // Every member account in table order, whatever its
     // country, 25 a page. The whole of bei_users is loaded —
     // twice, once only to count it — and the page is cut out
-    // of it by hand for a LengthAwarePaginator; a missing or
-    // non-numeric page parameter means page 1. With no
-    // members at all the view gets an empty array instead of
-    // the paginator. Main admins only (auth.admin:man,
-    // perms). Answers with admin-panel/users.blade.php.
+    // of it by hand for a LengthAwarePaginator; a page
+    // parameter that is not a whole number from 1 means page 1
+    // (SettingsController::page_number). With no members at
+    // all the view gets an empty array instead of the
+    // paginator. Main admins only (auth.admin:man, perms).
+    // Answers with admin-panel/users.blade.php.
     //
     // Used by:
     //   - admin-panel/sidebar.blade.php — the Users entry of
@@ -113,15 +145,9 @@ class UsersController extends BaseController
 
         }
 
-        if (empty($request->get('page')) || ! is_numeric($request->get('page'))) {
-
-            $curr_page = 1;
-        } else {
-
-            $curr_page = $request->get('page');
-        }
-
         $perPage = 25;
+
+        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 
@@ -151,12 +177,17 @@ class UsersController extends BaseController
     //
     // POST /admin-panel/user/delete/{user_id}
     //
-    // Removes the member's completed lessons (bei_lm_users)
-    // and then the account, when an account has that id, and
-    // redirects to the members page with "User deleted!" —
-    // also when none had it. The member's other rows (logins,
-    // badges, test attempts, simulation runs) stay behind.
-    // Main admins only (auth.admin:man, perms).
+    // Removes every row of the member — the tables of
+    // MEMBER_TABLES — and then the account, in one
+    // transaction, when an account has that id, and redirects
+    // to the members page — that page, whatever an earlier
+    // visit left in the session — with "User deleted!", also
+    // when none had it. Nothing of the member stays behind:
+    // MySQL 5.7 gives the highest id out again after a
+    // restart, and a row left behind would pass to the next
+    // member to sign up with it — a passed knowledge test, and
+    // with it the certificate. Main admins only
+    // (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/users.blade.php — the delete icon of
@@ -173,12 +204,17 @@ class UsersController extends BaseController
 
         if(Members::where(array('id' => $user_id))->count() > 0) {
 
-            LMUsers::where(['user_id'=>$user_id])->delete();
-            Members::destroy($user_id);
+            DB::transaction(function () use ($user_id) {
+                foreach(self::MEMBER_TABLES as $table){
+                    DB::table($table)->where('user_id', $user_id)->delete();
+                }
+
+                Members::destroy($user_id);
+            });
 
         }
 
-        return redirect()->intended(route('users'))->withSuccess("User deleted!");
+        return redirect(route('users'))->withSuccess("User deleted!");
     }
 
 
@@ -193,7 +229,9 @@ class UsersController extends BaseController
     // POST /admin-panel/user/status/{status_id}/{user_id}
     //
     // Writes {status_id} from the URL, unchecked, into the
-    // member's status and redirects to the members page; an
+    // member's status and redirects to the members page —
+    // that page, whatever an earlier visit left in the
+    // session; an
     // unknown member id gets "User do not exist!" as an error
     // instead. Only status 1 signs in (LoginController::
     // login): the list links 2 to switch an active member off
@@ -213,10 +251,10 @@ class UsersController extends BaseController
 
             Members::where(['id' => $user_id])->update($update);
 
-            return redirect()->intended(route('users'));
+            return redirect(route('users'));
 
         }
 
-        return redirect()->intended(route('users'))->withErrors("User do not exist!");
+        return redirect(route('users'))->withErrors("User do not exist!");
     }
 }

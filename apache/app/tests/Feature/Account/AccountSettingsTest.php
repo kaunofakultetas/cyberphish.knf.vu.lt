@@ -278,6 +278,57 @@ class AccountSettingsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testRefusedUsernameSaysWhyInTheMembersLanguage
+    // -----------------------------------------------------------
+    //
+    // A name of the wrong length comes back with a message
+    // that gives both limits, in the member's language — not
+    // the bare, untranslated "Error!" it once got.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRefusedUsernameSaysWhyInTheMembersLanguage(): void
+    {
+        $this->withSession(['lang' => 'lt'])->submit('/cp/change-username', ['username' => 'Ann'])->assertSessionHasErrors();
+
+        $this->assertSame(__('main.username_length', ['min' => 6, 'max' => 45], 'lt'), session('errors')->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUsernameFormAsksForWhatTheServerTakes
+    // -----------------------------------------------------------
+    //
+    // The dashboard's user-name field asks the browser for the
+    // server's 6 to 45 characters, so a name the browser lets
+    // through is never refused for its length; it once asked
+    // for 3 to 20.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUsernameFormAsksForWhatTheServerTakes(): void
+    {
+        $html = $this->signInMember($this->member)->get('/cp/dashboard')->assertOk()->getContent();
+
+        $this->assertSame(1, preg_match('/<input[^>]*name="username"[^>]*>/', $html, $field));
+        $this->assertStringContainsString('minlength="6"', $field[0]);
+        $this->assertStringContainsString('maxlength="45"', $field[0]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testUsernameTheColumnCannotHoldIsRefused
     // -----------------------------------------------------------
     //
@@ -444,6 +495,30 @@ class AccountSettingsTest extends FeatureTestCase
         }
 
         $this->assertNull(Members::find($this->member->id)->fullname);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRefusedFullNameSaysWhyInTheMembersLanguage
+    // -----------------------------------------------------------
+    //
+    // A full name of the wrong length comes back with a
+    // message that gives both limits, in the member's
+    // language, as the user name's does.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRefusedFullNameSaysWhyInTheMembersLanguage(): void
+    {
+        $this->withSession(['lang' => 'lt'])->submit('/cp/change-fullname', ['fullname' => 'Ona P'])->assertSessionHasErrors();
+
+        $this->assertSame(__('main.fullname_length', ['min' => 6, 'max' => 100], 'lt'), session('errors')->first());
     }
 
 

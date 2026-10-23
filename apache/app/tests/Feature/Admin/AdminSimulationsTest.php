@@ -249,6 +249,32 @@ class AdminSimulationsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testImportWithoutAFileSaysSo
+    // -----------------------------------------------------------
+    //
+    // An import posted without a spreadsheet goes back to the
+    // panel with "No file was uploaded!", as the lesson-file
+    // form does, where it once answered with a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testImportWithoutAFileSaysSo(): void
+    {
+        $this->admin()->from('/admin-panel/admin_simulations')->post('/admin-panel/admin_simulations/import', ['lang_id' => $this->en])
+            ->assertRedirect('/admin-panel/admin_simulations')
+            ->assertSessionHasErrors();
+
+        $this->assertSame('No file was uploaded!', session('errors')->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testImportFilesUnderTheCategoriesOfItsLanguage
     // -----------------------------------------------------------
     //

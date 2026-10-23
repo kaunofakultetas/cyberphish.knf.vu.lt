@@ -171,6 +171,37 @@ class AdminContentTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLanguageWithSimulationsIsNotDeleted
+    // -----------------------------------------------------------
+    //
+    // A language that still has simulations stays too, with
+    // its message: no foreign key holds them, and the delete
+    // once left them under a language that was gone.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageWithSimulationsIsNotDeleted(): void
+    {
+        $latvian = $this->world->language('lv');
+        $this->world->scenario($latvian, [], [$this->world->scenarioCategory($latvian)]);
+
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post("/admin-panel/settings/languages/delete/$latvian")
+            ->assertRedirect('/admin-panel/settings/languages')
+            ->assertSessionHasErrors();
+
+        $this->assertSame('The language still has simulations, or their categories or attributes!', session('errors')->first());
+        $this->assertTrue(DB::table('bei_lang')->where('id', $latvian)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testNewsIsPublishedInItsLanguage
     // -----------------------------------------------------------
     //
@@ -434,6 +465,41 @@ class AdminContentTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testUpdatesNeedALanguageThatExists
+    // -----------------------------------------------------------
+    //
+    // An edited information page or news article keeps its
+    // language unless a language that exists is posted: a
+    // missing or unknown one comes back with the validator's
+    // message, as on create, where it was once stored as it
+    // came and hid the page from every language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUpdatesNeedALanguageThatExists(): void
+    {
+        $page = $this->world->information($this->en);
+        $article = $this->world->news($this->en);
+
+        foreach ([[], ['lang_id' => 999999]] as $language) {
+            $this->admin()->from('/admin-panel/information')->post('/admin-panel/information/update', ['uid' => $page, 'title' => 'Renamed page'] + $language)
+                ->assertSessionHasErrors('lang_id');
+            $this->admin()->from('/admin-panel/news')->post('/admin-panel/news/update', ['uid' => $article, 'title' => 'Renamed article'] + $language)
+                ->assertSessionHasErrors('lang_id');
+        }
+
+        $this->assertEquals($this->en, DB::table('bei_information')->where('id', $page)->value('lang_id'));
+        $this->assertEquals($this->en, DB::table('bei_news')->where('id', $article)->value('lang_id'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testSettingsAreSaved
     // -----------------------------------------------------------
     //
@@ -462,6 +528,62 @@ class AdminContentTest extends FeatureTestCase
         $this->assertEquals(4, DB::table('bei_settings')->where('id', 2)->value('val3'));
         $limits = json_decode(DB::table('bei_settings')->where('id', 3)->value('val1'), true);
         $this->assertEquals(5, $limits[$this->en][$category]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSelfEvaluationLengthBelowOneIsRefused
+    // -----------------------------------------------------------
+    //
+    // A self-evaluation needs at least one question: a length
+    // of 0 comes back with the validator's message and the
+    // setting stays as it was.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSelfEvaluationLengthBelowOneIsRefused(): void
+    {
+        $before = DB::table('bei_settings')->where('id', 2)->value('val3');
+
+        $this->admin()->from('/admin-panel/settings/other')->post('/admin-panel/settings/self_eval_save', ['self_eval' => 0])
+            ->assertSessionHasErrors('self_eval');
+
+        $this->assertEquals($before, DB::table('bei_settings')->where('id', 2)->value('val3'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBlankKnowledgeLimitIsStoredAsZero
+    // -----------------------------------------------------------
+    //
+    // A knowledge-test limit left blank is stored as the 0 the
+    // page shows for it, so the test draws nothing from that
+    // category.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBlankKnowledgeLimitIsStoredAsZero(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+
+        $this->admin()->from('/admin-panel/settings/other')->post('/admin-panel/settings/knowledge_test_settings_save', [
+            'knowledge' => [$this->en => [$category => '']],
+        ]);
+
+        $limits = json_decode(DB::table('bei_settings')->where('id', 3)->value('val1'), true);
+        $this->assertSame('0', $limits[$this->en][$category]);
     }
 
 

@@ -5,11 +5,11 @@
 //
 //  The member side of signing in: the login form and its
 //  POST, signing out, and the forgotten password — the form
-//  that mails a reset link, and the link itself, which
-//  mails a new random password. Members sign in on the mem
-//  guard, whose database provider reads bei_users. Every
-//  action but logout is for visitors only: guest:mem sends
-//  a signed-in member to the home page.
+//  that mails a reset link, and the link's page, whose
+//  button mails a new random password. Members sign in on
+//  the mem guard, whose database provider reads bei_users.
+//  Every action but logout is for visitors only: guest:mem
+//  sends a signed-in member to the home page.
 //
 //  Used by:
 //    - routes/web_user.php — the login, logout,
@@ -58,7 +58,7 @@ use Carbon\Carbon;
 //   showLoginForm, login, logout — signing in and out
 //   ForgotPasswordForm,
 //   forgotpassword               — asking for a reset link
-//   reset_pass                   — the link: a new password
+//   reset_form, reset_pass       — the link: a new password
 //
 // Used by:
 //   - routes/web_user.php — the routes in the actions'
@@ -219,10 +219,12 @@ class LoginController extends BaseController
     // logout
     // -----------------------------------------------------------
     //
-    // GET /cp/logout
+    // POST /cp/logout
     //
     // Signs the member out of the mem guard and goes to the
-    // home page. Unlike the trait's logout it leaves the
+    // home page. A POST with the session's token, so no link
+    // or image of another site can sign a member out. Unlike
+    // the trait's logout it leaves the
     // session alive, so the language choice survives — and so
     // does a manager signed in on the same browser. On the way
     // out the guard replaces a non-empty remember_token with a
@@ -231,7 +233,7 @@ class LoginController extends BaseController
     //
     // Used by:
     //   - layouts/main.blade.php — the logout entry of the
-    //     member menu
+    //     member menu, a form button
     // -----------------------------------------------------------
 
     public function logout()
@@ -319,26 +321,54 @@ class LoginController extends BaseController
 
 
     // -----------------------------------------------------------
-    // reset_pass
+    // reset_form
     // -----------------------------------------------------------
     //
     // GET /reset/{reset_token}
     //
-    // The link of the reset mail. ValidateReset
-    // (validate.reset) lets it through only when exactly one
-    // member holds that non-empty token, and answers 404
-    // otherwise. A new 12-character password from
-    // random_string goes to the member in a SendNewPass mail
-    // and replaces the password hash, the token is used up,
-    // and the login form shows new_pass_emailed — the form
-    // itself, even when a member page parked another
-    // destination in the session. Opening the link is all it
-    // takes, there is no form. A signed-in member is sent
-    // home by guest:mem and the token stays.
+    // The page the reset mail's link opens,
+    // auth/reset-confirm.blade.php: one button, which posts the
+    // token back to reset_pass. Opening the link changes
+    // nothing, so a mail scanner that fetches it before the
+    // member does uses nothing up. ValidateReset
+    // (validate.reset) answers a token that no member, or more
+    // than one, holds with a 404, and guest:mem sends a
+    // signed-in member home.
     //
     // Used by:
     //   - SendRemindLink — the link in the password-reset mail
     //     (emails/userpassreset.blade.php)
+    // -----------------------------------------------------------
+
+    public function reset_form($reset_token)
+    {
+        return view('auth.reset-confirm', ['reset_token' => $reset_token]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // reset_pass
+    // -----------------------------------------------------------
+    //
+    // POST /reset/{reset_token}
+    //
+    // The button of the reset page (reset_form).
+    // ValidateReset (validate.reset) lets it through only when
+    // exactly one member holds that non-empty token, and
+    // answers 404 otherwise. A new 12-character password from
+    // random_string goes to the member in a SendNewPass mail
+    // and replaces the password hash, the token is used up,
+    // and the login form shows new_pass_emailed — the form
+    // itself, even when a member page parked another
+    // destination in the session. A signed-in member is sent
+    // home by guest:mem and the token stays.
+    //
+    // Used by:
+    //   - auth/reset-confirm.blade.php — its button
     // -----------------------------------------------------------
 
     public function reset_pass($reset_token)

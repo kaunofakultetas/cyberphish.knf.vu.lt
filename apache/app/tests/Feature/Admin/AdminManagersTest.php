@@ -18,6 +18,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Managers;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use Tests\FeatureTestCase;
@@ -180,6 +181,63 @@ class AdminManagersTest extends FeatureTestCase
         $this->post('/admin-panel', ['email' => $manager->email, 'password' => World::PASSWORD])
             ->assertRedirect('/admin-panel/dashboard');
         $this->assertSame($manager->id, (int) auth('man')->id());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSwitchedOffManagerLosesTheSession
+    // -----------------------------------------------------------
+    //
+    // A country manager switched off while signed in loses the
+    // session at the next page, where it once ran on until it
+    // expired.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSwitchedOffManagerLosesTheSession(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 1]);
+        $this->signInManager($manager)->get('/admin-panel/dashboard')->assertOk();
+
+        DB::table('bei_managers')->where('id', $manager->id)->update(['status' => '2']);
+
+        $this->get('/admin-panel/dashboard')->assertRedirect('/admin-panel');
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDemotedMainAdminLosesTheMainPages
+    // -----------------------------------------------------------
+    //
+    // A main admin made a country manager while signed in
+    // loses the main admins' pages at the next request: the
+    // session's main flag follows the row, where it once kept
+    // the value of the sign-in.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDemotedMainAdminLosesTheMainPages(): void
+    {
+        $manager = $this->world->manager();
+        $this->signInManager($manager)->get('/admin-panel/users')->assertOk();
+
+        DB::table('bei_managers')->where('id', $manager->id)->update(['main' => 0, 'country' => 1]);
+
+        $this->get('/admin-panel/users')->assertNotFound();
+        $this->get('/admin-panel/dashboard')->assertOk();
     }
 
 

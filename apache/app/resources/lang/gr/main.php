@@ -5,8 +5,7 @@
 //
 //  Every text of the member side and its mails in Greek (gr
 //  is the site's code for it), by key, the same keys as
-//  en/main.php. A few keys appear twice; PHP keeps the later
-//  entry.
+//  en/main.php.
 //
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
@@ -41,7 +40,6 @@ return [
     'change_username' => 'Αλλαγή ονόματος χρήστη',
     'change_username2' => 'Αλλαγή ονόματος χρήστη',
     'home'=>'Αρχική',
-    'learning_material'=>'Εκπαιδευτικό Υλικό',
     'contact'=>'Επικοινωνία',
     'sign_in'=>'Συνδεθείτε',
     'sign_up'=>'Εγγραφείτε',
@@ -56,7 +54,6 @@ return [
     'already_acc_login'=>'Έχετε ήδη λογαριασμό? Συνδεθείτε!',
     // register again: PHP keeps this entry, the sign-up
     // button's text
-    'register'=>'Κανω ΕΓΓΡΑΦΗ',
     'forgot_password_descr'=>'Το καταλαβαίνουμε, συμβαίνουν πράγματα. Απλώς πληκτρολογήστε τη διεύθυνση email σας παρακάτω και θα σας στείλουμε έναν σύνδεσμο για να επαναφέρετε τον κωδικό πρόσβασής σας!',
     'verify_email'=>'Επιβεβαιώστε τη διεύθυνση ηλεκτρονικού ταχυδρομείου σας',
     'link_sent'=>'Ένας νέος σύνδεσμος επαλήθευσης έχει σταλεί στη διεύθυνση email σας.',
@@ -64,6 +61,7 @@ return [
     'link_sent3'=>'Εάν δεν λάβατε το email',
     'request_another_link'=>'κάντε κλικ εδώ για να ζητήσετε άλλο',
     'reset_pass'=>'Επαναφέρετε τον κωδικό πρόσβασης',
+    'reset_pass_descr'=>'Πατήστε το παρακάτω κουμπί και θα σας στείλουμε με email νέο κωδικό πρόσβασης.',
     'login_url'=>'URL σύνδεσης',
     'your_new_pass'=>'Ο νέος σας κωδικός πρόσβασης',
     'link_new_login_info'=>'Κάντε κλικ στον παρακάτω σύνδεσμο και θα λάβετε νέα στοιχεία σύνδεσης',
@@ -81,6 +79,7 @@ return [
     // change (ManagerMainController::change_username)
     'pass_updated'=>'Το όνομα χρήστη ενημερώθηκε!',
     'pass_unavailable'=>'Το όνομα χρήστη δεν είναι διαθέσιμο!',
+    'username_length'=>'Το όνομα χρήστη πρέπει να έχει από :min έως :max χαρακτήρες.',
     'auth_failed'=>'Λάθος email ή/και κωδικός πρόσβασης!',
     'forgot_pass_msg'=>'Εάν υπάρχει email στη βάση δεδομένων μας, θα λάβετε σύνδεσμο επαναφοράς.',
     'new_pass_emailed'=>'Μόλις σας στείλαμε με email τον νέο κωδικό πρόσβασης',
@@ -131,7 +130,6 @@ return [
     // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'Για μαθησιακούς σκοπούς',
     'simulation_pabaigoje'=>'Για σκοπούς ελέγχου γνώσεων',
-    'my_badges'=>'Τα σήματα μου',
     // HTML: the success alert prints it unescaped
     // (parts/notif.blade.php), so the link works
     'new_badge'=>"Λάβατε νέο σήμα. Επιλέξτε <a href=\"/cp/badges\">Τα σήματα μου</a>",
@@ -159,6 +157,7 @@ return [
     'download_certificate'=>'Λήψη πιστοποιητικού',
     'change_fullname'=>'Αλλαγή πλήρους ονόματος',
     'fullname'=>'Πλήρες όνομα',
+    'fullname_length'=>'Το πλήρες όνομα πρέπει να έχει από :min έως :max χαρακτήρες.',
     'updated'=>'ΕΠΙΚΑΙΡΟΠΟΙΗΜΕΝΟ!',
     'pq_questionare'=>'Ερωτηματολόγιο μετά το μάθημα'
 

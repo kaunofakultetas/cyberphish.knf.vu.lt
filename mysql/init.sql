@@ -12,6 +12,11 @@
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
+-- The database's own default, utf8mb4 like every table below, so a
+-- table or column created later without a character set of its own
+-- keeps every letter too
+ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+
 
 -- ========================================================
 --  Tables (ordered for foreign key dependencies)
@@ -36,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `bei_managers` (
   `status` varchar(45) NOT NULL DEFAULT '1',
   `country` int(21) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_users` (
   `id` int(21) NOT NULL AUTO_INCREMENT,
@@ -97,7 +102,7 @@ CREATE TABLE IF NOT EXISTS `bei_lm_category` (
   PRIMARY KEY (`id`),
   KEY `lang_id_key_idx` (`lang_id`),
   CONSTRAINT `lang_id` FOREIGN KEY (`lang_id`) REFERENCES `bei_lang` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_lm_content` (
   `id` int(21) NOT NULL AUTO_INCREMENT,

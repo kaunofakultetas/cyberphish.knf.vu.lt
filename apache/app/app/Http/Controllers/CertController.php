@@ -95,9 +95,12 @@ class CertController extends BaseController
     // attempt — the query sets no order, so in practice the
     // first one stored — which stays put however often the
     // attempt's result page is opened again (see
-    // KnowledgeTestController::progress). It is written with
-    // English month names whatever the language. The drawing
-    // itself is certificate's.
+    // KnowledgeTestController::progress) — given as the day in
+    // local time (SettingsController::local_time), so a test
+    // passed after midnight carries that day rather than the
+    // UTC day before. It is written with English month names
+    // whatever the language. The drawing itself is
+    // certificate's.
     //
     // Used by:
     //   - parts/change_fullname.blade.php — the download
@@ -120,12 +123,12 @@ class CertController extends BaseController
             ->first();
 
         if ($num > 0 && $fullname != '' && $fullname != NULL) {
-            $date = date("d F, Y", strtotime(KnowledgeUserTest::select('ended')
+            $date = SettingsController::local_time(KnowledgeUserTest::select('ended')
                 ->where(['user_id' => Auth::guard('mem')->id(), 'finished' => 1, 'lang_id' => Langs::getLangId($lang)])
                 ->where('results', '>', 74)
                 ->get()
                 ->pluck('ended')
-                ->first()));
+                ->first(), 'd F, Y');
 
             return CertController::certificate($fullname, $date)->stream('cert.pdf');
         } else {

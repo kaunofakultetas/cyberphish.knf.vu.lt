@@ -25,6 +25,7 @@ namespace App\Http\Controllers\Admin;
 
 use Session;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\SettingsController;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -254,7 +255,9 @@ class ManagerMainController extends BaseController
     // query runs twice, once only to count). For each attempt
     // on the page it counts the questions answered exactly
     // right (question_correct) into correct, the column the
-    // query fills with a placeholder 0. Answers with
+    // query fills with a placeholder 0, and the questions it
+    // answered at all into questions, so the page shows the
+    // right ones out of those rather than out of a fixed 5. Answers with
     // admin-panel/user_self_eval_history.blade.php, headed by
     // the member's address and the language's name. Open to
     // every signed-in manager (auth.admin:man, no perms), for
@@ -294,15 +297,9 @@ class ManagerMainController extends BaseController
 
         }
 
-        if (empty($request->get('page')) || ! is_numeric($request->get('page'))) {
-
-            $curr_page = 1;
-        } else {
-
-            $curr_page = $request->get('page');
-        }
-
         $perPage = 25;
+
+        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 
@@ -320,6 +317,7 @@ class ManagerMainController extends BaseController
             }
 
             $currentItems[$k]['correct'] = $c;
+            $currentItems[$k]['questions'] = count($a);
             $c=0;
 
         }
@@ -388,15 +386,9 @@ class ManagerMainController extends BaseController
 
         }
 
-        if (empty($request->get('page')) || ! is_numeric($request->get('page'))) {
-
-            $curr_page = 1;
-        } else {
-
-            $curr_page = $request->get('page');
-        }
-
         $perPage = 25;
+
+        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
 
         $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
 

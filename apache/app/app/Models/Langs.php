@@ -36,10 +36,13 @@ use Illuminate\Database\Eloquent\Model;
 // Columns: name (unique) and locale.
 //
 //   getLangId — the id of a locale
+//   iso_code  — a locale as ISO 639-1 writes it
 //
 // Used by:
 //   - the callers of getLangId (below) — the language of
 //     nearly every page
+//   - layouts/register.blade.php — iso_code, for the
+//     reCAPTCHA
 //   - Admin\LanguagesController — index, form, create,
 //     update, delete
 //   - Admin\InfoController, Admin\LMController,
@@ -103,5 +106,31 @@ class Langs extends Model
     public static function getLangId($locale)
     {
         return Langs::select('id')->where(['locale'=>$locale])->get()->pluck('id')->first();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // iso_code
+    // -----------------------------------------------------------
+    //
+    // The ISO 639-1 code of a site locale, the code outside
+    // services expect. The site calls Greek gr and Estonian
+    // ee — country codes — where ISO says el and et; en, lt
+    // and lv are the same in both, and anything else comes
+    // back as it is.
+    //
+    // Used by:
+    //   - layouts/register.blade.php — the language of the
+    //     sign-up page's reCAPTCHA, which Google would not
+    //     know as gr or ee
+    // -----------------------------------------------------------
+
+    public static function iso_code($locale)
+    {
+        return ['gr' => 'el', 'ee' => 'et'][$locale] ?? $locale;
     }
 }

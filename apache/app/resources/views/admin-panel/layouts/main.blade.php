@@ -37,7 +37,7 @@
 
                   <a class="dropdown-item" href="#" onClick="change_pass()"><span class="icon mdi mdi-account-key"></span>{{ __('Change password') }}</a>
 
-                  <a class="dropdown-item" href="{{ env('APP_URL') }}/admin-panel/logout"><span class="icon mdi mdi-power"></span>{{ __('Logout') }}</a>
+                  <form action="{{ env('APP_URL') }}/admin-panel/logout" method="POST">@csrf<button type="submit" class="dropdown-item"><span class="icon mdi mdi-power"></span>{{ __('Logout') }}</button></form>
                 </div>
               </li>
             </ul>

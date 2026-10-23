@@ -29,11 +29,7 @@
                         @foreach ($userlist as $value)
                             <tr>
                             <td>{{ $value['email'] }}</td>
-                            @if ($value['last_login'] > 0)
-                            <td>{{ date('Y-m-d H:i:s', strtotime($value['last_login'])) }}</td>
-                            @else
-                            <td> </td>
-                            @endif
+                            <td>{{ \App\Http\Controllers\SettingsController::local_time($value['last_login']) }}</td>
                             @if ($value['last_ip'] > 0)
                             <td>{{ $value['last_ip'] }}</td>
                             @else

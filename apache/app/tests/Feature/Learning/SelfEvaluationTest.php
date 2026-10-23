@@ -151,6 +151,32 @@ class SelfEvaluationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testAttemptTakesItsCategorysLanguage
+    // -----------------------------------------------------------
+    //
+    // An attempt is filed under its category's language, not
+    // the URL's: a lesson opens under any language's URL, and
+    // its self-evaluation button keeps that URL's language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAttemptTakesItsCategorysLanguage(): void
+    {
+        $this->world->language('lt');
+
+        $this->signInMember($this->member)->get("/lt/self-evaluation-test/{$this->category}");
+
+        $this->assertEquals($this->en, DB::table('bei_users_selfeval_test')->where(['user_id' => $this->member->id, 'cat_id' => $this->category])->value('lang_id'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testRevisitingTheStartPageOpensNoSecondAttempt
     // -----------------------------------------------------------
     //
@@ -322,6 +348,129 @@ class SelfEvaluationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testProgressBarCountsTowardsTheAttemptsLength
+    // -----------------------------------------------------------
+    //
+    // In a category shorter than the self-evaluation length
+    // the progress bar counts towards the questions the
+    // category holds, the number the attempt closes at: one of
+    // two answered is 50%, where it once showed 33% of the
+    // setting's three and never filled.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testProgressBarCountsTowardsTheAttemptsLength(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 3);
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")
+            ->assertOk()
+            ->assertSee('width: 50%', false)
+            ->assertDontSee('width: 33%', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAttemptWithMoreAnswersThanItsLengthCloses
+    // -----------------------------------------------------------
+    //
+    // An attempt that holds more answers than it now asks —
+    // the length was lowered while it was open — closes at its
+    // next page instead of asking on for good.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAttemptWithMoreAnswersThanItsLengthCloses(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 3);
+        $this->world->selfEvalQuestion($this->category, [['Hover first', true, 100], ['Click it', false, 0]]);
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->world->setting(2, 'self_eval_pertime', null, null, 1);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+
+        $this->assertEquals(1, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('finished'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLengthDroppingToZeroClosesTheAttempt
+    // -----------------------------------------------------------
+    //
+    // A length of 0 saved while an attempt holds an answer
+    // closes the attempt at its next page — the page once
+    // divided its progress by the 0 and answered with a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLengthDroppingToZeroClosesTheAttempt(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->world->setting(2, 'self_eval_pertime', null, null, 0);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testQuestionWithoutAnswersIsNeverAsked
+    // -----------------------------------------------------------
+    //
+    // A question saved without a type or options has no answer
+    // button, so the page never draws it and the attempt does
+    // not wait for it: here the length is three, the category
+    // holds two answerable questions and one empty one, and
+    // answering the two closes the attempt.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionWithoutAnswersIsNeverAsked(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 3);
+        DB::table('bei_selfeval_question')->insert(['cat_id' => $this->category, 'question' => 'A question nobody can answer', 'q_type' => null]);
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")
+            ->assertOk()
+            ->assertSee('Turn on 2FA')
+            ->assertDontSee('A question nobody can answer');
+
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testFirstFinishedSelfEvaluationEarnsTheBadge
     // -----------------------------------------------------------
     //
@@ -476,6 +625,36 @@ class SelfEvaluationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testTimesShowInLocalTime
+    // -----------------------------------------------------------
+    //
+    // The attempt's times are stored in UTC and shown in the
+    // site's local time, Eastern European: an attempt started
+    // at 22:30 UTC on a summer evening shows 01:30 of the next
+    // day on its result page and in the history.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTimesShowInLocalTime(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
+        DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->update(['started' => '2026-07-14 22:30:00', 'ended' => '2026-07-14 22:40:00']);
+
+        $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertSee('2026-07-15 01:30:00')->assertSee('2026-07-15 01:40:00');
+        $this->signInMember($this->member)->get('/cp/self-evaluation-history')->assertSee('2026-07-15 01:30:00')->assertDontSee('2026-07-14 22:30:00');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testCategoryWithoutQuestionsSaysSo
     // -----------------------------------------------------------
     //
@@ -554,6 +733,38 @@ class SelfEvaluationTest extends FeatureTestCase
         $publicId = $this->startSelfEvaluation($this->member, $this->category);
         $correct = $this->first['options'][0];
         $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$correct, $correct, $correct]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
+
+        $this->assertEquals(200, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('points'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerStoredTwiceScoresOnce
+    // -----------------------------------------------------------
+    //
+    // Two posts of one answer at the same moment once stored it
+    // twice and scored it twice. The save now locks the
+    // attempt while it checks and stores; should an attempt
+    // hold such a pair from before, its score still counts the
+    // option once, and its results mark it once.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerStoredTwiceScoresOnce(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $row = (array) DB::table('bei_users_selfeval')->where('public_id', $publicId)->first();
+        unset($row['id']);
+        DB::table('bei_users_selfeval')->insert($row);
         $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
         $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
 

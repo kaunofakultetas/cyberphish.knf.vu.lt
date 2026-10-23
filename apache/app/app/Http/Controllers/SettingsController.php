@@ -3,10 +3,11 @@
 // -----------------------------------------------------------
 //  [*] SettingsController — shared helpers, language switch
 //
-//  Despite the name it holds no settings: two static
+//  Despite the name it holds no settings: four static
 //  helpers the rest of the app calls by class name — the
-//  visitor's address and random strings for tokens and ids
-//  — and the action behind the language menu. It extends
+//  visitor's address, random strings for tokens and ids, a
+//  stored date in local time and the page a list's ?page
+//  asks for — and the action behind the language menu. It extends
 //  Controller, not BaseController, so lang_switch runs
 //  without BaseController's language middleware.
 //
@@ -17,6 +18,10 @@
 //      side's LMController, KnowledgeTestController and
 //      SimulationsController (not their Admin\ namesakes) —
 //      random_string
+//    - CertController and the views that show a date —
+//      local_time
+//    - NewsController and the panel's paginated lists —
+//      page_number
 //    - routes/web_user.php — the language switch route
 // -----------------------------------------------------------
 
@@ -26,6 +31,7 @@ namespace App\Http\Controllers;
 use Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
+use Carbon\Carbon;
 
 
 
@@ -38,12 +44,14 @@ use Illuminate\Support\Facades\App;
 // SettingsController
 // -----------------------------------------------------------
 //
-// The two helpers are static, so any class calls them by
-// name, with no controller instance; getUserIP reads the
-// $_SERVER superglobal, not Laravel's request.
+// The four helpers are static, so any class or view calls
+// them by name, with no controller instance; getUserIP
+// reads the $_SERVER superglobal, not Laravel's request.
 //
 //   getUserIP     — the address recorded for a visitor
 //   random_string — letters and digits for tokens and ids
+//   local_time    — a stored date as the pages show it
+//   page_number   — the page a list's ?page asks for
 //   lang_switch   — the language menu's action
 //
 // Used by:
@@ -51,6 +59,10 @@ use Illuminate\Support\Facades\App;
 //     getUserIP
 //   - the sign-up, password-reset and attempt-id code —
 //     random_string
+//   - CertController and the views that show a date —
+//     local_time
+//   - NewsController and the panel's paginated lists —
+//     page_number
 //   - routes/web_user.php — lang_switch
 // -----------------------------------------------------------
 
@@ -129,6 +141,83 @@ class SettingsController extends Controller
         }
 
         return $string;
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // local_time
+    // -----------------------------------------------------------
+    //
+    // A stored date as the pages show it. The app keeps every
+    // date in UTC (config/app.php, timezone); this turns one
+    // into the time of config('app.display_timezone'), the
+    // Eastern European Time all five site countries keep, in
+    // the given format — the full date and time unless told
+    // otherwise. A date that is empty, NULL or zeroed comes
+    // back as an empty string.
+    //
+    // Used by:
+    //   - CertController::download — the day of the pass
+    //   - news, news_content, welcome, self_eval_history,
+    //     self_eval_results, simulations_history and
+    //     simulations_list (resources/views/)
+    //   - dashboard, users, manager_settings, news,
+    //     user_self_eval_history and user_simulations_history
+    //     (resources/views/admin-panel/)
+    // -----------------------------------------------------------
+
+    public static function local_time($datetime, $format = 'Y-m-d H:i:s')
+    {
+        if(empty($datetime) || str_starts_with((string) $datetime, '0000-00-00')){
+            return '';
+        }
+
+        return Carbon::parse($datetime, 'UTC')->setTimezone(config('app.display_timezone'))->format($format);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // page_number
+    // -----------------------------------------------------------
+    //
+    // The page of a list cut into pages by hand that its
+    // ?page value asks for, given the list's length and the
+    // rows per page. A whole number from 1 is taken, up to
+    // one past the last page, which shows an empty list as it
+    // always did; a larger number stops there, so the slice
+    // the caller cuts stays within PHP's integers. Anything
+    // else — no value, text, a fraction, 0 or less, a number
+    // past PHP's integers — is page 1. A page number like
+    // that once reached array_slice as a float, a TypeError
+    // and a 500, or as a negative offset that counted from
+    // the end of the list.
+    //
+    // Used by:
+    //   - NewsController::index — the public news list
+    //   - Admin\UsersController::index,
+    //     Admin\KnowledgeController::index,
+    //     Admin\InfoController::index,
+    //     Admin\LMController::additional_files,
+    //     Admin\SelfevalController::index and the two
+    //     histories of Admin\ManagerMainController — the
+    //     panel's lists
+    // -----------------------------------------------------------
+
+    public static function page_number($page, $total, $per_page)
+    {
+        $last = max(1, (int) ceil($total / $per_page));
+
+        $page = filter_var($page, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        return $page === false ? 1 : min($page, $last + 1);
     }
 
 

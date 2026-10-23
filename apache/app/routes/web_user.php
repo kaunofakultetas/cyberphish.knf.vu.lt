@@ -24,8 +24,8 @@
 //    GET|POST  /register
 //    GET|POST  /forgot-password
 //    GET       /verify/{verify_token}
-//    GET       /reset/{reset_token}
-//    GET       /cp/logout
+//    GET|POST  /reset/{reset_token}
+//    POST      /cp/logout
 //    GET       /lang/{lang}
 //
 //  Open to visitors — the news and information pages, the
@@ -91,7 +91,8 @@ Route::get('forgot-password', 'Auth\LoginController@ForgotPasswordForm');
 
 Route::post('forgot-password', 'Auth\LoginController@forgotpassword')->name('forgot-password');
 
-Route::get('cp/logout', 'Auth\LoginController@logout')->name('logout');
+// Signing out is a POST, so no other site's link can do it
+Route::post('cp/logout', 'Auth\LoginController@logout')->name('logout');
 
 // The member's dashboard and its password form, which sits
 // on the dashboard and has no page of its own
@@ -102,12 +103,15 @@ Route::post('cp/change-pass', array('before' => 'csrf', 'uses' => 'ManagerMainCo
 // The links the mails carry: the sign-up mail's
 // verification link, whose action checks its token itself —
 // only a token one member holds switches anything on — and
-// the reset mail's link, which mails a new password —
-// validate.reset answers a token that no member, or more
-// than one, holds with a 404.
+// the reset mail's link, whose page mails a new password
+// only when its button posts back, so a mail scanner that
+// opens the link uses nothing up — validate.reset answers a
+// token that no member, or more than one, holds with a 404.
 Route::get('verify/{verify_token}', 'Auth\RegisterController@verify');
 
-Route::get('reset/{reset_token}', 'Auth\LoginController@reset_pass')->middleware('validate.reset');
+Route::get('reset/{reset_token}', 'Auth\LoginController@reset_form')->middleware('validate.reset');
+
+Route::post('reset/{reset_token}', 'Auth\LoginController@reset_pass')->middleware('validate.reset');
 
 // The user name form of the dashboard, and the full name
 // form of the knowledge test pages — the name the

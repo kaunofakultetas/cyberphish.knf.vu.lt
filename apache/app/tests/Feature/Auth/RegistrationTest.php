@@ -483,6 +483,55 @@ class RegistrationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testCaptchaSpeaksGreekAndEstonian
+    // -----------------------------------------------------------
+    //
+    // The sign-up page asks Google for the reCAPTCHA in the
+    // site's language by its ISO code: Greek is el and
+    // Estonian et, not the site's own gr and ee, which Google
+    // does not know.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCaptchaSpeaksGreekAndEstonian(): void
+    {
+        $this->withSession(['lang' => 'gr'])->get('/register')->assertSee('hl=el', false)->assertDontSee('hl=gr', false);
+        $this->withSession(['lang' => 'ee'])->get('/register')->assertSee('hl=et', false)->assertDontSee('hl=ee', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testGreekSignUpButtonSaysRegister
+    // -----------------------------------------------------------
+    //
+    // The Greek sign-up button reads "Εγγραφείτε", as the
+    // other languages' read "Register" — a second register key
+    // further down the Greek file once replaced it with "Κανω
+    // ΕΓΓΡΑΦΗ".
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testGreekSignUpButtonSaysRegister(): void
+    {
+        $this->withSession(['lang' => 'gr'])->get('/register')
+            ->assertSee('Εγγραφείτε')
+            ->assertDontSee('Κανω ΕΓΓΡΑΦΗ');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testUserNameIsDrawnWithoutAMillionNumbers
     // -----------------------------------------------------------
     //

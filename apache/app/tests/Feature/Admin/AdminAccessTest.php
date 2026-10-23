@@ -51,7 +51,7 @@ class AdminAccessTest extends FeatureTestCase
 {
 
     // The admin routes open to visitors: signing in and out
-    private const OPEN = ['GET admin-panel', 'POST admin-panel', 'GET admin-panel/logout'];
+    private const OPEN = ['GET admin-panel', 'POST admin-panel', 'POST admin-panel/logout'];
 
     // A sample value for every route parameter name the admin
     // routes use

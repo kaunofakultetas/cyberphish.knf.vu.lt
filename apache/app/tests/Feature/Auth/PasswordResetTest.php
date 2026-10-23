@@ -6,9 +6,11 @@
 //  POST /forgot-password mails a reset link to a registered
 //  address — and answers an unknown address with the very
 //  same message, mailing nothing, so the form does not
-//  reveal who has an account. GET /reset/{reset_token},
-//  behind the ValidateReset middleware, mails the member a
-//  new random password and uses the token up. The token
+//  reveal who has an account. GET /reset/{reset_token}
+//  opens a page whose button posts the token back; the
+//  POST, behind the ValidateReset middleware, mails the
+//  member a new random password and uses the token up,
+//  while opening the link alone changes nothing. The token
 //  waits in a column of its own, reset_token, which a
 //  sign-out leaves alone. The link is built from APP_URL
 //  whatever host the request claimed, and a blank token is
@@ -201,9 +203,10 @@ class PasswordResetTest extends FeatureTestCase
     // testResetLinkMailsANewPassword
     // -----------------------------------------------------------
     //
-    // Opening the link mails the member a new 12-character
-    // password, which is the password from then on; the token
-    // is used up and the login form shows the mailed message.
+    // The button of the link's page mails the member a new
+    // 12-character password, which is the password from then
+    // on; the token is used up and the login form shows the
+    // mailed message.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -213,7 +216,7 @@ class PasswordResetTest extends FeatureTestCase
     {
         $member = $this->world->member(['reset_token' => self::TOKEN]);
 
-        $this->get('/reset/' . self::TOKEN)
+        $this->post('/reset/' . self::TOKEN)
             ->assertRedirect('/login')
             ->assertSessionHas('success', __('main.new_pass_emailed'));
 
@@ -235,11 +238,43 @@ class PasswordResetTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testOpeningTheResetLinkChangesNothing
+    // -----------------------------------------------------------
+    //
+    // Opening the link only shows its page, whose button posts
+    // the token back: the password, the token and the mailbox
+    // stay as they were, so a mail scanner that fetches the
+    // link before the member does uses nothing up.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOpeningTheResetLinkChangesNothing(): void
+    {
+        $member = $this->world->member(['reset_token' => self::TOKEN]);
+
+        $this->get('/reset/' . self::TOKEN)
+            ->assertOk()
+            ->assertSee('action="https://cyberphish.knf.vu.lt/reset/' . self::TOKEN . '"', false);
+
+        $member = Members::find($member->id);
+        $this->assertSame(self::TOKEN, $member->reset_token);
+        $this->assertTrue(Hash::check(World::PASSWORD, $member->password));
+        Mail::assertNothingSent();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testResetLinkWorksOnce
     // -----------------------------------------------------------
     //
-    // The second click on the same link is a 404, and no
-    // second password is mailed.
+    // A second press of the page's button for the same token
+    // is a 404, and no second password is mailed.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -248,9 +283,9 @@ class PasswordResetTest extends FeatureTestCase
     public function testResetLinkWorksOnce(): void
     {
         $this->world->member(['reset_token' => self::TOKEN]);
-        $this->get('/reset/' . self::TOKEN);
+        $this->post('/reset/' . self::TOKEN);
 
-        $this->get('/reset/' . self::TOKEN)->assertNotFound();
+        $this->post('/reset/' . self::TOKEN)->assertNotFound();
 
         Mail::assertSent(SendNewPass::class, 1);
     }
@@ -269,8 +304,8 @@ class PasswordResetTest extends FeatureTestCase
     // a pending link while the token lived in that column: a
     // member still signed in on another device who signed
     // out there after asking for a link lost it. The member
-    // here signs out with both columns filled, and the link
-    // still opens.
+    // here signs out with both columns filled, and the link's
+    // button still works.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -280,9 +315,9 @@ class PasswordResetTest extends FeatureTestCase
     {
         $member = $this->world->member(['reset_token' => self::TOKEN, 'remember_token' => strrev(self::TOKEN)]);
 
-        $this->signInMember($member)->get('/cp/logout');
+        $this->signInMember($member)->post('/cp/logout');
 
-        $this->get('/reset/' . self::TOKEN)->assertRedirect('/login');
+        $this->post('/reset/' . self::TOKEN)->assertRedirect('/login');
         Mail::assertSent(SendNewPass::class, 1);
     }
 
@@ -364,7 +399,7 @@ class PasswordResetTest extends FeatureTestCase
         $this->world->member(['reset_token' => self::TOKEN]);
         $this->get('/cp/dashboard')->assertRedirect('/login');
 
-        $this->get('/reset/' . self::TOKEN)
+        $this->post('/reset/' . self::TOKEN)
             ->assertRedirect('/login')
             ->assertSessionHas('success', __('main.new_pass_emailed'));
     }

@@ -42,10 +42,9 @@ use Illuminate\Database\Eloquent\Model;
 //     its end
 //   - SimulationsController::step_options — the latest
 //     choice and its level, which pick the current step
-//   - SimulationsController::simulation_do_stuff_save — a
-//     row per choice
+//   - SimulationsController::save_choice — a row per choice
 //   - SimulationsController::simulation_total_points — the
-//     run's score
+//     run's score, one choice a level
 //   - Admin\SimulationsController::simulation_delete
 //   - Admin\ManagerMainController::simulation_report — a
 //     member's run

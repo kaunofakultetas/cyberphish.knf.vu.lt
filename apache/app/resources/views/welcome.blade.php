@@ -54,7 +54,7 @@
                                     <div class="btn-group">
                                       <a href="{{ env('APP_URL') }}/{{ Session::get('lang') }}/news/{{ $value['alias'] }}/{{ $value['id'] }}" class="btn btn-sm btn-outline-secondary">{{ __('main.read') }}</a>
                                     </div>
-                                    <small class="text-muted">{{ date("Y-m-d H:i", strtotime($value['created'])) }}</small>
+                                    <small class="text-muted">{{ \App\Http\Controllers\SettingsController::local_time($value['created'], 'Y-m-d H:i') }}</small>
                                   </div>
                                 </div>
                               </div>

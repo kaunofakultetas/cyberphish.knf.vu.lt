@@ -23,6 +23,7 @@ use Mail;
 use Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Mail\SimulationsResults;
 use App\Models\Badges;
 use App\Models\SelfEvalUserTest;
@@ -70,7 +71,8 @@ use App\Models\ScenariosUsersOptions;
 //   simulation_progress            — a new run
 //   gen_test_id                    — a fresh public id
 //   simulation_do_stuff,
-//   simulation_do_stuff_save       — one step of a run
+//   simulation_do_stuff_save,
+//   save_choice                    — one step of a run
 //   step_options                   — the choices of a step
 //   simulation_total_points        — the score of a run
 //   history                        — every run of the member
@@ -286,7 +288,9 @@ class SimulationsController extends BaseController
     // r_exists:sim_id: a bei_users_scenarios row for the
     // member in the URL's language, open, started now, with
     // no points, under a fresh public id; then a redirect to
-    // its first step. The mode chosen on the start page — 1
+    // its first step. A simulation of another language is a
+    // 404, as on the start page, so a forged post files no
+    // run under a language it does not belong to. The mode chosen on the start page — 1
     // "for learning purposes", the feedback after every
     // choice, or 2 "for knowledge testing purposes", the
     // feedback listed at the end — is kept only in the
@@ -300,6 +304,10 @@ class SimulationsController extends BaseController
 
     public function simulation_progress(Request $request, $lang, $uid)
     {
+        if(Scenarios::where(['id'=>$uid, 'lang_id'=>Langs::getLangId($lang)])->count() == 0){
+            abort(404);
+        }
+
         $public_id = SimulationsController::gen_test_id();
 
         $add = new ScenariosUsers;
@@ -368,7 +376,9 @@ class SimulationsController extends BaseController
     // (step_options). When there are none the run is over: a
     // run still open is closed with its points and the
     // SimulationsResults mail takes them to the member — once
-    // per run, however often the end page is shown —
+    // per run, however often the end page is shown; a mail
+    // relay that cannot be reached is logged, and the page
+    // still shows the result —
     // badge_all_simulations follows once every simulation of
     // the language is finished, and in mode 2 the page lists
     // the feedback of every choice. Answers
@@ -422,9 +432,16 @@ class SimulationsController extends BaseController
                             'finished'=>1,
                             'points'=>SimulationsController::simulation_total_points($public_id)]);
 
+                // The mail is a courtesy: when the relay cannot be
+                // reached the failure is logged and the end page
+                // still comes, the run being closed already
                 if($closed > 0){
-                    Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
-                    ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
+                    try {
+                        Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
+                        ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
                 }
 
                 if(!in_array(0, SimulationsController::check_if_all_simulations_finished(Langs::getLangId($lang)))){
@@ -486,7 +503,10 @@ class SimulationsController extends BaseController
     // the current step offers (step_options) is taken: an
     // option of another step or simulation, or a choice sent
     // twice, records nothing, so a run never scores past its
-    // best path. Redirects to the run's next step.
+    // best path — choices posted at the same moment included:
+    // the run's row is locked while one of them is checked
+    // and recorded (save_choice), so the next finds the step
+    // moved on. Redirects to the run's next step.
     //
     // Used by:
     //   - simulation_do_stuff.blade.php — the choice form,
@@ -494,6 +514,36 @@ class SimulationsController extends BaseController
     // -----------------------------------------------------------
 
     public function simulation_do_stuff_save(Request $request, $lang, $public_id)
+    {
+        return DB::transaction(function () use ($request, $lang, $public_id) {
+            ScenariosUsers::where(['public_id'=>$public_id])->lockForUpdate()->first();
+
+            return SimulationsController::save_choice($request, $lang, $public_id);
+        });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // save_choice
+    // -----------------------------------------------------------
+    //
+    // The work of simulation_do_stuff_save, inside its
+    // transaction and with the run's row locked: the step
+    // check reads the run's latest choice only once a choice
+    // posted at the same moment has been recorded, so the
+    // second of them no longer belongs to the current step
+    // and records nothing — where each once passed the check
+    // and scored.
+    //
+    // Used by:
+    //   - simulation_do_stuff_save (above)
+    // -----------------------------------------------------------
+
+    private static function save_choice(Request $request, $lang, $public_id)
     {
         // STEP 1: the posted choice, the run it goes to, and
         // the option's type, points and feedback
@@ -559,7 +609,7 @@ class SimulationsController extends BaseController
     //
     // Used by:
     //   - simulation_do_stuff (above) — the step to show
-    //   - simulation_do_stuff_save (above) — the choices it
+    //   - save_choice (above) — the choices it
     //     accepts
     // -----------------------------------------------------------
 
@@ -594,7 +644,9 @@ class SimulationsController extends BaseController
     // -----------------------------------------------------------
     //
     // The points of a run so far: the sum over the member's
-    // choices in it, null before the first choice.
+    // choices in it, one choice a level — the latest at each,
+    // the one the run went on from — so a choice a race once
+    // stored twice counts once; 0 before the first choice.
     //
     // Used by:
     //   - simulation_do_stuff (above)
@@ -602,9 +654,14 @@ class SimulationsController extends BaseController
 
     public static function simulation_total_points($public_id)
     {
-        $sum = ScenariosUsersOptions::selectraw("SUM(points) as total_points")->where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->get()->pluck('total_points')->first();
+        $latest_of_each_level = ScenariosUsersOptions::selectraw('MAX(bei_users_scenarios_options.id)')
+            ->leftJoin('bei_scenarios_options', 'bei_scenarios_options.id', 'bei_users_scenarios_options.option_id')
+            ->where(['bei_users_scenarios_options.user_scenario_public_id'=>$public_id])
+            ->groupBy('bei_scenarios_options.level');
 
-        return $sum;
+        return ScenariosUsersOptions::where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])
+            ->whereIn('id', $latest_of_each_level)
+            ->sum('points');
     }
 
 

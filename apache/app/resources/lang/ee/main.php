@@ -5,8 +5,7 @@
 //
 //  Every text of the member side and its mails in Estonian
 //  (ee is the site's code for it), by key, the same keys as
-//  en/main.php. A few keys appear twice; PHP keeps the later
-//  entry.
+//  en/main.php.
 //
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
@@ -41,7 +40,6 @@ return [
     'change_username' => 'Muuda kasutajanime',
     'change_username2' => 'Muuda kasutajanime',
     'home'=>'Kodu',
-    'learning_material'=>'Õppematerjal',
     'contact'=>'Võta ühendust',
     'sign_in'=>'Logi sisse',
     'sign_up'=>'Registreeri',
@@ -54,7 +52,6 @@ return [
     'create_acc'=>'Kontot looma',
     'agree_terms'=>'Nõustun tingimustega',
     'already_acc_login'=>'Konto juba olemas? Logi sisse',
-    'register'=>'Registreeri',
     'forgot_password_descr'=>                              'Saame aru, asju juhtub. Sisestage lihtsalt oma e-posti aadress allpool ja me saadame teile lingi parooli lähtestamiseks',
     'verify_email'=>'Kinnita oma e-posti aadress',
     'link_sent'=>                                          'Teie e-posti aadressile on saadetud uus kinnituslink.',
@@ -62,6 +59,7 @@ return [
     'link_sent3'=>                                         'Kui te ei saanud e-kirja',
     'request_another_link'=>'Teise kinnituslingi taotlemiseks klõpsa siin',
     'reset_pass'=>'Lähtesta parool',
+    'reset_pass_descr'=>'Vajutage allolevat nuppu ja me saadame teile meili teel uue parooli.',
     'login_url'=>'Sisselogimise URL',
     'your_new_pass'=>'Sinu uus parool',
     'link_new_login_info'=>'Klõpsa alloleval lingil uue sisselogimise teabe saamiseks',
@@ -79,6 +77,7 @@ return [
     // change (ManagerMainController::change_username)
     'pass_updated'=>'Kasutajanimi uuendatud',
     'pass_unavailable'=>'Kasutajanimi ei ole saadaval',
+    'username_length'=>'Kasutajanimi peab olema :min kuni :max tähemärki pikk.',
     'auth_failed'=>'Vale email ja/või parool',
     'forgot_pass_msg'=>                                     'Kui meie andmebaasis on meiliaadress, saate lähtestamise lingi.',
     'new_pass_emailed'=>'Saatsime teile meili teel uue parooli',
@@ -129,7 +128,6 @@ return [
     // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>                     'Õppimise eesmärgil',
     'simulation_pabaigoje'=>                        'Teadmiste kontrollimise eesmärgil',
-    'my_badges'=>'Minu märgid',
     // HTML: the success alert prints it unescaped
     // (parts/notif.blade.php), so the link works; the run of
     // tabs inside it shows as one space
@@ -155,6 +153,7 @@ return [
     'download_certificate'=>'Laadige alla tunnistus',
     'change_fullname'=>'Muuda täisnime',
     'fullname'=>'Täisnimi',
+    'fullname_length'=>'Täisnimi peab olema :min kuni :max tähemärki pikk.',
     'updated'=>'Uuendatud',
     'pq_questionare'=>                          'Kursusejärgne küsimustik'
 

@@ -26,12 +26,12 @@ namespace App\Http\Controllers;
 use Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\Badges;
 use App\Models\SelfEvalUserTest;
 use App\Models\SelfEval;
 use App\Models\SelfEvalOption;
 use App\Models\SelfEvalUser;
-use App\Models\Settings;
 use App\Models\LMContent;
 use App\Models\Langs;
 use App\Models\LMCategory;
@@ -162,7 +162,7 @@ class LMController extends BaseController
     //   - layouts/main.blade.php — the learning-material menu
     // -----------------------------------------------------------
 
-    public function content(Request $request, $lang=null, $slug, $uid)
+    public function content(Request $request, $lang, $slug, $uid)
     {
         return view('lm-content',[
             'content'=>LMContent::where(['id'=>$uid])->get()->first()->toArray(),
@@ -392,8 +392,10 @@ class LMController extends BaseController
     // Starts a self-evaluation of the category, behind
     // auth:mem and r_exists:lm_cat (a 404 for an unknown
     // category): a new bei_users_selfeval_test row for the
-    // member in the session's language, started now, under a
-    // fresh public id, then a redirect to its first question.
+    // member in the category's own language — a lesson opens
+    // under any language's URL, so the URL's need not be it —
+    // started now, under a fresh public id, then a redirect
+    // to its first question.
     // An attempt of the category the member still has open is
     // resumed instead, so another visit of the URL — a second
     // click on the button, a browser's prefetch — opens no new
@@ -406,7 +408,7 @@ class LMController extends BaseController
     //   - self_eval_results.blade.php — the do-it-again button
     // -----------------------------------------------------------
 
-    public function self_evaluation_test(Request $request, $lang=null, $cat_id)
+    public function self_evaluation_test(Request $request, $lang, $cat_id)
     {
         $open = SelfEvalUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id, 'finished'=>0])->get()->pluck('public_id')->first();
 
@@ -421,7 +423,7 @@ class LMController extends BaseController
         $addRecord->cat_id = $cat_id;
         // the session's language, which BaseController's
         // middleware has just set from the URL
-        $addRecord->lang_id = Langs::getLangId(Session::get('lang'));
+        $addRecord->lang_id = LMCategory::where(['id'=>$cat_id])->value('lang_id');
         $addRecord->public_id = $p_id;
         $addRecord->started = date("Y-m-d H:i:s");
         $addRecord->save();
@@ -448,7 +450,9 @@ class LMController extends BaseController
     // category that has fewer — it closes the attempt with
     // its points and redirects to the result instead. Here a
     // question the attempt has not answered yet is picked at
-    // random, its options shuffled, with the progress so far.
+    // random among those a member can answer
+    // (SelfEval::scopeUsable), its options shuffled, with the
+    // progress so far.
     // Answers self-eval.blade.php, which shows
     // main.no_selfeval_questions for a category without any.
     //
@@ -468,7 +472,7 @@ class LMController extends BaseController
         // =====================================================
         $cat_name = LMCategory::where(['id'=>$cat_id])->pluck('name')->first();
 
-        $self_eval_limit = (int)Settings::where(['id'=>2])->pluck('val3')->first();
+        $self_eval_limit = SelfEval::attempt_length($cat_id);
 
         $test_id = SelfEvalUserTest::select('id')->where(['public_id'=>$public_id])->get()->pluck('id')->first();
 
@@ -479,10 +483,10 @@ class LMController extends BaseController
         // not answered, at random, with its options shuffled;
         // none left leaves both empty
         // ===================================================
-        $next_count = SelfEval::selectraw("bei_selfeval_question.*")->where(['cat_id'=>$cat_id])->whereNotIn('bei_selfeval_question.id', $answered)->count();
+        $next_count = SelfEval::selectraw("bei_selfeval_question.*")->where(['cat_id'=>$cat_id])->whereNotIn('bei_selfeval_question.id', $answered)->usable()->count();
 
         if($next_count > 0){
-            $next_q = SelfEval::selectraw("bei_selfeval_question.*")->where(['cat_id'=>$cat_id])->whereNotIn('bei_selfeval_question.id', $answered)->inRandomOrder()->get()->first()->toArray();
+            $next_q = SelfEval::selectraw("bei_selfeval_question.*")->where(['cat_id'=>$cat_id])->whereNotIn('bei_selfeval_question.id', $answered)->usable()->inRandomOrder()->get()->first()->toArray();
             $answers = SelfEvalOption::where(['question_id'=>$next_q['id']])->inRandomOrder()->get()->toArray();
         } else {
             $next_q = [];
@@ -491,10 +495,9 @@ class LMController extends BaseController
 
 
         // STEP 3: the progress bar — the questions answered as
-        // a share of val3, in percent, so in a category with
-        // fewer questions the attempt closes before the bar is
-        // full
-        // ====================================================
+        // a share of the attempt's length, in percent, the number
+        // FinishedSe closes it at, so the bar is full at the end
+        // =======================================================
         if(count($answered) == 0){
             $progress = 0;
         } else {
@@ -536,7 +539,9 @@ class LMController extends BaseController
     // Nothing is stored without options, for a question of
     // another category, or for a question the attempt has
     // answered, so a forged or resubmitted form scores no
-    // more than an honest one.
+    // more than an honest one — posts that arrive together
+    // included: the attempt's row is locked while one of
+    // them checks for an answer and stores its own.
     //
     // Used by:
     //   - self-eval.blade.php — the question form, posted back
@@ -555,34 +560,40 @@ class LMController extends BaseController
 
         $test_id = SelfEvalUserTest::select('id')->where(['public_id'=>$public_id])->get()->pluck('id')->first();
 
-        // A question the attempt has answered takes no second
-        // answer
-        $answered = SelfEvalUser::where(['test_id'=>$test_id, 'question_id'=>$question_id])->count() > 0;
-
 
         // STEP 2: one answer row per chosen option of the
         // question, each once, scored by that option's own
-        // correct flag and points
-        // ================================================
-        if($question_id != null && !$answered && is_array($a) && count($a)>0){
+        // correct flag and points — with the attempt's row locked
+        // first, so a post arriving at the same moment waits, then
+        // finds this answer and stores none of its own
+        // ========================================================
+        DB::transaction(function () use ($a, $question_id, $test_id, $public_id, $cat_id) {
+            SelfEvalUserTest::where(['id'=>$test_id])->lockForUpdate()->first();
 
-            $options = SelfEvalOption::where(['question_id'=>$question_id])->whereIn('id', array_unique($a))->get();
+            // A question the attempt has answered takes no second
+            // answer
+            $answered = SelfEvalUser::where(['test_id'=>$test_id, 'question_id'=>$question_id])->count() > 0;
 
-            foreach($options as $option){
+            if($question_id != null && !$answered && is_array($a) && count($a)>0){
 
-                $addRecord = new SelfEvalUser;
-                $addRecord->user_id = Auth::guard('mem')->id();
-                $addRecord->question_id = $question_id;
-                $addRecord->cat_id = $cat_id;
-                $addRecord->test_id = $test_id;
-                $addRecord->public_id = $public_id;
-                $addRecord->option_id = $option->id;
-                $addRecord->correct = $option->correct;
-                $addRecord->points = $option->points;
-                $addRecord->save();
+                $options = SelfEvalOption::where(['question_id'=>$question_id])->whereIn('id', array_unique($a))->get();
 
+                foreach($options as $option){
+
+                    $addRecord = new SelfEvalUser;
+                    $addRecord->user_id = Auth::guard('mem')->id();
+                    $addRecord->question_id = $question_id;
+                    $addRecord->cat_id = $cat_id;
+                    $addRecord->test_id = $test_id;
+                    $addRecord->public_id = $public_id;
+                    $addRecord->option_id = $option->id;
+                    $addRecord->correct = $option->correct;
+                    $addRecord->points = $option->points;
+                    $addRecord->save();
+
+                }
             }
-        }
+        });
 
         return redirect('/cp/se/'.$public_id.'/'.$cat_id);
     }
@@ -670,9 +681,9 @@ class LMController extends BaseController
 
             foreach($answ as $kk => $vv){
 
-                // a count, not a flag; self_eval_test_save stores
-                // a chosen option once, and the view marks a 1
-                $results[$i]['answers'][$kk]['selected'] = SelfEvalUser::where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'option_id'=>$vv['id']])->count();
+                // 1 or 0, the flag the view checks, even should an
+                // option's row have been stored twice
+                $results[$i]['answers'][$kk]['selected'] = SelfEvalUser::where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'option_id'=>$vv['id']])->exists() ? 1 : 0;
 
             }
 

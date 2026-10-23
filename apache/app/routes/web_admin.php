@@ -18,7 +18,7 @@
 //  Open to visitors — signing in and out:
 //
 //    GET|POST  /admin-panel
-//    GET       /admin-panel/logout
+//    POST      /admin-panel/logout
 //
 //  Every manager — the dashboard and the member reports:
 //
@@ -76,7 +76,8 @@ Route::get('admin-panel', 'Auth\AdminLoginController@showLoginForm')->name('admi
 
 Route::post('admin-panel', 'Auth\AdminLoginController@login');
 
-Route::get('admin-panel/logout', 'Auth\AdminLoginController@logout')->name('admin_logout');
+// Signing out is a POST, so no other site's link can do it
+Route::post('admin-panel/logout', 'Auth\AdminLoginController@logout')->name('admin_logout');
 
 // The dashboard, for every manager
 Route::get('admin-panel/dashboard', 'Admin\ManagerMainController@dashboard')->name('admin_dashboard')->middleware(['auth.admin:man']);

@@ -41,7 +41,7 @@ use Illuminate\Database\Eloquent\Model;
 // Used by:
 //   - KnowledgeTestController::progress — the options of the
 //     next question, shuffled
-//   - KnowledgeTestController::progress_save — whether each
+//   - KnowledgeTestController::save_answer — whether each
 //     chosen option is correct
 //   - Admin\KnowledgeController — import_questions,
 //     question_edit, question_update, question_delete

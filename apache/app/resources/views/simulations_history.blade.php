@@ -41,9 +41,9 @@
 							   </a>
 
 							   <div>
-							   <small>{{ __('main.started') }}: {{ $v['started'] }} <br>
+							   <small>{{ __('main.started') }}: {{ \App\Http\Controllers\SettingsController::local_time($v['started']) }} <br>
 								@if($v['finished'] == 1)
-									{{ __('main.ended') }}: {{ $v['ended'] }} <br>
+									{{ __('main.ended') }}: {{ \App\Http\Controllers\SettingsController::local_time($v['ended']) }} <br>
 									{{ __('main.points') }}: <b> {{ $v['points'] }} </b> <br>
 								@endif</small>
 								</div>

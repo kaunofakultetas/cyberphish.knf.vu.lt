@@ -3,7 +3,7 @@
 // -----------------------------------------------------------
 //  [*] AdminLoginTest — managers signing in to the panel
 //
-//  POST /admin-panel and GET admin-panel/logout
+//  POST /admin-panel and POST admin-panel/logout
 //  (AdminLoginController): an active manager (status 1)
 //  with the right password lands on the dashboard, and the
 //  session gets the manager's main flag and country — main
@@ -300,9 +300,33 @@ class AdminLoginTest extends FeatureTestCase
 
     public function testLogoutEndsTheSession(): void
     {
-        $this->signInManager($this->world->manager())->get('/admin-panel/logout')->assertRedirect('/admin-panel');
+        $this->signInManager($this->world->manager())->post('/admin-panel/logout')->assertRedirect('/admin-panel');
 
         $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSigningOutNeedsAPost
+    // -----------------------------------------------------------
+    //
+    // A plain link to admin-panel/logout — another site's link
+    // or image included — signs no manager out: the route
+    // answers only a POST, which carries the session's token.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSigningOutNeedsAPost(): void
+    {
+        $this->signInManager($this->world->manager())->get('/admin-panel/logout')->assertStatus(405);
+
+        $this->assertAuthenticated('man');
     }
 
 

@@ -88,6 +88,7 @@ class KnowledgeExamTest extends FeatureTestCase
         }
         $this->world->knowledgeLimits([$this->en => [$this->category => 3]]);
         $this->member = $this->world->member();
+        $this->world->badge($this->member->id, $this->en, 'badge_all_presentations');
     }
 
 
@@ -330,7 +331,7 @@ class KnowledgeExamTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // Two right of three is 67 — below the pass mark of 75 —
-    // so no badge.
+    // so no badge_final_test.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -341,7 +342,8 @@ class KnowledgeExamTest extends FeatureTestCase
         $publicId = $this->finishWith([0, 0, 1]);
 
         $this->assertEquals(67, $this->attemptRow($publicId)->results);
-        $this->assertFalse(DB::table('bei_users_badges')->where('user_id', $this->member->id)->exists());
+        $this->assertFalse(DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'name' => 'badge_final_test'])->exists());
     }
 
 
@@ -489,12 +491,73 @@ class KnowledgeExamTest extends FeatureTestCase
     public function testLanguageMissingFromTheLimitsDrawsNothing(): void
     {
         $lt = $this->world->language('lt');
+        $this->world->badge($this->member->id, $lt, 'badge_all_presentations');
         $this->world->knowledgeQuestion($this->world->lmCategory($lt), [['Right', true], ['Wrong', false]]);
         $this->signInMember($this->member)->get('/lt/knowledge_test')->assertOk()->assertSee('/lt/knowledge_start');
 
         $this->signInMember($this->member)->post('/lt/knowledge_start')->assertRedirect('/lt/knowledge_test');
 
         $this->assertFalse(DB::table('bei_users_knowledge_test')->where(['user_id' => $this->member->id, 'lang_id' => $lt])->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBlankLimitDrawsNothing
+    // -----------------------------------------------------------
+    //
+    // A limit stored blank draws no question of its category —
+    // the 0 the settings page shows for it — where it once drew
+    // every question the category holds.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBlankLimitDrawsNothing(): void
+    {
+        $other = $this->world->lmCategory($this->en, ['name' => 'Social engineering']);
+        $this->world->knowledgeQuestion($other, [['Right', true], ['Wrong', false]]);
+        $this->world->knowledgeQuestion($other, [['Right', true], ['Wrong', false]]);
+        $this->world->knowledgeLimits([$this->en => [$this->category => 3, $other => '']]);
+
+        $publicId = $this->startKnowledgeTest($this->member);
+
+        $drawn = array_keys(json_decode(DB::table('bei_users_knowledge_test')->where('public_id', $publicId)->value('question_set'), true));
+        $this->assertEqualsCanonicalizing(array_map(function (array $question) {
+            return $question['question'];
+        }, $this->questions), $drawn);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTestNeedsEveryLessonDone
+    // -----------------------------------------------------------
+    //
+    // The test opens once the member has done every lesson of
+    // the language, badge_all_presentations, which the
+    // sidebar's button waits for too: before that its page and
+    // its start lead to the lessons, and no attempt is drawn.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTestNeedsEveryLessonDone(): void
+    {
+        $member = $this->world->member();
+
+        $this->signInMember($member)->get('/en/knowledge_test')->assertRedirect('/en/cp/learning-material');
+        $this->signInMember($member)->post('/en/knowledge_start')->assertRedirect('/en/cp/learning-material');
+
+        $this->assertFalse(DB::table('bei_users_knowledge_test')->where('user_id', $member->id)->exists());
     }
 
 
@@ -643,6 +706,103 @@ class KnowledgeExamTest extends FeatureTestCase
         $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
 
         $this->assertEquals(33, $this->attemptRow($publicId)->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerStoredTwiceCountsOnce
+    // -----------------------------------------------------------
+    //
+    // Two posts of one answer at the same moment once stored
+    // two correct rows and counted both. The save now locks
+    // the attempt while it checks and stores; should an
+    // attempt hold such a pair from before, its result still
+    // counts the question once: one right of three is 33.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerStoredTwiceCountsOnce(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+        $this->answerKnowledgeQuestion($this->member, $publicId, $this->questions[0]['question'], [$this->questions[0]['options'][0]]);
+        $row = (array) DB::table('bei_users_knowledge_options')->where('public_id', $publicId)->first();
+        unset($row['id']);
+        DB::table('bei_users_knowledge_options')->insert($row);
+        $this->answerKnowledgeQuestion($this->member, $publicId, $this->questions[1]['question'], [$this->questions[1]['options'][1]]);
+        $this->answerKnowledgeQuestion($this->member, $publicId, $this->questions[2]['question'], [$this->questions[2]['options'][1]]);
+
+        $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
+
+        $this->assertEquals(33, $this->attemptRow($publicId)->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedQuestionDoesNotHoldTheAttempt
+    // -----------------------------------------------------------
+    //
+    // A drawn question deleted before it was answered is
+    // passed over and counts as wrong, as a skipped one does,
+    // so the attempt still closes: two right of three is 67.
+    // It once stayed open for good, its page offering nothing
+    // to answer.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedQuestionDoesNotHoldTheAttempt(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+        $this->answerKnowledgeQuestion($this->member, $publicId, $this->questions[0]['question'], [$this->questions[0]['options'][0]]);
+        DB::table('bei_knowledge_option')->where('question_id', $this->questions[1]['question'])->delete();
+        DB::table('bei_knowledge_test')->where('id', $this->questions[1]['question'])->delete();
+        $this->answerKnowledgeQuestion($this->member, $publicId, $this->questions[2]['question'], [$this->questions[2]['options'][0]]);
+
+        $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk();
+
+        $attempt = $this->attemptRow($publicId);
+        $this->assertEquals(1, $attempt->finished);
+        $this->assertEquals(67, $attempt->results);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testQuestionWithoutOptionsIsNotDrawn
+    // -----------------------------------------------------------
+    //
+    // A question saved without options offers nothing to
+    // choose, so the draw leaves it out, even when the limit
+    // asks for every question of the category.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionWithoutOptionsIsNotDrawn(): void
+    {
+        $empty = $this->world->knowledgeQuestion($this->category, []);
+        $this->world->knowledgeLimits([$this->en => [$this->category => 4]]);
+
+        $publicId = $this->startKnowledgeTest($this->member);
+
+        $drawn = array_keys(json_decode($this->attemptRow($publicId)->question_set, true));
+        $this->assertNotContains($empty['question'], $drawn);
+        $this->assertCount(3, $drawn);
     }
 
 

@@ -30,8 +30,8 @@
                             <tr>
                             <td>{{ $value['id'] }}</td>
                             <td><a href="{{ env('APP_URL_ADMIN') }}/user/simulation/report/{{ $value['public_id'] }}">{{ $value['descr'] }}</a></td>
-                            <td align="center">{{ $value['started'] }}</td>
-                            <td align="center">{{ $value['ended'] }}</td>
+                            <td align="center">{{ \App\Http\Controllers\SettingsController::local_time($value['started']) }}</td>
+                            <td align="center">{{ \App\Http\Controllers\SettingsController::local_time($value['ended']) }}</td>
                             <td align="center">{{ $value['points'] }}</td>
                           </tr>
                         @endforeach

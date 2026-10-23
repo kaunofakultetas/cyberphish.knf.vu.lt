@@ -35,10 +35,12 @@ use Illuminate\Support\Facades\Auth;
 // -----------------------------------------------------------
 //
 // Guards the main admin's pages of the panel and refuses
-// anyone else with a 404. It trusts the main flag
-// AdminLoginController::login copies into the session from
-// the manager's bei_managers row at sign-in, so a change
-// to that row counts from the manager's next sign-in on.
+// anyone else with a 404. It trusts the main flag of the
+// session, which AdminLoginController::login copies from
+// the manager's bei_managers row at sign-in and
+// SignOutSwitchedOff copies again on every request, so a
+// change to that row counts from the manager's next
+// request on.
 //
 // Used by:
 //   - Kernel::$routeMiddleware — the alias perms

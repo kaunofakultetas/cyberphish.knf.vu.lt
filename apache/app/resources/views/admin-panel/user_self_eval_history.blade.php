@@ -29,9 +29,9 @@
                         @foreach ($recordlist as $value)
                             <tr>
                             <td>{{ $value['category_name'] }}</td>
-                            <td>{{ $value['correct'] }}/5</td>
-                            <td>{{ $value['started'] }}</td>
-                            <td>{{ $value['ended'] }}</td>
+                            <td>{{ $value['correct'] }}/{{ $value['questions'] }}</td>
+                            <td>{{ \App\Http\Controllers\SettingsController::local_time($value['started']) }}</td>
+                            <td>{{ \App\Http\Controllers\SettingsController::local_time($value['ended']) }}</td>
                             <td>{{ $value['points'] }}</td>
                           </tr>
                         @endforeach

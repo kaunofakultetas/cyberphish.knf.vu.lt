@@ -198,16 +198,18 @@ class AdminLoginController extends Controller
     // logout
     // -----------------------------------------------------------
     //
-    // GET /admin-panel/logout
+    // POST /admin-panel/logout
     //
     // Signs the manager out of the man guard and answers a
-    // redirect to the admin login. The session itself lives
+    // redirect to the admin login. A POST with the session's
+    // token, so no link or image of another site can sign a
+    // manager out. The session itself lives
     // on: its main and country values stay until the next
     // admin login replaces them.
     //
     // Used by:
-    //   - admin-panel/layouts/main.blade.php — Logout, in the
-    //     account menu of the top bar
+    //   - admin-panel/layouts/main.blade.php — Logout, a form
+    //     button in the account menu of the top bar
     // -----------------------------------------------------------
 
     public function logout()

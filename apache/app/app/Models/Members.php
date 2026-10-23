@@ -54,7 +54,7 @@ use Illuminate\Notifications\Notifiable;
 // guard reads it at every sign-out, so it must stay) and
 // last_login / last_ip.
 //
-// The table is utf8mb4 (mysql/init.sql:57), like the
+// The table is utf8mb4 (mysql/init.sql:62), like the
 // connection, so names keep every letter. It was latin1
 // until 2026-10-23, and a full name saved before then may
 // hold a question mark for a Lithuanian letter, which the
@@ -72,6 +72,8 @@ use Illuminate\Notifications\Notifiable;
 //     KnowledgeTestController::index, progress,
 //     SimulationsController::simulation_do_stuff — the
 //     member's address, country or full name
+//   - KnowledgeTestController::start — locks the member's
+//     row while an attempt is drawn
 //   - ValidateReset::handle, and ValidateVerify::handle —
 //     a middleware never registered, so it never runs
 //   - Admin\UsersController — index, delete, change_status

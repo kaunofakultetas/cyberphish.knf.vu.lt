@@ -73,6 +73,12 @@ return [
     // mounts
     'timezone' => 'UTC',
 
+    // The time zone the pages show dates in
+    // (SettingsController::local_time): the dates are stored
+    // in UTC, and all five site countries keep Eastern
+    // European Time
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Europe/Vilnius'),
+
     // The language a request starts in; the controllers then
     // switch to the {lang} of the URL or the language kept in
     // the session — en, lt, ee, lv or gr

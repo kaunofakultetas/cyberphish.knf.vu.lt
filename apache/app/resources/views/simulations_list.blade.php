@@ -37,7 +37,7 @@
 											</a>
 
 												@if(count($v['history'])>0)
-													<center> <small> {{ __('main.last_ended') }}: {{ $v['history']['ended'] }} </small> </center><br>
+													<center> <small> {{ __('main.last_ended') }}: {{ \App\Http\Controllers\SettingsController::local_time($v['history']['ended']) }} </small> </center><br>
 												@endif
 
 											</div>

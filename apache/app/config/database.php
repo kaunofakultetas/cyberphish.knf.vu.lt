@@ -62,8 +62,8 @@ return [
             'username' => env('DB_USERNAME'),
             'password' => env('DB_PASSWORD'),
             'unix_socket' => env('DB_SOCKET', ''),
-            // The connection's character set; MySQL converts to
-            // each column's own on write — latin1 in bei_managers
+            // The connection's character set, the one of every
+            // text column too, so MySQL converts nothing on write
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',

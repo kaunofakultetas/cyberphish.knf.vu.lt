@@ -27,7 +27,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Langs;
 use App\Models\Badges;
-use App\Models\Settings;
 use App\Models\SelfEvalUserTest;
 use App\Models\SelfEval;
 use App\Models\SelfEvalOption;
@@ -71,24 +70,26 @@ class FinishedSe
     // -----------------------------------------------------------
     //
     // Checks that exactly one attempt of the signed-in member
-    // has the URL's public id and category; anything else is
-    // a 404. Then counts the distinct questions answered in
-    // the attempt against the self-evaluation length (val3 of
+    // has the URL's public id and category; anything else is a
+    // 404. Then counts the distinct questions answered in the
+    // attempt against the self-evaluation length (val3 of
     // bei_settings row 2), or against the category's
-    // questions when it has fewer. Fewer answered, and the
-    // request goes on to the page or the save. As many, and
-    // an open attempt is closed — finished set, ended
-    // stamped, the points of calucate_points stored — and the
-    // member is redirected to the results page. Every close
-    // saves badge_self_evaluation_test in the session's
-    // language; the one that earns it carries the new-badge
-    // message, translated into that language — this runs
-    // before BaseController sets the request's locale. An
-    // attempt closed before keeps its end date and points and
-    // only leads to its results. The answer to the last
-    // question passes here before the controller saves it:
-    // the controller's redirect back to the test page is what
-    // closes the attempt.
+    // answerable questions (SelfEval::scopeUsable) when it has
+    // fewer. Fewer answered, and the request goes on to the
+    // page or the save. As many or more, and an open attempt
+    // is closed — finished set, ended stamped, the points of
+    // calucate_points stored — and the member is redirected to
+    // the results page; more can be answered when the length
+    // was lowered, or questions deleted, after the attempt
+    // began. Every close saves badge_self_evaluation_test in
+    // the session's language; the one that earns it carries
+    // the new-badge message, translated into that language —
+    // this runs before BaseController sets the request's
+    // locale. An attempt closed before keeps its end date and
+    // points and only leads to its results. The answer to the
+    // last question passes here before the controller saves
+    // it: the controller's redirect back to the test page is
+    // what closes the attempt.
     //
     // Used by:
     //   - Laravel's router, on the routes in the class banner
@@ -112,24 +113,16 @@ class FinishedSe
             // attempt — val3 of settings row 2, or the category's
             // number of questions when it has fewer
             // ===================================================
-            $total_questions = (int)Settings::where(['id'=>2])->pluck('val3')->first();
-
-            // A category with fewer questions runs out first:
-            // its last one ends the attempt
-            $in_category = SelfEval::where(['cat_id'=>$cat_id])->count();
-
-            if($in_category > 0 && $in_category < $total_questions){
-                $total_questions = $in_category;
-            }
+            $total_questions = SelfEval::attempt_length($cat_id);
 
 
             // STEP 3: the distinct questions answered so far — that
-            // many close the attempt and lead to the results, fewer
-            // let the request through to the page or the save
-            // =====================================================
+            // many or more close the attempt and lead to the results,
+            // fewer let the request through to the page or the save
+            // =======================================================
             $answered = SelfEvalUser::select("question_id")->where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id])->groupby('question_id')->get()->toArray();
 
-            if($total_questions == count($answered)){
+            if(count($answered) >= $total_questions){
 
                 // Closed before: its end date and points stay
                 if(SelfEvalUserTest::select('finished')->where(['id'=>$test_id])->get()->pluck('finished')->first() == 1){
@@ -170,11 +163,10 @@ class FinishedSe
     // The score of an attempt; the misspelled name is the one
     // handle calls. Each question the signed-in member
     // answered in the attempt is worth its best option's
-    // points: every stored answer row of the question adds
-    // that much when it is correct and takes it away when it
-    // is not — LMController::self_eval_test_save stores each
-    // chosen option of the question once. A negative total
-    // counts as 0.
+    // points: every option chosen for the question adds that
+    // much when it is correct and takes it away when it is
+    // not, each option once even should its row have been
+    // stored twice. A negative total counts as 0.
     //
     // Used by:
     //   - handle (above) — when it closes an attempt
@@ -189,7 +181,7 @@ class FinishedSe
 
             $max_points = (int)SelfEvalOption::select('points')->where(['question_id'=>$v])->orderByDesc('points')->get()->pluck('points')->first();
 
-            $answers = SelfEvalUser::where(['question_id'=>$v, 'public_id'=>$public_id])->get()->toArray();
+            $answers = SelfEvalUser::select('option_id', 'correct')->where(['question_id'=>$v, 'public_id'=>$public_id])->distinct()->get()->toArray();
 
             foreach($answers as $kk => $vv){
 

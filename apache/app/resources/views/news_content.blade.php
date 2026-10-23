@@ -13,7 +13,7 @@
   						<div class="col-lg-12">
 
   						<h2 class="heading cs_heading">{{ $content['title'] }}</h2>
-  						<small class="text-muted">{{ date("Y-m-d H:i", strtotime($content['created'])) }}</small>
+  						<small class="text-muted">{{ \App\Http\Controllers\SettingsController::local_time($content['created'], 'Y-m-d H:i') }}</small>
   						<br><br>
 
   						 @if(isset($content['feat_img']))

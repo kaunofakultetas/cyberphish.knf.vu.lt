@@ -36,9 +36,10 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 // Laravel's HTTP kernel with the app's three lists. Most
 // entries are Laravel's middleware or the app's thin
 // subclasses of them in app/Http/Middleware; the app's own
-// are Cors and BlockIpMiddleware in the global stack and,
-// among the aliases, validate.reset, news.exists,
-// page.exists, lm.exists, finished.se, r_exists and perms.
+// are Cors and BlockIpMiddleware in the global stack,
+// SignOutSwitchedOff in the web group and, among the
+// aliases, validate.reset, news.exists, page.exists,
+// lm.exists, finished.se, r_exists and perms.
 //
 // Used by:
 //   - bootstrap/app.php — bound as the HTTP kernel
@@ -79,6 +80,12 @@ class Kernel extends HttpKernel
             // AuthenticateSession is switched off: a new password logs no one out
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
+            // A member or manager switched off since signing in is
+            // signed out, and a manager's main and country follow
+            // the row. It stands before SubstituteBindings because
+            // Laravel's middleware priority moves a route's auth
+            // check up to that one's place, and it has to run first
+            \App\Http\Middleware\SignOutSwitchedOff::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
 

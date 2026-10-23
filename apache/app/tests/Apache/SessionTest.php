@@ -195,8 +195,9 @@ class SessionTest extends ApacheTestCase
     // testSignOutEndsTheSession
     // -----------------------------------------------------------
     //
-    // cp/logout sends the member to the home page, and the
-    // same cookie no longer opens the dashboard.
+    // The logout form of the member menu, posted with the
+    // session's token, sends the member to the home page, and
+    // the same cookie no longer opens the dashboard.
     //
     // Used by:
     //   - PHPUnit — the Apache suite (runTests.sh)
@@ -205,8 +206,9 @@ class SessionTest extends ApacheTestCase
     public function testSignOutEndsTheSession(): void
     {
         $this->signInOverHttp($this->world->member());
+        $token = $this->http->csrfToken('/cp/dashboard');
 
-        $response = $this->http->get('/cp/logout');
+        $response = $this->http->post('/cp/logout', ['_token' => $token]);
 
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('https://cyberphish.knf.vu.lt', $response->getHeaderLine('Location'));

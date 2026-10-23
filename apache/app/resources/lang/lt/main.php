@@ -7,8 +7,7 @@
 //  by key, the same keys as en/main.php. Lithuanian is also
 //  the fallback_locale (config/app.php): a key another
 //  language's main.php lacks shows in Lithuanian, and a key
-//  no file has shows as the raw key. A few keys appear twice;
-//  PHP keeps the later entry.
+//  no file has shows as the raw key.
 //
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
@@ -21,7 +20,6 @@
 return [
 
     'my_info' => 'Mano informacija',
-    'my_badges' => 'Mano Bedžai',
     'mark_completed' => 'Pažymėti kaip atliktą!',
     'completed' => 'Atlikta!',
     'additional_files' => 'Papildomi dokumentai',
@@ -57,7 +55,6 @@ return [
     'create_acc'=>'Sukurkite paskyrą!',
     'agree_terms'=>'Aš sutinku su naudojimo sąlygomis',
     'already_acc_login'=>'Jau turite paskyrą? Prisijungti!',
-    'register'=>'Registruotis',
     'forgot_password_descr'=>'Įveskite savo el. pašto adresą ir atsiųsime slaptažodžio atkūrimo nuorodą!',
     'verify_email'=>'Patvirtinti el. pašto adresą',
     'link_sent'=>'Nuoroda išiųsta el. paštu',
@@ -65,6 +62,7 @@ return [
     'link_sent3'=>'Jei negavote el. laiško',
     'request_another_link'=>'spauskite čia naujai nuorodai',
     'reset_pass'=>'Pakeisti slaptažodį',
+    'reset_pass_descr'=>'Paspauskite mygtuką žemiau ir atsiųsime jums naują slaptažodį el. paštu.',
     'login_url'=>'Prisijungimo adresas',
     'your_new_pass'=>'Jūsų naujas slaptažodis',
     'link_new_login_info'=>'Norint gauti naujus prisijungimo duomenis, paspauskite žemiau esančią nuorodą.',
@@ -82,6 +80,7 @@ return [
     // change (ManagerMainController::change_username)
     'pass_updated'=>'Vartotojo vardas pakeistas!',
     'pass_unavailable'=>'Vartotojo vardas neleidžiamas!',
+    'username_length'=>'Vartotojo vardas turi būti nuo :min iki :max simbolių.',
     'auth_failed'=>'Klaidingas vartotojo vardas ir/ar slaptažodis!',
     'forgot_pass_msg'=>'Jei vartotojas su tokiu el. paštu egzistuoja, jam išsiųsime slaptažodžio atkūrimo nuorodą',
     'new_pass_emailed'=>'Kątik nusiuntėme jums naują slaptažodį',
@@ -161,6 +160,7 @@ return [
     'download_certificate'=>'Atsisiųsti sertifikatą',
     'change_fullname'=>'Keisti vardą ir pavardę',
     'fullname'=>'Vardas ir pavardė',
+    'fullname_length'=>'Vardas ir pavardė turi būti nuo :min iki :max simbolių.',
     'updated'=>'Atnaujinta!',
     'pq_questionare'=>'Klausimynas po kurso'
 ];

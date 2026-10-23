@@ -3,19 +3,20 @@
 // -----------------------------------------------------------
 //  [*] LoginTest — members signing in and out
 //
-//  POST /login and GET cp/logout (LoginController): a
+//  POST /login and POST cp/logout (LoginController): a
 //  verified member with the right password is signed in on
 //  the mem guard and sent to the dashboard — or back to the
-//  page asked for — while the visit is recorded (last login,
-//  last address, the login log) and any pending password
-//  reset is cancelled. A wrong password, an unknown address
-//  and an unverified account all get the same refusal, and
-//  ten of them for one email from one address lock that
-//  pair out for a while, the right password included. A
-//  refusal comes back to the form with its error, even when
-//  a member page sent the visitor there. The
-//  ten-days-in-a-row badge is earned, and announced, at
-//  sign-in.
+//  page asked for — while the visit is recorded (last
+//  login, last address, the login log) and any pending
+//  password reset is cancelled. A wrong password, an
+//  unknown address and an unverified account all get the
+//  same refusal, and ten of them for one email from one
+//  address lock that pair out for a while, the right
+//  password included. A refusal comes back to the form with
+//  its error, even when a member page sent the visitor
+//  there. The ten-days-in-a-row badge is earned, and
+//  announced, at sign-in. Signing out takes a POST, not a
+//  link.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -429,9 +430,33 @@ class LoginTest extends FeatureTestCase
 
     public function testLogoutEndsTheSession(): void
     {
-        $this->signInMember($this->world->member())->get('/cp/logout')->assertRedirect('/');
+        $this->signInMember($this->world->member())->post('/cp/logout')->assertRedirect('/');
 
         $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSigningOutNeedsAPost
+    // -----------------------------------------------------------
+    //
+    // A plain link to cp/logout — another site's link or image
+    // included — signs nobody out: the route answers only a
+    // POST, which carries the session's token.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSigningOutNeedsAPost(): void
+    {
+        $this->signInMember($this->world->member())->get('/cp/logout')->assertStatus(405);
+
+        $this->assertAuthenticated('mem');
     }
 
 

@@ -108,6 +108,69 @@ class SchemaTest extends TestCase
 
 
     // -----------------------------------------------------------
+    // testEveryTextColumnIsUtf8mb4
+    // -----------------------------------------------------------
+    //
+    // Every text column of the schema is utf8mb4, as the
+    // connection is, so no column turns a letter into a
+    // question mark or refuses a lookup with an illegal mix of
+    // collations; bei_managers was the last latin1 table.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEveryTextColumnIsUtf8mb4(): void
+    {
+        $others = DB::table('information_schema.COLUMNS')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->whereNotNull('CHARACTER_SET_NAME')
+            ->where('CHARACTER_SET_NAME', '<>', 'utf8mb4')
+            ->selectRaw("CONCAT(TABLE_NAME, '.', COLUMN_NAME, ' ', CHARACTER_SET_NAME) AS col")
+            ->pluck('col')
+            ->all();
+
+        $this->assertSame([], $others);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTablesAndTheDatabaseDefaultToUtf8mb4
+    // -----------------------------------------------------------
+    //
+    // The defaults are utf8mb4 too — every table's and the
+    // database's own — so a column added later or a table
+    // created without a character set of its own keeps every
+    // letter, where a latin1 default once turned them into
+    // question marks.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTablesAndTheDatabaseDefaultToUtf8mb4(): void
+    {
+        $tables = DB::table('information_schema.TABLES')
+            ->whereRaw('TABLE_SCHEMA = DATABASE()')
+            ->where('TABLE_TYPE', 'BASE TABLE')
+            ->where('TABLE_COLLATION', 'not like', 'utf8mb4%')
+            ->pluck('TABLE_NAME')
+            ->all();
+
+        $this->assertSame([], $tables);
+        $this->assertSame('utf8mb4', DB::table('information_schema.SCHEMATA')->whereRaw('SCHEMA_NAME = DATABASE()')->value('DEFAULT_CHARACTER_SET_NAME'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testRankingViewsAndProgressFunctionExist
     // -----------------------------------------------------------
     //

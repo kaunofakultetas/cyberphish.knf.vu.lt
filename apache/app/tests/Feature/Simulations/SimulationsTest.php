@@ -28,6 +28,7 @@ namespace Tests\Feature\Simulations;
 use App\Mail\SimulationsResults;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\FeatureTestCase;
 use Tests\Support\Flows;
 
@@ -560,6 +561,33 @@ class SimulationsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testRunOfAnotherLanguagesSimulationIsNotStarted
+    // -----------------------------------------------------------
+    //
+    // A start posted for a simulation of another language than
+    // the URL's is a 404, as its start page is, and files no
+    // run under the wrong language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRunOfAnotherLanguagesSimulationIsNotStarted(): void
+    {
+        $lt = $this->world->language('lt');
+        $lithuanian = $this->world->scenario($lt, [], [$this->world->scenarioCategory($lt)]);
+
+        $this->signInMember($this->member)->post("/en/simulation_progress/$lithuanian", ['simulation_type' => 1])->assertNotFound();
+
+        $this->assertFalse(DB::table('bei_users_scenarios')->where('user_id', $this->member->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testRunNeverScoresAboveItsBestPath
     // -----------------------------------------------------------
     //
@@ -590,6 +618,39 @@ class SimulationsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testChoiceStoredTwiceScoresOnce
+    // -----------------------------------------------------------
+    //
+    // Two posts of one choice at the same moment once both
+    // scored. The save now locks the run while it checks and
+    // records; should a run hold such a pair from before, its
+    // score counts one choice a level: 200 and 100, the best
+    // path's 300.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testChoiceStoredTwiceScoresOnce(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $row = (array) DB::table('bei_users_scenarios_options')->where('user_scenario_public_id', $publicId)->first();
+        unset($row['id']);
+        DB::table('bei_users_scenarios_options')->insert($row);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+
+        $this->assertEquals(300, DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('points'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testFinishedRunMailsItsResultOnce
     // -----------------------------------------------------------
     //
@@ -611,5 +672,34 @@ class SimulationsTest extends FeatureTestCase
         $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
 
         Mail::assertSent(SimulationsResults::class, 1);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMailOutageStillShowsTheEndPage
+    // -----------------------------------------------------------
+    //
+    // A mail relay that cannot be reached when a run ends is
+    // logged, and the member still gets the end page of the
+    // closed run — it once answered with a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMailOutageStillShowsTheEndPage(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+        Mail::shouldReceive('to')->andThrow(new TransportException('Connection to the mail relay refused'));
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")->assertOk();
+
+        $this->assertEquals(1, DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('finished'));
     }
 }

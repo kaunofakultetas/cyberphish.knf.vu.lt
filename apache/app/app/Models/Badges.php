@@ -146,6 +146,8 @@ class Badges extends Model
     // Used by:
     //   - BaseController::__construct — badge_all_presentations,
     //     badge_all_simulations and badge_finished_course
+    //   - KnowledgeTestController::index and start —
+    //     badge_all_presentations, which opens the test
     // -----------------------------------------------------------
 
     public static function get_badge($name)

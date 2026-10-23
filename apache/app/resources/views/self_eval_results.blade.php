@@ -41,8 +41,8 @@
                                   		</div>
                                   		<div class="col-md-6 text-right">
 
-                                  			{{ __('main.started') }}: <b> {{ $started }} </b><br>
-											{{ __('main.ended') }}: <b> {{ $ended }} </b><br>
+                                  			{{ __('main.started') }}: <b> {{ \App\Http\Controllers\SettingsController::local_time($started) }} </b><br>
+											{{ __('main.ended') }}: <b> {{ \App\Http\Controllers\SettingsController::local_time($ended) }} </b><br>
 											{{ __('main.points') }}: <b> {{ $points_collected }} </b>
 
 										</div>

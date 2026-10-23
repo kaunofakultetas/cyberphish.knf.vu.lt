@@ -34,11 +34,10 @@ use Illuminate\Database\Eloquent\Model;
 // LMCategory
 // -----------------------------------------------------------
 //
-// Columns: name and lang_id (bei_lang). The table is latin1
-// but its name column is utf8mb4 (mysql/init.sql:95), so
-// category names keep every letter. A lesson whose category
-// is deleted keeps no category (the foreign key sets its
-// cat_id to NULL).
+// Columns: name and lang_id (bei_lang). The table is
+// utf8mb4 (mysql/init.sql:105), so category names keep
+// every letter. A lesson whose category is deleted keeps
+// no category (the foreign key sets its cat_id to NULL).
 //
 // Used by:
 //   - LMController — category_content_list (the lesson

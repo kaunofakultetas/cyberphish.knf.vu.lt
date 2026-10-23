@@ -35,15 +35,16 @@ use Illuminate\Database\Eloquent\Model;
 //
 // Columns: cat_id (bei_lm_category) and question, the text.
 //
-//   getQuestion    — a question's text
-//   getDecryptedId — a question's id from the hash its page
-//                    posts
-//   getCatId       — a question's category
+//   getQuestion     — a question's text
+//   getDecryptedId  — a question's id from the hash its page
+//                     posts
+//   getCatId        — a question's category
+//   scopeAnswerable — the questions with an option to choose
 //
 // Used by:
 //   - KnowledgeTestController — index (the number of a
-//     language's questions), start (an attempt's draw),
-//     progress, progress_save
+//     language's questions), draw_or_resume (an attempt's
+//     draw), progress, save_answer
 //   - Admin\KnowledgeController — index, import_questions,
 //     question_edit, question_update, question_delete
 //   - Admin\ManagerMainController::knowledge_report — a
@@ -113,7 +114,7 @@ class KnowledgeTest extends Model
     // to compute it.
     //
     // Used by:
-    //   - KnowledgeTestController::progress_save — the
+    //   - KnowledgeTestController::save_answer — the
     //     question an answer belongs to
     // -----------------------------------------------------------
 
@@ -135,12 +136,41 @@ class KnowledgeTest extends Model
     // when there is no such question.
     //
     // Used by:
-    //   - KnowledgeTestController::progress_save — the cat_id
+    //   - KnowledgeTestController::save_answer — the cat_id
     //     of every saved answer
     // -----------------------------------------------------------
 
     public static function getCatId($id)
     {
         return KnowledgeTest::where(['id'=>$id])->get()->pluck('cat_id')->first();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // scopeAnswerable
+    // -----------------------------------------------------------
+    //
+    // Narrows a query to the questions a member can answer:
+    // those with at least one option. A question saved
+    // without options — an import block with no option lines
+    // — offers nothing to choose and would hold an attempt
+    // open for good, so new attempts draw only these and an
+    // open attempt passes over any other.
+    //
+    // Used by:
+    //   - KnowledgeTestController::draw_or_resume — the draw
+    //   - KnowledgeTestController::progress — whether the next
+    //     question can be asked
+    // -----------------------------------------------------------
+
+    public function scopeAnswerable($query)
+    {
+        return $query->whereExists(function ($options) {
+            $options->select(DB::raw(1))->from('bei_knowledge_option')->whereColumn('bei_knowledge_option.question_id', 'bei_knowledge_test.id');
+        });
     }
 }

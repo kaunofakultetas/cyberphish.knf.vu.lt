@@ -180,10 +180,13 @@
      </a>
 
       <div class="dropdown-divider"></div>
-      <a class="dropdown-item" href="{{ env('APP_URL') }}/cp/logout">
-       <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+      <form action="{{ env('APP_URL') }}/cp/logout" method="POST">
+       @csrf
+       <button type="submit" class="dropdown-item">
+        <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
         {{ __('main.logout') }}
-      </a>
+       </button>
+      </form>
    </div>
    </li>
 
@@ -319,7 +322,7 @@
 	  "content": {
 	    "message": "This website uses\ncookies. Cookies are used for this website functioning. For more information, see our ",
 	    "link": "Cookie Policy",
-	    "href": "{{ env('APP_URL') }}/en/page/cookie-policy/19"
+	    "href": "{{ env('APP_URL') }}/{{ $lang ?? 'en' }}/page/cookie-policy/19"
 	  }
 	});
 	</script>

@@ -56,9 +56,10 @@ class RouteInventoryTest extends FeatureTestCase
         'POST register',
         'GET forgot-password',
         'POST forgot-password',
-        'GET cp/logout',
+        'POST cp/logout',
         'GET verify/{verify_token}',
         'GET reset/{reset_token}',
+        'POST reset/{reset_token}',
         'GET lang/{lang}',
         'GET {lang}/news',
         'GET {lang}/news/{slug}/{uid}',
@@ -68,7 +69,7 @@ class RouteInventoryTest extends FeatureTestCase
         'GET {lang}/ranks/simulations',
         'GET admin-panel',
         'POST admin-panel',
-        'GET admin-panel/logout',
+        'POST admin-panel/logout',
     ];
 
     // The middleware that guards a route

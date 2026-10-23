@@ -11,8 +11,8 @@
 //
 //  Used by:
 //    - BaseController, LMController (Http/Controllers/)
-//    - Admin\LMController, Admin\UsersController,
-//      Admin\ManagerMainController (Http/Controllers/Admin/)
+//    - Admin\LMController, Admin\ManagerMainController
+//      (Http/Controllers/Admin/)
 //    - CourseProgressTest (tests/Feature/Learning/)
 // -----------------------------------------------------------
 
@@ -47,9 +47,8 @@ use Illuminate\Database\Eloquent\Model;
 //     lesson
 //   - LMController::show_self_eval — whether a category's
 //     lessons are all done
-//   - Admin\LMController::delete,
-//     Admin\UsersController::delete — the rows go with
-//     their lesson or member
+//   - Admin\LMController::delete — the rows go with their
+//     lesson
 //   - Admin\ManagerMainController::dashboard — each member's
 //     progress per language
 // -----------------------------------------------------------

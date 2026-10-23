@@ -43,9 +43,9 @@ use App\Models\Members;
 //
 // Every action works on the signed-in member's own row of
 // bei_users. The forms check lengths with Laravel's
-// validator; only the user name's, 6 to 45, differs from
-// what its page asks for in the browser, 3 to 20. A name
-// keeps every letter typed, the table being utf8mb4.
+// validator, the same lengths their pages ask for in the
+// browser. A name keeps every letter typed, the table
+// being utf8mb4.
 //
 //   dashboard       — the member's own page
 //   change_pass     — a new password
@@ -188,12 +188,13 @@ class ManagerMainController extends BaseController
     // POST /cp/change-username
     //
     // Renames the member, behind auth:mem: 6 to 45
-    // characters, the column's size (the form asks for 3 to
-    // 20), and no other member may hold the name already —
-    // submitting one's own name again is fine. A failed
-    // validation comes back as a bare "Error!", untranslated;
-    // success and a taken name answer with the translation
-    // keys pass_updated and pass_unavailable, which hold the
+    // characters, the column's size and what the form asks
+    // for, and no other member may hold the name already —
+    // submitting one's own name again is fine. A name of the
+    // wrong length comes back with username_length, which
+    // gives both limits in the member's language; success and
+    // a taken name answer with the translation keys
+    // pass_updated and pass_unavailable, which hold the
     // user-name texts despite their names.
     //
     // Used by:
@@ -209,7 +210,7 @@ class ManagerMainController extends BaseController
 
         if($validator->fails()){
 
-            return redirect()->back()->withErrors(__('Error!'));
+            return redirect()->back()->withErrors(__('main.username_length', ['min'=>6, 'max'=>45]));
 
         }
 
@@ -240,8 +241,9 @@ class ManagerMainController extends BaseController
     // Stores the full name the certificate prints, behind
     // auth:mem: 6 to 100 characters, as the form asks — the
     // certificate shrinks a name too wide for its line
-    // (CertController::name_style) — and a bare "Error!"
-    // otherwise. Unlike the user name it need not be unique.
+    // (CertController::name_style) — or else fullname_length,
+    // which gives both limits in the member's language.
+    // Unlike the user name it need not be unique.
     //
     // Used by:
     //   - parts/change_fullname.blade.php — the full-name form
@@ -257,7 +259,7 @@ class ManagerMainController extends BaseController
 
         if($validator->fails()){
 
-            return redirect()->back()->withErrors(__('Error!'));
+            return redirect()->back()->withErrors(__('main.fullname_length', ['min'=>6, 'max'=>100]));
 
         }
 

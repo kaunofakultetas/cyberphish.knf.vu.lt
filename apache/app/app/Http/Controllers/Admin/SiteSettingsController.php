@@ -153,7 +153,9 @@ class SiteSettingsController extends BaseController
     // POST /admin-panel/settings/self_eval_save
     //
     // Stores how many questions a self-evaluation draws in
-    // val3 of settings row 2, the row mysql/init.sql seeds.
+    // val3 of settings row 2, the row mysql/init.sql seeds:
+    // a whole number of at least 1, or the form comes back
+    // with the validator's message and the setting stays.
     // Answers a redirect to the page's Self Evaluation tab.
     //
     // Used by:
@@ -163,6 +165,8 @@ class SiteSettingsController extends BaseController
 
     public function self_eval_save(Request $request)
     {
+        $request->validate(['self_eval' => 'required|integer|min:1']);
+
         Settings::where(['id'=>2])->update(['val3'=>$request->get('self_eval')]);
 
         return Redirect::to(route('other_settings') . "#a2")->withSuccess("Updated!");
@@ -215,8 +219,10 @@ class SiteSettingsController extends BaseController
     // each category of each language, as JSON keyed by
     // language id and category id, in val1 of settings row 3
     // — an UPDATE, so the row must exist, as mysql/init.sql
-    // makes sure. Answers a redirect to the page's Knowledge
-    // Test tab.
+    // makes sure. Each limit is stored as a whole number of
+    // at least 0, so a field left blank is the 0 the page
+    // shows and draws nothing. Answers a redirect to the
+    // page's Knowledge Test tab.
     //
     // Used by:
     //   - admin-panel/settings_other.blade.php — the form of
@@ -225,8 +231,16 @@ class SiteSettingsController extends BaseController
 
     public function knowledge_test_settings_save(Request $request)
     {
+        $limits = [];
+
+        foreach((array) $request->get('knowledge') as $lang_id => $categories){
+            foreach((array) $categories as $cat_id => $limit){
+                $limits[$lang_id][$cat_id] = (string) max(0, (int) $limit);
+            }
+        }
+
         // The 1 is JSON_HEX_TAG, as in about_us_save (above)
-        $knowledge = json_encode($request->get('knowledge'), 1);
+        $knowledge = json_encode($limits, 1);
 
         Settings::where(['id'=>3])->update(['val1'=>$knowledge]);
 

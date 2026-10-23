@@ -87,6 +87,40 @@ class ConfigTest extends TestCase
 
 
     // -----------------------------------------------------------
+    // testTranslationFilesHoldEachKeyOnce
+    // -----------------------------------------------------------
+    //
+    // A key that appears twice in a translation file is
+    // decided by PHP, which keeps the later entry silently: the
+    // Greek sign-up button once read "Κανω ΕΓΓΡΑΦΗ" that way
+    // instead of "Εγγραφείτε". Each file holds every key of its
+    // top level once.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTranslationFilesHoldEachKeyOnce(): void
+    {
+        $twice = [];
+        foreach (glob(resource_path('lang') . '/*/*.php') as $file) {
+            preg_match_all("/^    '([^']+)'\\s*=>/m", file_get_contents($file), $keys);
+            foreach (array_keys(array_filter(array_count_values($keys[1]), function (int $count) {
+                return $count > 1;
+            })) as $key) {
+                $twice[] = basename(dirname($file)) . '/' . basename($file) . ': ' . $key;
+            }
+        }
+
+        $this->assertSame([], $twice);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testNoEnvFileShips
     // -----------------------------------------------------------
     //

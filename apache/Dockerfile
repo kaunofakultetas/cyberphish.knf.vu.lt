@@ -115,12 +115,14 @@ RUN echo "readfile,symlink,link"                             | xargs -I {} sed -
 #         RUN echo "fopen,fclose,fwrite,fread,file_get_contents,file_put_contents"        | xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.i>
 
 
-# Dangerous functions for code evaluation. assert stays enabled since PHP 8:
-# it can no longer evaluate code (string assertions are gone), and PHP 8 turns
-# a disabled function into an undefined one, so every assert() in the vendor's
-# libraries (Symfony, ramsey/uuid, brick/math ...) would be a fatal error.
-# zend.assertions = -1 of php.ini-production compiles those calls away anyway.
-RUN echo "eval,create_function,include,include_once"    |     xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
+# Code evaluation cannot be switched off here, so the list names none of it:
+# eval, include and include_once are language constructs, which
+# disable_functions does not reach, and create_function is gone since PHP 8.0.
+# assert stays enabled too: it can no longer evaluate code since PHP 8 (string
+# assertions are gone), and PHP 8 turns a disabled function into an undefined
+# one, so every assert() in the vendor's libraries (Symfony, ramsey/uuid,
+# brick/math ...) would be a fatal error. zend.assertions = -1 of
+# php.ini-production compiles those calls away anyway.
 #         RUN echo "preg_replace,include_once"        | xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
 #         RUN echo "require,require_once"                                                 | xargs -I {} sed -i "s/^\(disable_functions =.*\)/\1,{}/" "$PHP_INI_DIR/php.ini"
 

@@ -24,6 +24,7 @@ use App\Http\Controllers\CertController;
 use DOMElement;
 use FontLib\Font;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
 use Tests\FeatureTestCase;
 
 
@@ -116,6 +117,36 @@ class CertificateTest extends FeatureTestCase
 
         $this->assertStringContainsString('application/pdf', $response->headers->get('Content-Type'));
         $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCertificateIsDatedInLocalTime
+    // -----------------------------------------------------------
+    //
+    // The certificate carries the day of the pass in the site's
+    // local time: a test passed at 22:30 UTC on New Year's Eve
+    // is dated the first of January, not the UTC day before.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCertificateIsDatedInLocalTime(): void
+    {
+        $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 80, 'ended' => '2026-12-31 22:30:00']);
+        $date = null;
+        View::composer('pdf.cert', function ($view) use (&$date) {
+            $date = $view->getData()['date'];
+        });
+
+        $this->signInMember($this->member)->get('/cp/en/certificate')->assertOk();
+
+        $this->assertSame('01 January, 2027', $date);
     }
 
 

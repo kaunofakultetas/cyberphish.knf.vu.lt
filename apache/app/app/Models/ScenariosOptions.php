@@ -43,9 +43,9 @@ use Illuminate\Database\Eloquent\Model;
 // Used by:
 //   - SimulationsController::step_options — the choices of
 //     the current step, which simulation_do_stuff shows and
-//     simulation_do_stuff_save accepts
-//   - SimulationsController::simulation_do_stuff_save — the
-//     chosen option's type, points and feedback
+//     save_choice accepts
+//   - SimulationsController::save_choice — the chosen
+//     option's type, points and feedback
 //   - Admin\SimulationsController — simulations_import,
 //     simulation_edit, simulation_update, simulation_delete
 //   - Admin\SiteSettingsController::SimulationsDownloadPdf —

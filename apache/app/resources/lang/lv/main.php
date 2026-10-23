@@ -4,8 +4,7 @@
 //  [*] lv/main — the site's own strings, in Latvian
 //
 //  Every text of the member side and its mails in Latvian, by
-//  key, the same keys as en/main.php. A few keys appear
-//  twice; PHP keeps the later entry.
+//  key, the same keys as en/main.php.
 //
 //  Used by:
 //    - the __('main.…') lookups listed in en/main.php, when
@@ -40,7 +39,6 @@ return [
     'change_username' => 'Mainīt lietotājvārdu',
     'change_username2' => 'Mainīt Lietotājvārdu',
     'home'=>'Mājas',
-    'learning_material'=>'Mācību materiāls',
     'contact'=>'Sazināties',
     'sign_in'=>'Ielogoties',
     'sign_up'=>'Pierakstīties',
@@ -53,7 +51,6 @@ return [
     'create_acc'=>'Izveidot kontu!',
     'agree_terms'=>'Es piekrītu Noteikumiem un nosacījumiem',
     'already_acc_login'=>'Jau ir konts? Pieslēgties!',
-    'register'=>'Reģistrēties',
     'forgot_password_descr'=>'Mēs to sapratām, lietas notiek. Vienkārši ievadiet tālāk savu e-pasta adresi, un mēs jums nosūtīsim saiti paroles atiestatīšanai!',
     'verify_email'=>'Pārbaudiet savu e-pasta adresi',
     'link_sent'=>'Uz jūsu e-pasta adresi ir nosūtīta jauna verifikācijas saite.',
@@ -61,6 +58,7 @@ return [
     'link_sent3'=>'Ja nesaņēmāt e-pastu',
     'request_another_link'=>'noklikšķiniet šeit, lai pieprasītu citu',
     'reset_pass'=>'Atiestatīt paroli',
+    'reset_pass_descr'=>'Nospiediet zemāk esošo pogu, un mēs jums nosūtīsim jaunu paroli e-pastā.',
     'login_url'=>'Pieteikšanās URL',
     'your_new_pass'=>'Jūsu jaunā parole',
     'link_new_login_info'=>'Noklikšķiniet uz saites zemāk, un jūs saņemsiet jaunu pieteikšanās informāciju',
@@ -78,6 +76,7 @@ return [
     // change (ManagerMainController::change_username)
     'pass_updated'=>'Lietotājvārds atjaunināts!',
     'pass_unavailable'=>'Lietotājvārds nav pieejams!',
+    'username_length'=>'Lietotājvārdam jābūt no :min līdz :max rakstzīmēm garam.',
     'auth_failed'=>'Nepareizs e-pasts un/vai parole!',
     'forgot_pass_msg'=>'Ja mūsu datubāzē ir e-pasts, jūs saņemsit atiestatīšanas saiti. ',
     'new_pass_emailed'=>'Mēs tikko nosūtījām jums e-pastā jauno paroli',
@@ -128,7 +127,6 @@ return [
     // pabaigoje, feedback at the end
     'simulation_po_kiekvieno'=>'Mācību nolūkos',
     'simulation_pabaigoje'=>'Zināšanu pārbaudes nolūkiem',
-    'my_badges'=>'Manas nozīmītes',
     // HTML: the success alert prints it unescaped
     // (parts/notif.blade.php), so the link works
     'new_badge'=>"Jūs saņēmāt jaunu emblēmu. Pārbaudiet <a href=\"/cp/badges\">Manas emblēmas</a>",
@@ -156,6 +154,7 @@ return [
     'download_certificate'=>'Lejupielādēt sertifikātu',
     'change_fullname'=>'Mainīt pilno vārdu',
     'fullname'=>'Pilnais vārds',
+    'fullname_length'=>'Pilnajam vārdam jābūt no :min līdz :max rakstzīmēm garam.',
     'updated'=>'Atjaunināts!',
     'pq_questionare'=>'Aptauja pēc kursa'
 
