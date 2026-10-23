@@ -9,7 +9,7 @@
 //  container loads on its first start, and neither
 //  apache/Dockerfile nor the test runner calls artisan
 //  migrate. The app resets passwords its own way, with the
-//  token in the remember_token column of bei_users
+//  token in the reset_token column of bei_users
 //  (LoginController); no password_resets table exists.
 //
 //  Used by:

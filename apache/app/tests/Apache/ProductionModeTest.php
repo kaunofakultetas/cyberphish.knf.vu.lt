@@ -182,7 +182,7 @@ class ProductionModeTest extends ApacheTestCase
 
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('https://cyberphish.knf.vu.lt/forgot-password', $response->getHeaderLine('Location'));
-        $this->assertSame('', Members::find($member->id)->remember_token);
+        $this->assertSame('', Members::find($member->id)->reset_token);
     }
 
 

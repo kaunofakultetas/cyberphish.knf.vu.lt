@@ -52,7 +52,7 @@ class SendRemindLink extends Mailable
     use Queueable, SerializesModels;
 
     // What the sender passes: uid, the reset token, which the
-    // sender also stores as the member's remember_token.
+    // sender also stores as the member's reset_token.
     // Public, so Laravel hands it to the view as well
     public $data;
 

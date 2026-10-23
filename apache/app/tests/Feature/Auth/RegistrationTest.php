@@ -241,7 +241,7 @@ class RegistrationTest extends FeatureTestCase
     // testEmailInUseIsFoundWhateverItsCase
     // -----------------------------------------------------------
     //
-    // The email column compares without case (latin1's
+    // The email column compares without case (its
     // case-insensitive collation), so the same address in
     // capitals cannot open a second account.
     //

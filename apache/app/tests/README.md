@@ -98,19 +98,8 @@ Three files outside `tests/` belong to the suite:
 
 ## Pinned defects
 
-| Id | File | What breaks |
-|---|---|---|
-| `reset-link-logout` | `Feature/Auth/AuthDefectsTest` | Signing out replaces `remember_token`, which holds a pending reset link's token |
-| `username-lithuanian` | `Feature/Account/AccountDefectsTest` | A user name with Lithuanian letters is a 500 |
-| `fullname-latin1` | `Feature/Account/AccountDefectsTest` | Lithuanian letters of the full name turn into question marks |
-| `course-progress-selfeval` | `Feature/Learning/LearningDefectsTest` | Progress counts finished self-evaluations against the number of questions |
-| `course-progress-null` | `Feature/Learning/LearningDefectsTest` | In a language without simulations or self-evaluation questions, the progress shows 0 whatever else is done |
-
-Each test's banner explains its defect: the cause, the impact, and the
-behaviour wanted instead. All five wait on the production database: the
-latin1 columns of `bei_users`, the stored function
-`bei_user_course_progress`, and a column of its own for the reset
-token.
+None at the moment. The last five waited on the production database
+and were fixed in October 2026 (see Fixed defects).
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -231,9 +220,23 @@ the way were pinned and fixed with them: `weak-tokens`,
 | `simulation-update-descr` | `AdminSimulationsTest::testDescriptionOfASimulationWithoutStepsIsSaved` |
 | `upload-htaccess` | `ProtectionTest::testUploadedHtaccessChangesNothing`, and the `AllowOverride None` check of `ApacheConfigTest::testUploadFolderRunsNoPhp` |
 
-Only the Auth, Account and Learning folders still hold a pinned defect;
-the other `*DefectsTest.php` files are gone, and a new pin starts its
-folder's file again.
+A third batch, the same month, fixed the five pins that waited on the
+production database. A one-time change to it turned `bei_users` from
+latin1 into utf8mb4, gave the reset token a column of its own,
+`reset_token`, and made the stored function `bei_user_course_progress`
+count self-evaluations per category and treat a missing share as 0.
+`mysql/init.sql` builds a fresh database the same way.
+
+| Id | Home test |
+|---|---|
+| `reset-link-logout` | `PasswordResetTest::testSigningOutKeepsAPendingResetLink` |
+| `username-lithuanian` | `AccountSettingsTest::testUsernameWithLithuanianLettersIsSaved` |
+| `fullname-latin1` | `AccountSettingsTest::testFullNameWithLithuanianLettersIsStoredAsTyped`, with `CertificateTest::testLithuanianNamePrintsEveryLetter` for the certificate it feeds |
+| `course-progress-selfeval` | `CourseProgressTest::testFinishedSelfEvaluationsCountTheirFullShare` |
+| `course-progress-null` | `CourseProgressTest::testLanguageWithoutSimulationsStillShowsTheProgress`, `testPassedKnowledgeTestCountsWithoutLessons` |
+
+No `*DefectsTest.php` file is left; a new pin starts its folder's file
+again.
 
 ## Found but not pinned
 
@@ -274,9 +277,9 @@ Things the suite learned the hard way:
     the link it carries.
   - Registration and forgot-password need `solveCaptcha()`; the member
     login has no captcha.
-- **latin1 columns.** The full-name column cannot hold Lithuanian
-  letters, so tests that read names back use plain ASCII. The pin
-  `fullname-latin1` is the exception.
+- **Character sets.** `bei_users` is utf8mb4 and keeps every letter of
+  a name. `bei_managers` is still latin1, so a manager's e-mail address
+  must keep to the letters latin1 has.
 - **MySQL rounding.** The course-progress function rounds a double, and
   MySQL rounds half to even: 12.5 % shows as 12.
 - **PHPUnit 13 and Laravel 13.**

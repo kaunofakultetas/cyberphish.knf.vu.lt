@@ -132,10 +132,9 @@ class World
     // replacing what the seed may have put there.
     //
     // Used by:
-    //   - AdminContentTest (Feature/Admin/)
-    //   - CourseProgressTest, LearningDefectsTest,
-    //     SelfEvaluationTest (Feature/Learning/)
-    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
+    //   - CourseProgressTest, SelfEvaluationTest
+    //     (Feature/Learning/)
+    //   - PublicPagesTest (Feature/Site/)
     //   - knowledgeLimits (below)
     // -----------------------------------------------------------
 
@@ -180,6 +179,7 @@ class World
             'status'         => 1,
             'country'        => 1,
             'verify_token'   => '',
+            'reset_token'    => '',
             'remember_token' => '',
         ], $columns));
         return Members::find($id);
@@ -229,8 +229,8 @@ class World
     // seeded admin (manager 1); returns its id.
     //
     // Used by:
-    //   - AdminContentTest, AdminDefectsTest (Feature/Admin/)
-    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
+    //   - AdminContentTest (Feature/Admin/)
+    //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function news(int $langId, array $columns = []): int
@@ -311,10 +311,9 @@ class World
     // returns its id.
     //
     // Used by:
-    //   - AdminDefectsTest, AdminLearningTest, AdminUsersTest
-    //     (Feature/Admin/)
-    //   - CourseProgressTest, LearningDefectsTest,
-    //     LearningMaterialTest (Feature/Learning/)
+    //   - AdminLearningTest, AdminUsersTest (Feature/Admin/)
+    //   - CourseProgressTest, LearningMaterialTest
+    //     (Feature/Learning/)
     // -----------------------------------------------------------
 
     public function lmContent(int $categoryId, int $langId, array $columns = []): int
@@ -342,7 +341,7 @@ class World
     // unless the columns say otherwise; returns its id.
     //
     // Used by:
-    //   - AdminDefectsTest (Feature/Admin/)
+    //   - AdminLearningTest (Feature/Admin/)
     //   - LearningMaterialTest (Feature/Learning/)
     // -----------------------------------------------------------
 
@@ -377,9 +376,9 @@ class World
     // "options".
     //
     // Used by:
-    //   - AdminLearningTest, AdminDefectsTest (Feature/Admin/)
-    //   - CourseProgressTest, LearningDefectsTest,
-    //     SelfEvaluationTest (Feature/Learning/)
+    //   - AdminLearningTest (Feature/Admin/)
+    //   - CourseProgressTest, SelfEvaluationTest
+    //     (Feature/Learning/)
     // -----------------------------------------------------------
 
     public function selfEvalQuestion(int $categoryId, array $options): array
@@ -419,9 +418,8 @@ class World
     // the option ids, in order, under "options".
     //
     // Used by:
-    //   - AdminLearningTest, AdminDefectsTest (Feature/Admin/)
-    //   - KnowledgeExamTest, KnowledgeDefectsTest
-    //     (Feature/Knowledge/)
+    //   - AdminLearningTest (Feature/Admin/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
     // -----------------------------------------------------------
 
     public function knowledgeQuestion(int $categoryId, array $options): array
@@ -455,8 +453,7 @@ class World
     // settings page stores in settings row 3.
     //
     // Used by:
-    //   - KnowledgeExamTest, KnowledgeDefectsTest
-    //     (Feature/Knowledge/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
     // -----------------------------------------------------------
 
     public function knowledgeLimits(array $limits): void
@@ -476,10 +473,9 @@ class World
     // A simulation category in the language; returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest, AdminDefectsTest
+    //   - AdminContentTest, AdminSimulationsTest
     //     (Feature/Admin/)
-    //   - SimulationsTest, SimulationDefectsTest
-    //     (Feature/Simulations/)
+    //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
 
     public function scenarioCategory(int $langId, array $columns = []): int
@@ -502,7 +498,7 @@ class World
     // A simulation attribute in the language; returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest, AdminDefectsTest
+    //   - AdminContentTest, AdminSimulationsTest
     //     (Feature/Admin/)
     //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
@@ -529,13 +525,11 @@ class World
     // steps are added with scenarioOption. Returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest, AdminDefectsTest
-    //     (Feature/Admin/)
-    //   - CourseProgressTest, LearningDefectsTest
-    //     (Feature/Learning/)
-    //   - SimulationsTest, SimulationDefectsTest
-    //     (Feature/Simulations/)
-    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
+    //   - AdminAccessTest, AdminContentTest,
+    //     AdminSimulationsTest (Feature/Admin/)
+    //   - CourseProgressTest (Feature/Learning/)
+    //   - SimulationsTest (Feature/Simulations/)
+    //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function scenario(int $langId, array $columns = [], array $categoryIds = [], array $attributeIds = []): int
@@ -585,8 +579,7 @@ class World
     //
     // Used by:
     //   - AdminSimulationsTest (Feature/Admin/)
-    //   - SimulationsTest, SimulationDefectsTest
-    //     (Feature/Simulations/)
+    //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
 
     public function scenarioOption(int $scenarioId, int $parentId, int $level, int $points, array $columns = []): int
@@ -623,7 +616,7 @@ class World
     // log keeps it; returns its id.
     //
     // Used by:
-    //   - LoginTest, AuthDefectsTest (Feature/Auth/)
+    //   - LoginTest (Feature/Auth/)
     // -----------------------------------------------------------
 
     public function loginLog(int $userId, string $loggedAt): int
@@ -645,8 +638,7 @@ class World
     //
     // Used by:
     //   - AdminLearningTest, AdminUsersTest (Feature/Admin/)
-    //   - CourseProgressTest, LearningDefectsTest
-    //     (Feature/Learning/)
+    //   - CourseProgressTest (Feature/Learning/)
     // -----------------------------------------------------------
 
     public function lessonDone(int $userId, int $contentId): int
@@ -668,7 +660,7 @@ class World
     // returns its id.
     //
     // Used by:
-    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
+    //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function selfEvalAttempt(int $userId, int $categoryId, int $langId, array $columns = []): int
@@ -699,7 +691,8 @@ class World
     // 74) and the like; returns its id.
     //
     // Used by:
-    //   - CertificateTest, KnowledgeDefectsTest
+    //   - AdminAccessTest (Feature/Admin/)
+    //   - CertificateTest, KnowledgeExamTest
     //     (Feature/Knowledge/)
     //   - CourseProgressTest (Feature/Learning/)
     // -----------------------------------------------------------
@@ -731,10 +724,11 @@ class World
     // columns set its points and the like; returns its id.
     //
     // Used by:
-    //   - AdminSimulationsTest (Feature/Admin/)
+    //   - AdminAccessTest, AdminSimulationsTest
+    //     (Feature/Admin/)
     //   - CourseProgressTest (Feature/Learning/)
     //   - SimulationsTest (Feature/Simulations/)
-    //   - PublicPagesTest, SiteDefectsTest (Feature/Site/)
+    //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
     public function scenarioAttempt(int $userId, int $scenarioId, int $langId, array $columns = []): int
@@ -765,8 +759,8 @@ class World
     // included, since they use ids up too.
     //
     // Used by:
+    //   - AdminLearningTest (Feature/Admin/)
     //   - KnowledgeExamTest (Feature/Knowledge/)
-    //   - AdminDefectsTest (Feature/Admin/)
     // -----------------------------------------------------------
 
     public function nextId(string $table): int

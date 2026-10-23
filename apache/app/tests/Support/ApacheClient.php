@@ -125,7 +125,7 @@ class ApacheClient
     //
     // Used by:
     //   - ApacheTestCase::signInOverHttp (tests/)
-    //   - ApacheDefectsTest, ProtectionTest, SessionTest
+    //   - ProductionModeTest, ProtectionTest, SessionTest
     //     (Apache/)
     // -----------------------------------------------------------
 
@@ -192,7 +192,7 @@ class ApacheClient
     //
     // Used by:
     //   - ApacheTestCase::signInOverHttp (tests/)
-    //   - ApacheDefectsTest (Apache/)
+    //   - ProductionModeTest (Apache/)
     // -----------------------------------------------------------
 
     public function csrfToken(string $path): string
@@ -218,7 +218,7 @@ class ApacheClient
     // attributes, or null when Apache has not set it.
     //
     // Used by:
-    //   - SessionTest, ApacheDefectsTest (Apache/)
+    //   - SessionTest (Apache/)
     // -----------------------------------------------------------
 
     public function cookie(string $name): ?SetCookie

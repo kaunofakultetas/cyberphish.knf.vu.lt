@@ -62,8 +62,8 @@ trait Flows
     // attempt's public id.
     //
     // Used by:
-    //   - SelfEvaluationTest, LearningDefectsTest,
-    //     CourseProgressTest (Feature/Learning/)
+    //   - SelfEvaluationTest, CourseProgressTest
+    //     (Feature/Learning/)
     // -----------------------------------------------------------
 
     protected function startSelfEvaluation(Members $member, int $categoryId): string
@@ -89,8 +89,8 @@ trait Flows
     // attempt.
     //
     // Used by:
-    //   - SelfEvaluationTest, LearningDefectsTest,
-    //     CourseProgressTest (Feature/Learning/)
+    //   - SelfEvaluationTest, CourseProgressTest
+    //     (Feature/Learning/)
     // -----------------------------------------------------------
 
     protected function answerSelfEvaluation(Members $member, string $publicId, int $categoryId, int $questionId, array $optionIds): TestResponse
@@ -115,8 +115,7 @@ trait Flows
     // 2 lists it at the end.
     //
     // Used by:
-    //   - SimulationsTest, SimulationDefectsTest
-    //     (Feature/Simulations/)
+    //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
 
     protected function startSimulation(Members $member, int $scenarioId, int $type = 1): string
@@ -141,8 +140,7 @@ trait Flows
     // Posts the option chosen at the current step of the run.
     //
     // Used by:
-    //   - SimulationsTest, SimulationDefectsTest
-    //     (Feature/Simulations/)
+    //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
 
     protected function chooseSimulationOption(Members $member, string $publicId, int $optionId): TestResponse
@@ -163,8 +161,7 @@ trait Flows
     // English and returns its public id.
     //
     // Used by:
-    //   - KnowledgeExamTest, KnowledgeDefectsTest
-    //     (Feature/Knowledge/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
     // -----------------------------------------------------------
 
     protected function startKnowledgeTest(Members $member): string
@@ -190,8 +187,7 @@ trait Flows
     // page's server side — for one question of the test.
     //
     // Used by:
-    //   - KnowledgeExamTest, KnowledgeDefectsTest
-    //     (Feature/Knowledge/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
     // -----------------------------------------------------------
 
     protected function answerKnowledgeQuestion(Members $member, string $publicId, int $questionId, array $optionIds): TestResponse

@@ -35,7 +35,7 @@ use App\Models\Members as Members;
 // -----------------------------------------------------------
 //
 // Guards the reset link: its token must be the
-// remember_token of exactly one member, and not an empty
+// reset_token of exactly one member, and not an empty
 // one. The reset empties the column, and so does every
 // sign-in of the member, so a link works once and dies at
 // the next login. Refuses with a 404.
@@ -58,11 +58,11 @@ class ValidateReset
     // -----------------------------------------------------------
     //
     // Checks the token of the URL: exactly one bei_users row
-    // whose remember_token equals it, the empty and NULL
-    // tokens left out. Leaving the empty ones out also stops
-    // a token of blanks, which MySQL would find equal to an
-    // empty one, since it ignores trailing spaces when it
-    // compares.
+    // whose reset_token equals it, the empty tokens of the
+    // members with no reset pending left out. Leaving them
+    // out also stops a token of blanks, which MySQL would
+    // find equal to an empty one, since it ignores trailing
+    // spaces when it compares.
     //
     // Used by:
     //   - Laravel's router, on the route in the class banner
@@ -72,7 +72,7 @@ class ValidateReset
     {
         $reset_token = $request->route('reset_token');
 
-        if(Members::where(['remember_token'=>$reset_token])->where('remember_token', '<>', '')->whereNotNull('remember_token')->count() == 1) {
+        if(Members::where(['reset_token'=>$reset_token])->where('reset_token', '<>', '')->count() == 1) {
 
             return $next($request);
 

@@ -9,9 +9,9 @@
 //  by dompdf; anyone else gets a 404. The template prints
 //  the full name — which the member types in — as text, so
 //  no markup reaches dompdf. A name keeps to the line drawn
-//  for it, shrinking when it is too wide, and a name the
-//  script font cannot draw, a Greek one, comes in a font
-//  that can.
+//  for it, shrinking when it is too wide, and every letter
+//  of a Lithuanian or a Greek name is drawn: a name the
+//  script font cannot draw comes in a font that can.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -313,9 +313,7 @@ class CertificateTest extends FeatureTestCase
     //
     // Greek is one of the five site languages, and Parisienne
     // has Latin letters only: a Greek name is drawn in a font
-    // that has every one of its letters. (The full-name
-    // column still turns them into question marks before the
-    // certificate is drawn — fullname-latin1.)
+    // that has every one of its letters.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -323,16 +321,63 @@ class CertificateTest extends FeatureTestCase
 
     public function testGreekNamePrintsInGreekLetters(): void
     {
-        $name = 'Γιώργος Παπαδόπουλος';
-        $font = Font::load($this->nameFrame($name)['font'] . '.ttf');
-        $font->parse();
-        $map = $font->getUnicodeCharMap();
-        $letters = preg_split('//u', str_replace(' ', '', $name), -1, PREG_SPLIT_NO_EMPTY);
-        $missing = implode('', array_filter($letters, function (string $letter) use ($map) {
-            return !isset($map[mb_ord($letter)]);
-        }));
+        $missing = $this->lettersTheNameFontLacks('Γιώργος Παπαδόπουλος');
 
         $this->assertSame('', $missing, "the name font lacks $missing");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLithuanianNamePrintsEveryLetter
+    // -----------------------------------------------------------
+    //
+    // The full-name column keeps Lithuanian letters, so the
+    // certificate gets them: each of the nine, small and
+    // capital, is drawn in a font that has it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLithuanianNamePrintsEveryLetter(): void
+    {
+        $missing = $this->lettersTheNameFontLacks('Ąžuolė Čiurlionytė ąčęėįšųūž ĄČĘĖĮŠŲŪŽ');
+
+        $this->assertSame('', $missing, "the name font lacks $missing");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // lettersTheNameFontLacks
+    // -----------------------------------------------------------
+    //
+    // The letters of the full name that the font the
+    // certificate draws it in has no glyph for, in the order
+    // of the name; empty when every letter is drawn.
+    //
+    // Used by:
+    //   - testGreekNamePrintsInGreekLetters,
+    //     testLithuanianNamePrintsEveryLetter (above)
+    // -----------------------------------------------------------
+
+    private function lettersTheNameFontLacks(string $fullname): string
+    {
+        $font = Font::load($this->nameFrame($fullname)['font'] . '.ttf');
+        $font->parse();
+        $map = $font->getUnicodeCharMap();
+        $letters = preg_split('//u', str_replace(' ', '', $fullname), -1, PREG_SPLIT_NO_EMPTY);
+
+        return implode('', array_filter($letters, function (string $letter) use ($map) {
+            return !isset($map[mb_ord($letter)]);
+        }));
     }
 
 
@@ -354,7 +399,8 @@ class CertificateTest extends FeatureTestCase
     // in its end_frame callback.
     //
     // Used by:
-    //   - the name tests of this class (above)
+    //   - the name tests of this class, the two on letters
+    //     through lettersTheNameFontLacks (above)
     // -----------------------------------------------------------
 
     private function nameFrame(string $fullname): array

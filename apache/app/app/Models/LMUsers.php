@@ -13,8 +13,7 @@
 //    - BaseController, LMController (Http/Controllers/)
 //    - Admin\LMController, Admin\UsersController,
 //      Admin\ManagerMainController (Http/Controllers/Admin/)
-//    - CourseProgressTest, LearningDefectsTest
-//      (tests/Feature/Learning/)
+//    - CourseProgressTest (tests/Feature/Learning/)
 // -----------------------------------------------------------
 
 
@@ -126,37 +125,22 @@ class LMUsers extends Model
     // The member's course progress in the language, a whole
     // percentage, from the stored function
     // bei_user_course_progress of mysql/init.sql: up to 25
-    // points for the hours of completed lessons, 20 for
-    // finished self-evaluations, 30 for a passed knowledge
-    // test (75 or more) and 25 for finished simulations. A
-    // NULL from the function comes back as 0.
-    //
-    // Known bug (medium): the function divides the finished
-    // self-evaluation attempts — repeats included — by the
-    // number of self-evaluation QUESTIONS of the language
-    // (mysql/init.sql:327-334), though one self-evaluation
-    // asks several questions: a member who finished each
-    // once gets only part of the 20 points, and repeating
-    // one adds more (pinned as course-progress-selfeval).
-    // Fix: count the distinct finished categories against
-    // the categories that have questions.
-    //
-    // Known bug (low): a part the function cannot work out —
-    // no completed lesson, a language without
-    // self-evaluation questions or without simulations —
-    // turns the whole sum NULL (mysql/init.sql:333-336), and
-    // the member sees 0 whatever else is done. Fix: COALESCE
-    // each part to 0 and guard the divisions.
-    // Pinned as course-progress-null.
+    // points for the hours of completed lessons, 20 for the
+    // self-evaluations — one per category that has
+    // questions, counted once however often it is taken —
+    // 30 for a passed knowledge test (75 or more) and 25 for
+    // the simulations finished. A share the language does
+    // not offer counts 0, so in a language without
+    // simulations the progress tops out at 75. A NULL from
+    // the function comes back as 0.
     //
     // Used by:
     //   - BaseController::__construct — the progress bar of
     //     every member page
     //   - Admin\ManagerMainController::dashboard — each
     //     member's progress per language
-    //   - CourseProgressTest, LearningDefectsTest
-    //     (tests/Feature/Learning/) — run it on the real
-    //     function
+    //   - CourseProgressTest (tests/Feature/Learning/) — runs
+    //     it on the real function
     // -----------------------------------------------------------
 
     public static function course_progress($user_id, $lang_id)

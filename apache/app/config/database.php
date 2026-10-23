@@ -63,8 +63,7 @@ return [
             'password' => env('DB_PASSWORD'),
             'unix_socket' => env('DB_SOCKET', ''),
             // The connection's character set; MySQL converts to
-            // each column's own on write — latin1 in bei_users,
-            // bei_managers and bei_lm_category
+            // each column's own on write — latin1 in bei_managers
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
@@ -73,8 +72,7 @@ return [
             // NO_ENGINE_SUBSTITUTION alone, so MySQL cuts an
             // over-long value and stores a character the column
             // cannot hold as a question mark, with a warning
-            // instead of an error — the silence behind the
-            // fullname-latin1 pin (tests/Feature/Account)
+            // instead of an error
             'strict' => false,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([

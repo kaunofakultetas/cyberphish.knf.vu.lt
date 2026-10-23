@@ -114,7 +114,8 @@ class ConfigTest extends TestCase
     //
     // Scripts in the page cannot read the session cookie, and
     // other sites' forms do not carry it (SameSite lax). Its
-    // missing Secure flag is pinned in HardeningDefectsTest.
+    // Secure flag, which Laravel sets on HTTPS requests, is
+    // checked in SessionTest::testSessionCookieIsSecure.
     //
     // Used by:
     //   - PHPUnit — the Platform suite (runTests.sh)

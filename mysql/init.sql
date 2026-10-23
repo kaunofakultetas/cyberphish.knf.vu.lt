@@ -47,13 +47,14 @@ CREATE TABLE IF NOT EXISTS `bei_users` (
   `last_login` datetime DEFAULT NULL,
   `last_ip` varchar(45) DEFAULT NULL,
   `remember_token` varchar(50) DEFAULT NULL,
+  `reset_token` varchar(50) NOT NULL DEFAULT '',
   `verify_token` varchar(255) DEFAULT NULL,
   `country` int(21) DEFAULT '0',
   `status` int(21) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `email_UNIQUE` (`email`),
   UNIQUE KEY `username_UNIQUE` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `bei_settings` (
   `id` int(21) NOT NULL AUTO_INCREMENT,
@@ -323,16 +324,30 @@ CREATE TABLE IF NOT EXISTS `bei_users_scenarios_options` (
 DELIMITER ;;
 CREATE FUNCTION `bei_user_course_progress`(userid INT, langid INT) RETURNS int(11)
 BEGIN
+
 	SELECT SUM(hours) AS total_hours INTO @total_hours FROM bei_lm_content WHERE bei_lm_content.lang_id=langid;
-	SELECT COUNT(*) AS total_self_eval_tests INTO @total_self_eval_tests FROM bei_selfeval_question LEFT JOIN bei_lm_category ON bei_lm_category.id = bei_selfeval_question.cat_id WHERE bei_lm_category.lang_id=langid;
-	SELECT COUNT(DISTINCT bei_users_selfeval.test_id) INTO @user_selfeval_tests FROM bei_users_selfeval_test RIGHT JOIN bei_users_selfeval ON bei_users_selfeval.public_id = bei_users_selfeval_test.public_id WHERE bei_users_selfeval_test.lang_id = langid AND bei_users_selfeval_test.user_id=userid AND bei_users_selfeval_test.finished=1 ORDER BY bei_users_selfeval_test.id DESC;
+
+	-- The self-evaluations the course offers: one per category of
+	-- the language that has questions
+	SELECT COUNT(DISTINCT bei_selfeval_question.cat_id) INTO @total_self_eval_tests FROM bei_selfeval_question LEFT JOIN bei_lm_category ON bei_lm_category.id = bei_selfeval_question.cat_id WHERE bei_lm_category.lang_id=langid;
+
+	-- The member's finished ones, one per category however often taken
+	SELECT COUNT(DISTINCT bei_users_selfeval_test.cat_id) INTO @user_selfeval_tests FROM bei_users_selfeval_test WHERE bei_users_selfeval_test.lang_id = langid AND bei_users_selfeval_test.user_id=userid AND bei_users_selfeval_test.finished=1 AND bei_users_selfeval_test.cat_id IN (SELECT bei_selfeval_question.cat_id FROM bei_selfeval_question LEFT JOIN bei_lm_category ON bei_lm_category.id = bei_selfeval_question.cat_id WHERE bei_lm_category.lang_id=langid);
+
 	SELECT SUM(bei_lm_content.hours) AS users_hours INTO @users_hours FROM bei_users LEFT JOIN bei_lm_users ON bei_lm_users.user_id = bei_users.id LEFT JOIN bei_lm_content ON bei_lm_users.content_id = bei_lm_content.id WHERE bei_users.id = userid AND bei_lm_content.lang_id = langid;
+
 	SELECT IF(COUNT(*)>0, 30, 0) INTO @knowledge_test FROM bei_users_knowledge_test WHERE bei_users_knowledge_test.finished=1 AND bei_users_knowledge_test.results >=75 AND bei_users_knowledge_test.user_id = userid AND lang_id = langid;
+
 	SELECT COUNT(*) INTO @all_scenarios FROM bei_scenarios WHERE bei_scenarios.lang_id = langid;
+
 	SELECT COUNT(DISTINCT bei_users_scenarios.scenario_id) INTO @user_scenarios FROM bei_users_scenarios WHERE bei_users_scenarios.lang_id = langid AND bei_users_scenarios.finished=1 AND bei_users_scenarios.user_id = userid;
-	SET @total_course = ROUND(@users_hours * 100 / @total_hours, 0) * 0.25;
-	SET @total_selfeval = ROUND(@user_selfeval_tests * 100 / @total_self_eval_tests, 0) * 0.2;
-	SET @total_scenarios = ROUND(@user_scenarios * 100 / @all_scenarios, 0) * 0.25;
+
+	-- A share the language does not offer, or the member has not
+	-- begun, is 0 rather than NULL, which would null the sum
+	SET @total_course = IFNULL(ROUND(@users_hours * 100 / NULLIF(@total_hours, 0), 0) * 0.25, 0);
+	SET @total_selfeval = IFNULL(ROUND(@user_selfeval_tests * 100 / NULLIF(@total_self_eval_tests, 0), 0) * 0.2, 0);
+	SET @total_scenarios = IFNULL(ROUND(@user_scenarios * 100 / NULLIF(@all_scenarios, 0), 0) * 0.25, 0);
+
 RETURN ROUND(@total_course + @total_selfeval + @knowledge_test + @total_scenarios,2);
 END ;;
 DELIMITER ;

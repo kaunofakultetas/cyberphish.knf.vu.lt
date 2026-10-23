@@ -11,7 +11,7 @@
 //  to bend the sheet to its case and leaves the rest valid.
 //
 //  Used by:
-//    - AdminSimulationsTest, AdminDefectsTest (Feature/Admin/)
+//    - AdminSimulationsTest (Feature/Admin/)
 // -----------------------------------------------------------
 
 
@@ -38,7 +38,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 //   simulationSheet — the spreadsheet, as an uploaded file
 //
 // Used by:
-//   - AdminSimulationsTest, AdminDefectsTest (Feature/Admin/)
+//   - AdminSimulationsTest (Feature/Admin/)
 // -----------------------------------------------------------
 
 trait Sheets
@@ -61,9 +61,9 @@ trait Sheets
     // cells given replace the ones of that sheet.
     //
     // Used by:
-    //   - AdminSimulationsTest::testSpreadsheetBecomesASimulation
-    //   - AdminDefectsTest — testFailedImportLeavesNothingBehind
-    //     and testImportFilesUnderTheCategoriesOfItsLanguage
+    //   - AdminSimulationsTest — testSpreadsheetBecomesASimulation,
+    //     testFailedImportLeavesNothingBehind and
+    //     testImportFilesUnderTheCategoriesOfItsLanguage
     // -----------------------------------------------------------
 
     protected function simulationSheet(array $cells = []): UploadedFile

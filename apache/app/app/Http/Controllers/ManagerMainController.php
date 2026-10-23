@@ -44,8 +44,8 @@ use App\Models\Members;
 // Every action works on the signed-in member's own row of
 // bei_users. The forms check lengths with Laravel's
 // validator, and those differ from what the pages ask for
-// in the browser; what a name may hold is decided by the
-// table's latin1 character set (see the method banners).
+// in the browser. A name keeps every letter typed, the
+// table being utf8mb4.
 //
 //   dashboard       — the member's own page
 //   change_pass     — a new password
@@ -196,14 +196,6 @@ class ManagerMainController extends BaseController
     // keys pass_updated and pass_unavailable, which hold the
     // user-name texts despite their names.
     //
-    // Known bug (medium): bei_users is latin1 while the
-    // connection speaks utf8mb4, so the uniqueness lookup
-    // (ManagerMainController.php:224) fails on a name with
-    // Lithuanian letters with an illegal mix of collations —
-    // a 500, which production logged for students' real
-    // names. Pinned as username-lithuanian. Fix: convert the
-    // table to utf8mb4.
-    //
     // Used by:
     //   - parts/change_username.blade.php — the user-name form
     //     on the dashboard
@@ -250,13 +242,6 @@ class ManagerMainController extends BaseController
     // certificate shrinks a name too wide for its line
     // (CertController::name_style) — and a bare "Error!"
     // otherwise. Unlike the user name it need not be unique.
-    //
-    // Known bug (medium): bei_users is a latin1 table, so the
-    // letters latin1 lacks — ą, č, ę, ė, į, ų, ū — are stored
-    // as question marks without an error
-    // (ManagerMainController.php:279), and the certificate
-    // prints them so. Pinned as fullname-latin1. Fix: convert
-    // the table to utf8mb4.
     //
     // Used by:
     //   - parts/change_fullname.blade.php — the full-name form

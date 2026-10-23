@@ -161,7 +161,7 @@ class LoginController extends BaseController
     // success it records the visit — last_login, last_ip
     // (SettingsController::getUserIP), a bei_users_loginlog
     // row, badge_login_10 after ten days in a row — empties
-    // remember_token, and sends the member to the page that
+    // reset_token, and sends the member to the page that
     // asked for a sign-in, or to the dashboard. The form has
     // no reCAPTCHA, so the guesses are limited the way the
     // trait's login limits them: every refusal counts against
@@ -194,9 +194,9 @@ class LoginController extends BaseController
 
             $this->clearLoginAttempts($request);
 
-            // Emptying remember_token cancels a pending password
-            // reset: forgotpassword keeps the reset token there
-            Members::where(['id' => Auth::guard('mem')->id()])->update(['last_login' => Carbon::now(), 'last_ip' => SettingsController::getUserIP(), 'remember_token'=>'']);
+            // Emptying reset_token cancels a pending password
+            // reset (see forgotpassword)
+            Members::where(['id' => Auth::guard('mem')->id()])->update(['last_login' => Carbon::now(), 'last_ip' => SettingsController::getUserIP(), 'reset_token'=>'']);
 
             LoginLog::save_login(Auth::guard('mem')->id());
             LoginLog::if_login_10(Auth::guard('mem')->id());
@@ -225,8 +225,9 @@ class LoginController extends BaseController
     // home page. Unlike the trait's logout it leaves the
     // session alive, so the language choice survives — and so
     // does a manager signed in on the same browser. On the way
-    // out the guard also replaces a non-empty remember_token
-    // (see forgotpassword).
+    // out the guard replaces a non-empty remember_token with a
+    // random one; a pending password reset waits in
+    // reset_token, out of its reach (see forgotpassword).
     //
     // Used by:
     //   - layouts/main.blade.php — the logout entry of the
@@ -280,19 +281,13 @@ class LoginController extends BaseController
     // reCAPTCHA counts as unsolved (AppServiceProvider::boot).
     // When exactly one member has that email, a 50-character
     // token from random_string goes out in a SendRemindLink
-    // mail and is then stored in the member's remember_token.
-    // Every address gets the same forgot_pass_msg answer, mail
-    // or no mail, so the form does not tell who has an
-    // account.
-    //
-    // Known bug (low): remember_token is the column Laravel's
-    // session guard keeps for remember-me, and the guard's
-    // logout replaces a non-empty one with a random string.
-    // A member still signed in elsewhere who signs out there
-    // after asking for a link (LoginController.php:314) kills
-    // the link before it is opened. Fix: keep the reset token
-    // in a column of its own.
-    // Pinned as reset-link-logout.
+    // mail and is then stored in the member's reset_token — a
+    // column of its own, as remember_token belongs to
+    // Laravel's session guard, whose logout replaces a
+    // non-empty one: a member still signed in elsewhere who
+    // signs out there keeps the link. Every address gets the
+    // same forgot_pass_msg answer, mail or no mail, so the
+    // form does not tell who has an account.
     //
     // Used by:
     //   - auth/forgot-password.blade.php — the form posts here
@@ -311,7 +306,7 @@ class LoginController extends BaseController
 
             Mail::to($request->get('email'))->send(new SendRemindLink(['uid'=>$uid]));
 
-            Members::where(['email'=>$request->get('email')])->update(['remember_token'=>$uid]);
+            Members::where(['email'=>$request->get('email')])->update(['reset_token'=>$uid]);
 
         }
 
@@ -350,11 +345,11 @@ class LoginController extends BaseController
     {
         $new_pass = SettingsController::random_string(12);
 
-        $user_email = Members::select('email')->where('remember_token', '=', $reset_token)->get()->pluck('email')->first();
+        $user_email = Members::select('email')->where('reset_token', '=', $reset_token)->get()->pluck('email')->first();
 
         Mail::to($user_email)->send(new SendNewPass(['new_pass'=>$new_pass]));
 
-        Members::where('remember_token', '=', $reset_token)->update(['password'=>Hash::make($new_pass), 'remember_token'=>'']);
+        Members::where('reset_token', '=', $reset_token)->update(['password'=>Hash::make($new_pass), 'reset_token'=>'']);
 
         return redirect(route('login'))->withSuccess(__('main.new_pass_emailed'));
     }

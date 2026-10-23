@@ -7,15 +7,13 @@
 //  the stored function bei_user_course_progress of
 //  mysql/init.sql, through LMUsers::course_progress: a
 //  quarter for the hours of completed lessons, a fifth for
-//  finished self-evaluations, 30 points for a passed
-//  knowledge test (75 or more) and a quarter for the
-//  simulations finished, per language. These tests run the
-//  real function on MySQL 5.7. The function's NULL parts
-//  (a language without self-evaluation questions or
-//  simulations, a member with no completed lesson) make the
-//  whole sum NULL, which the helper turns into 0, so every
-//  scene here has both. The miscounted self-evaluation
-//  share is pinned in LearningDefectsTest.
+//  the self-evaluations — one per category, counted once
+//  however often taken — 30 points for a passed knowledge
+//  test (75 or more) and a quarter for the simulations
+//  finished, per language. A share the language does not
+//  offer, or the member has not begun, counts 0 and leaves
+//  the others standing. These tests run the real function
+//  on MySQL 5.7.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -212,13 +210,68 @@ class CourseProgressTest extends FeatureTestCase
     public function testEverythingDoneIsAHundred(): void
     {
         $this->completeLessons();
-        $publicId = $this->startSelfEvaluation($this->member, $this->category);
-        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->question['question'], [$this->question['options'][0]]);
-        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
+        $this->finishSelfEvaluation([$this->question]);
         $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 90]);
         $this->world->scenarioAttempt($this->member->id, $this->scenario, $this->en);
 
         $this->assertEquals(100, $this->progress());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFinishedSelfEvaluationsCountTheirFullShare
+    // -----------------------------------------------------------
+    //
+    // A self-evaluation two questions long, finished once,
+    // earns the whole fifth on top of the lessons' quarter,
+    // and finishing it again adds nothing. The function once
+    // divided the finished attempts by the number of
+    // questions, which gave half the share here and made
+    // every repeat count.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedSelfEvaluationsCountTheirFullShare(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 2);
+        $second = $this->world->selfEvalQuestion($this->category, [['Right', true, 100], ['Wrong', false, 0]]);
+        $this->completeLessons();
+
+        $this->finishSelfEvaluation([$this->question, $second]);
+        $this->assertEquals(45, $this->progress());
+
+        $this->finishSelfEvaluation([$this->question, $second]);
+        $this->assertEquals(45, $this->progress());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPassedKnowledgeTestCountsWithoutLessons
+    // -----------------------------------------------------------
+    //
+    // A member who completed no lesson has no lesson hours to
+    // add up, a share of 0 that no longer takes the rest down
+    // with it: a passed knowledge test alone shows its 30.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPassedKnowledgeTestCountsWithoutLessons(): void
+    {
+        $this->world->knowledgeAttempt($this->member->id, $this->en, ['results' => 80]);
+
+        $this->assertEquals(30, $this->progress());
     }
 
 
@@ -255,6 +308,35 @@ class CourseProgressTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLanguageWithoutSimulationsStillShowsTheProgress
+    // -----------------------------------------------------------
+    //
+    // A language without simulations has no simulation share
+    // to offer, which counts 0: a member who completed every
+    // Lithuanian lesson, where a self-evaluation question but
+    // no simulation exists, has the lessons' 25 — not the 0
+    // a NULL share once made of the whole sum.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageWithoutSimulationsStillShowsTheProgress(): void
+    {
+        $lt = $this->world->language('lt');
+        $ltCategory = $this->world->lmCategory($lt);
+        $this->world->lessonDone($this->member->id, $this->world->lmContent($ltCategory, $lt));
+        $this->world->selfEvalQuestion($ltCategory, [['Taip', true, 100]]);
+
+        $this->assertEquals(25, LMUsers::course_progress($this->member->id, $lt));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // completeLessons
     // -----------------------------------------------------------
     //
@@ -263,8 +345,9 @@ class CourseProgressTest extends FeatureTestCase
     // Used by:
     //   - testPassedKnowledgeTestAddsThirty,
     //     testFinishedSimulationsMakeAQuarter,
-    //     testEverythingDoneIsAHundred, testProgressIsPerLanguage
-    //     (above)
+    //     testEverythingDoneIsAHundred,
+    //     testFinishedSelfEvaluationsCountTheirFullShare,
+    //     testProgressIsPerLanguage (above)
     // -----------------------------------------------------------
 
     private function completeLessons(): void
@@ -280,6 +363,35 @@ class CourseProgressTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // finishSelfEvaluation
+    // -----------------------------------------------------------
+    //
+    // Takes the category's self-evaluation the way a member
+    // does: starts it, answers each of the questions given
+    // right and opens the result page, which marks the
+    // attempt finished.
+    //
+    // Used by:
+    //   - testEverythingDoneIsAHundred,
+    //     testFinishedSelfEvaluationsCountTheirFullShare
+    //     (above)
+    // -----------------------------------------------------------
+
+    private function finishSelfEvaluation(array $questions): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        foreach ($questions as $question) {
+            $this->answerSelfEvaluation($this->member, $publicId, $this->category, $question['question'], [$question['options'][0]]);
+        }
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // progress
     // -----------------------------------------------------------
     //
@@ -287,8 +399,9 @@ class CourseProgressTest extends FeatureTestCase
     // get it, as a whole number of percent.
     //
     // Used by:
-    //   - every test of this class but testProgressIsPerLanguage,
-    //     which reads another language
+    //   - every test of this class but testProgressIsPerLanguage
+    //     and testLanguageWithoutSimulationsStillShowsTheProgress,
+    //     which read Lithuanian
     // -----------------------------------------------------------
 
     private function progress(): int

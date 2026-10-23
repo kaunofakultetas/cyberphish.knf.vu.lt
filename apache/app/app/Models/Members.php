@@ -47,19 +47,19 @@ use Illuminate\Notifications\Notifiable;
 // number like 0, with no questionnaire link), status (0
 // until the e-mailed link is followed or once an admin
 // switches the account off, 1 active; only 1 signs in),
-// verify_token (emptied once used), remember_token — here
-// the pending password-reset token, not Laravel's
-// remember-me token — and last_login / last_ip.
+// verify_token (emptied once used), reset_token (the
+// pending password-reset token, emptied once used and at
+// every sign-in), remember_token (Laravel's remember-me
+// column: members are never remembered, but the session
+// guard reads it at every sign-out, so it must stay) and
+// last_login / last_ip.
 //
-// Known bug (medium): bei_users is a latin1 table
-// (mysql/init.sql:56) while the connection speaks utf8mb4.
-// A full name with letters latin1 lacks — ą, č, ę, ė, į, ų,
-// ū — is stored with question marks, which the certificate
-// prints (pinned as fullname-latin1), and a user name with
-// such letters fails the uniqueness lookup of
-// ManagerMainController::change_username with an illegal
-// mix of collations (pinned as username-lithuanian). Fix:
-// convert bei_users to utf8mb4.
+// The table is utf8mb4 (mysql/init.sql:57), like the
+// connection, so names keep every letter. It was latin1
+// until 2026-10-23, and a full name saved before then may
+// hold a question mark for a Lithuanian letter, which the
+// certificate prints until the member saves the name
+// again.
 //
 // Used by:
 //   - Auth\RegisterController — register, verify,

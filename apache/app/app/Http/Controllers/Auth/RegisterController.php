@@ -149,8 +149,8 @@ class RegisterController extends BaseController
     // opened. Mismatched passwords and an address already
     // registered go back with their message — so unlike
     // forgot-password, this form tells whether an address has
-    // an account. The email compares without case (latin1's
-    // case-insensitive collation).
+    // an account. The email compares without case (the
+    // column's case-insensitive collation).
     //
     // Used by:
     //   - auth/register.blade.php — the sign-up form posts here

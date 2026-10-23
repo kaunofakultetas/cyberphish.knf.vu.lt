@@ -113,8 +113,7 @@ abstract class ApacheTestCase extends TestCase
     // World's.
     //
     // Used by:
-    //   - SessionTest, ProductionModeTest, ApacheDefectsTest
-    //     (Apache/)
+    //   - SessionTest, ProductionModeTest (Apache/)
     // -----------------------------------------------------------
 
     protected function signInOverHttp(Members $member, array $headers = []): void

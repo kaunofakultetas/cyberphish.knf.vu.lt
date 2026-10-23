@@ -138,7 +138,7 @@ class LoginTest extends FeatureTestCase
     //
     // A member who remembers the password after asking for a
     // reset link signs in normally, and the link stops
-    // working — the login clears remember_token.
+    // working — the login clears reset_token.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -146,11 +146,11 @@ class LoginTest extends FeatureTestCase
 
     public function testSignInCancelsAPendingPasswordReset(): void
     {
-        $member = $this->world->member(['remember_token' => str_repeat('r', 50)]);
+        $member = $this->world->member(['reset_token' => str_repeat('r', 50)]);
 
         $this->signIn($member->email, World::PASSWORD);
 
-        $this->assertSame('', Members::find($member->id)->remember_token);
+        $this->assertSame('', Members::find($member->id)->reset_token);
         $this->get('/reset/' . str_repeat('r', 50))->assertNotFound();
     }
 

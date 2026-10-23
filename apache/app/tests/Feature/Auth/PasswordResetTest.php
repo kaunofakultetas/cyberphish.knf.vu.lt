@@ -8,13 +8,15 @@
 //  same message, mailing nothing, so the form does not
 //  reveal who has an account. GET /reset/{reset_token},
 //  behind the ValidateReset middleware, mails the member a
-//  new random password and uses the token up. The link is
-//  built from APP_URL whatever host the request claimed,
-//  and a blank token is refused, as the verification link
-//  refuses one (VerificationTest). The tokens and the new
-//  password come from a cryptographic generator, and the
-//  message after the link reaches the login form even when
-//  a member page parked another destination.
+//  new random password and uses the token up. The token
+//  waits in a column of its own, reset_token, which a
+//  sign-out leaves alone. The link is built from APP_URL
+//  whatever host the request claimed, and a blank token is
+//  refused, as the verification link refuses one
+//  (VerificationTest). The tokens and the new password come
+//  from a cryptographic generator, and the message after
+//  the link reaches the login form even when a member page
+//  parked another destination.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -86,7 +88,7 @@ class PasswordResetTest extends FeatureTestCase
     // testRegisteredAddressGetsAResetLink
     // -----------------------------------------------------------
     //
-    // The member's remember_token becomes a fresh 50-character
+    // The member's reset_token becomes a fresh 50-character
     // token and one SendRemindLink mail carries it.
     //
     // Used by:
@@ -100,7 +102,7 @@ class PasswordResetTest extends FeatureTestCase
 
         $this->requestReset($member->email)->assertSessionHas('success', __('main.forgot_pass_msg'));
 
-        $token = Members::find($member->id)->remember_token;
+        $token = Members::find($member->id)->reset_token;
         $this->assertSame(50, strlen($token));
         Mail::assertSent(SendRemindLink::class, function (SendRemindLink $mail) use ($member, $token) {
             return $mail->hasTo($member->email) && $mail->data['uid'] === $token;
@@ -157,7 +159,7 @@ class PasswordResetTest extends FeatureTestCase
         $this->withHeaders(['Host' => 'evil.example', 'X-Forwarded-Host' => 'evil.example'])
             ->requestReset($member->email);
 
-        $token = Members::find($member->id)->remember_token;
+        $token = Members::find($member->id)->reset_token;
         Mail::assertSent(SendRemindLink::class, function (SendRemindLink $mail) use ($token) {
             return $this->mailLink($mail) === 'https://cyberphish.knf.vu.lt/reset/' . $token;
         });
@@ -186,7 +188,7 @@ class PasswordResetTest extends FeatureTestCase
 
         $this->requestReset($member->email)->assertSessionHasErrors('g-recaptcha-response');
 
-        $this->assertSame('', Members::find($member->id)->remember_token);
+        $this->assertSame('', Members::find($member->id)->reset_token);
         Mail::assertNothingSent();
     }
 
@@ -209,7 +211,7 @@ class PasswordResetTest extends FeatureTestCase
 
     public function testResetLinkMailsANewPassword(): void
     {
-        $member = $this->world->member(['remember_token' => self::TOKEN]);
+        $member = $this->world->member(['reset_token' => self::TOKEN]);
 
         $this->get('/reset/' . self::TOKEN)
             ->assertRedirect('/login')
@@ -224,7 +226,7 @@ class PasswordResetTest extends FeatureTestCase
         $this->assertSame(12, strlen($newPassword));
         $this->assertTrue(Hash::check($newPassword, $member->password));
         $this->assertFalse(Hash::check(World::PASSWORD, $member->password));
-        $this->assertSame('', $member->remember_token);
+        $this->assertSame('', $member->reset_token);
     }
 
 
@@ -245,11 +247,42 @@ class PasswordResetTest extends FeatureTestCase
 
     public function testResetLinkWorksOnce(): void
     {
-        $this->world->member(['remember_token' => self::TOKEN]);
+        $this->world->member(['reset_token' => self::TOKEN]);
         $this->get('/reset/' . self::TOKEN);
 
         $this->get('/reset/' . self::TOKEN)->assertNotFound();
 
+        Mail::assertSent(SendNewPass::class, 1);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSigningOutKeepsAPendingResetLink
+    // -----------------------------------------------------------
+    //
+    // Laravel's session guard replaces a non-empty
+    // remember_token when the member signs out, which killed
+    // a pending link while the token lived in that column: a
+    // member still signed in on another device who signed
+    // out there after asking for a link lost it. The member
+    // here signs out with both columns filled, and the link
+    // still opens.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSigningOutKeepsAPendingResetLink(): void
+    {
+        $member = $this->world->member(['reset_token' => self::TOKEN, 'remember_token' => strrev(self::TOKEN)]);
+
+        $this->signInMember($member)->get('/cp/logout');
+
+        $this->get('/reset/' . self::TOKEN)->assertRedirect('/login');
         Mail::assertSent(SendNewPass::class, 1);
     }
 
@@ -270,7 +303,7 @@ class PasswordResetTest extends FeatureTestCase
 
     public function testUnknownResetLinkIsNotFound(): void
     {
-        $this->world->member(['remember_token' => self::TOKEN]);
+        $this->world->member(['reset_token' => self::TOKEN]);
 
         $this->get('/reset/' . strrev(self::TOKEN))->assertNotFound();
 
@@ -286,12 +319,12 @@ class PasswordResetTest extends FeatureTestCase
     // testBlankResetLinkIsNotFound
     // -----------------------------------------------------------
     //
-    // Every member who signed in has an empty remember_token,
-    // and MySQL ignores trailing spaces when it compares
-    // strings, so a token of one space would match them all;
-    // ValidateReset refuses an empty token and demands
-    // exactly one match, so the link is a 404 and no password
-    // changes.
+    // Every member with no reset pending has an empty
+    // reset_token, and MySQL ignores trailing spaces when it
+    // compares strings, so a token of one space would match
+    // them all; ValidateReset refuses an empty token and
+    // demands exactly one match, so the link is a 404 and no
+    // password changes.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -328,7 +361,7 @@ class PasswordResetTest extends FeatureTestCase
 
     public function testNewPasswordMessageReachesAVisitorSentFromAMemberPage(): void
     {
-        $this->world->member(['remember_token' => self::TOKEN]);
+        $this->world->member(['reset_token' => self::TOKEN]);
         $this->get('/cp/dashboard')->assertRedirect('/login');
 
         $this->get('/reset/' . self::TOKEN)

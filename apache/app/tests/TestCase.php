@@ -117,8 +117,7 @@ abstract class TestCase extends LaravelTestCase
     // which Mockery replaces here.
     //
     // Used by:
-    //   - RegistrationTest, PasswordResetTest, AuthDefectsTest
-    //     (Feature/Auth/)
+    //   - RegistrationTest, PasswordResetTest (Feature/Auth/)
     // -----------------------------------------------------------
 
     protected function solveCaptcha(bool $solved = true): void
@@ -216,8 +215,8 @@ abstract class TestCase extends LaravelTestCase
     // in /tmp, the container's tmpfs.
     //
     // Used by:
-    //   - AdminLearningTest, AdminSimulationsTest,
-    //     AdminDefectsTest (Feature/Admin/)
+    //   - AdminContentTest, AdminLearningTest,
+    //     AdminSimulationsTest (Feature/Admin/)
     //   - Sheets::simulationSheet (Support/)
     // -----------------------------------------------------------
 

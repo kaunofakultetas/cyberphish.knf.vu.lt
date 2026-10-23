@@ -9,12 +9,12 @@
 //  cp/change-username keeps names unique between members
 //  and within the column's 45 characters,
 //  cp/change-fullname takes the name printed on the
-//  certificate (6 to 100 characters). Visitors are sent
-//  to the login form. The dashboard opens for a member of
-//  any country, one the questionnaire links do not know
+//  certificate (6 to 100 characters). Both names keep
+//  Lithuanian letters as typed. Visitors are sent to the
+//  login form. The dashboard opens for a member of any
+//  country, one the questionnaire links do not know
 //  included. The Estonian strings of the user-name form
-//  speak of the user name. The defects of these forms are
-//  pinned in AccountDefectsTest.
+//  speak of the user name.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -324,12 +324,37 @@ class AccountSettingsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testUsernameWithLithuanianLettersIsSaved
+    // -----------------------------------------------------------
+    //
+    // A name with Lithuanian letters is saved as typed. While
+    // bei_users was a latin1 table, the uniqueness lookup
+    // failed on such a name with an illegal mix of collations
+    // — the 500 the production log recorded for students'
+    // real names.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUsernameWithLithuanianLettersIsSaved(): void
+    {
+        $this->submit('/cp/change-username', ['username' => 'Vaiva Vaitkevičiūtė'])
+            ->assertSessionHas('success', __('main.pass_updated'));
+
+        $this->assertSame('Vaiva Vaitkevičiūtė', Members::find($this->member->id)->username);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testFullNameIsStored
     // -----------------------------------------------------------
     //
-    // A full name is stored for the certificate — here one
-    // latin1 can hold, since the column's letters are pinned
-    // as a defect (AccountDefectsTest).
+    // A full name is stored for the certificate.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -341,6 +366,32 @@ class AccountSettingsTest extends FeatureTestCase
             ->assertSessionHas('success', __('main.updated'));
 
         $this->assertSame('Jonas Jonaitis', Members::find($this->member->id)->fullname);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFullNameWithLithuanianLettersIsStoredAsTyped
+    // -----------------------------------------------------------
+    //
+    // The name the certificate prints comes back exactly as
+    // typed, Lithuanian letters included, where the latin1
+    // table bei_users once was stored question marks without
+    // an error.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFullNameWithLithuanianLettersIsStoredAsTyped(): void
+    {
+        $this->submit('/cp/change-fullname', ['fullname' => 'Ona Petraitytė'])
+            ->assertSessionHas('success', __('main.updated'));
+
+        $this->assertSame('Ona Petraitytė', Members::find($this->member->id)->fullname);
     }
 
 
