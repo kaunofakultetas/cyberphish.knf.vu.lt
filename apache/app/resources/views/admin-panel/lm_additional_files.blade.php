@@ -14,7 +14,7 @@
 				 <div class="card-body table-responsive">
                   <table class="table" id="table1">
                     <thead>
-                      <tr><th colspan="4"><a href="#" onClick="lm_files_form('new', {{ $uid }})" class="btn btn-primary">Add file</a></th></tr>
+                      <tr><th colspan="4"><a href="#" onClick="lm_files_form('new', {{ $uid }}); return false;" class="btn btn-primary">Add file</a></th></tr>
                       <tr>
                         <th>Name</th>
                         <th width="90" class="actions"></th>
@@ -28,8 +28,8 @@
                         @foreach ($recordlist as $value)
                             <tr>
                             <td><a href="{{ env('APP_URL') }}/upload/{{ $value['file_name'] }}" target="_blank">{{ $value['name'] }}</a></td>
-							<td class="actions"><a class="icon" href="#" onClick="lm_files_form('edit', {{ $value['id'] }})"><i class="mdi mdi-settings"></i></a></td>
-                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/lm/files/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+							<td class="actions"><a class="icon" href="#" onClick="lm_files_form('edit', {{ $value['id'] }}); return false;"><i class="mdi mdi-settings"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/lm/files/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                           </tr>
                         @endforeach
 

@@ -202,8 +202,7 @@ class SettingsController extends Controller
     //
     // Used by:
     //   - NewsController::index — the public news list
-    //   - Admin\UsersController::index,
-    //     Admin\KnowledgeController::index,
+    //   - Admin\KnowledgeController::index,
     //     Admin\InfoController::index,
     //     Admin\LMController::additional_files,
     //     Admin\SelfevalController::index and the two

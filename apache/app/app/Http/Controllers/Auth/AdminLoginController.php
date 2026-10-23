@@ -154,7 +154,13 @@ class AdminLoginController extends Controller
     // sign-in clears the count. A success goes to the panel
     // page auth.admin parked in the session, if any; a
     // failure goes straight back to the form, which keeps the
-    // parked page for the next try.
+    // parked page for the next try and gets the email typed
+    // back, so only the password needs typing again. The
+    // password itself never goes into the session — not
+    // here, where only the email is passed back, nor in the
+    // validation and lockout refusals Laravel answers itself,
+    // which keep the email too and leave out every field of
+    // Handler::$dontFlash.
     //
     // Used by:
     //   - admin-panel/auth/login.blade.php — the form
@@ -186,7 +192,7 @@ class AdminLoginController extends Controller
 
         $this->incrementLoginAttempts($request);
 
-        return redirect(route('admin_login'))->withErrors([__('auth.failed')]);
+        return redirect(route('admin_login'))->withInput($request->only('email'))->withErrors([__('auth.failed')]);
     }
 
 

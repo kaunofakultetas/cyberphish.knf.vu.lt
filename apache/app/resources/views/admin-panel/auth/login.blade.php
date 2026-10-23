@@ -21,7 +21,7 @@
                         @csrf
                   <div class="login-form">
                     <div class="form-group">
-                      <input id="email" type="email" placeholder="{{ __('Email') }}" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="off" autofocus>
+                      <input id="email" type="email" placeholder="{{ __('Email') }}" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="username" {{ old('email') ? '' : 'autofocus' }}>
 
                     	@error('email')
                            <span class="invalid-feedback" role="alert">
@@ -31,7 +31,7 @@
 
                     </div>
                     <div class="form-group">
-                      <input id="password" type="password" placeholder="{{ __('Password') }}" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password">
+                      <input id="password" type="password" placeholder="{{ __('Password') }}" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password" {{ old('email') ? 'autofocus' : '' }}>
 
                       @error('password')
                          <span class="invalid-feedback" role="alert">

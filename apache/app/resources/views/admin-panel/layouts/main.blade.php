@@ -8,7 +8,7 @@
     <meta name="author" content="">
     <title>{{ config('app.name', 'CYBERPHISH') }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link href="{{ env('APP_URL') }}/assets/img/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" />
+    <link rel="icon" type="image/x-icon" href="{{ env('APP_URL') }}/favicon.ico?v={{ filemtime(public_path('favicon.ico')) }}">
     <link href="/static/css/fonts.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="{{ env('APP_URL') }}/assets/lib/perfect-scrollbar/css/perfect-scrollbar.css"/>
     <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/lib/material-design-icons/css/material-design-iconic-font.min.css">
@@ -16,7 +16,7 @@
     <link rel="stylesheet" type="text/css" href="{{ env('APP_URL') }}/assets/lib/datetimepicker/css/bootstrap-datetimepicker.min.css"/>
     <link href="/static/css/summernote.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/css/app.css" type="text/css"/>
-    <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/css/custom.css" type="text/css"/>
+    <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/css/custom.css?v={{ filemtime(public_path('assets/css/custom.css')) }}" type="text/css"/>
 
   </head>
   <body>
@@ -35,7 +35,7 @@
                     <div class="user-position online">{{ __('Online') }}</div>
                   </div>
 
-                  <a class="dropdown-item" href="#" onClick="change_pass()"><span class="icon mdi mdi-account-key"></span>{{ __('Change password') }}</a>
+                  <a class="dropdown-item" href="#" onClick="change_pass(); return false;"><span class="icon mdi mdi-account-key"></span>{{ __('Change password') }}</a>
 
                   <form action="{{ env('APP_URL') }}/admin-panel/logout" method="POST">@csrf<button type="submit" class="dropdown-item"><span class="icon mdi mdi-power"></span>{{ __('Logout') }}</button></form>
                 </div>
@@ -71,7 +71,7 @@
     <script src="{{ env('APP_URL') }}/assets/lib/jquery-ui/jquery-ui.min.js" type="text/javascript"></script>
     <script src="/static/js/summernote.min.js"></script>
     <script src="{{ env('APP_URL') }}/js/window.js" type="text/javascript"></script>
-    <script src="{{ env('APP_URL') }}/js/admn.js" type="text/javascript"></script>
+    <script src="{{ env('APP_URL') }}/js/admn.js?v={{ filemtime(public_path('js/admn.js')) }}" type="text/javascript"></script>
 
     <script type="text/javascript">
       $(document).ready(function(){

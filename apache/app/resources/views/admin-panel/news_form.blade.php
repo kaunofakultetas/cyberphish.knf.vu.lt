@@ -37,7 +37,7 @@
 
                           @if($feat_img !== NULL && $feat_img !== '')
 							<img src="{{ env('APP_URL') }}/upload/{{ $feat_img }}" style="max-width:300px"><br>
-							<a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/news/delete_picture/{{ $uid }}')"><i class="mdi mdi-delete"></i></a>
+							<a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/news/delete_picture/{{ $uid }}'); return false;"><i class="mdi mdi-delete"></i></a>
                           @else
                           {{ Form::file("feat", ['accept'=>'image/*']) }}
                           @endif

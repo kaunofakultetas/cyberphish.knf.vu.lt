@@ -324,6 +324,49 @@ own sums. `mysql/init.sql` now keys the columns the app finds rows by.
 | `dashboard-query-per-member` | `AdminDashboardTest::testDashboardQueriesDoNotGrowWithTheMembers`, with `testEveryRowShowsTheMembersOwnFigures` holding every row to the figures the page used to work out one member at a time |
 | `lookups-unkeyed` | `SchemaTest::testLookupsAreKeyed` |
 
+Two fixes to how the panel looks followed. The KNF logo keeps its
+proportions: the template's own logo was a 102×27 strip, and its
+high-DPI rule squeezed the KNF logo into that strip. The logo is CSS
+only, so it has no test. Switching a tab, or coming back to one after a
+save, no longer scrolls the page. Each tab pane used to carry its tab's
+hash as its id, and the browser scrolls to the element a hash names.
+
+| Id | Home test |
+|---|---|
+| `admin-tab-scroll` | `AdminTabsTest::testTabHashNamesNoElement` |
+
+The dashboard's tabs came next. Every language tab listed every member
+of the country, so most tabs showed the whole country at 0%. A tab now
+appears only for a language that some members have begun, and it lists
+only those members, with their count in the label. The busiest language
+comes first. A last tab lists the members who have begun nothing.
+
+| Id | Home test |
+|---|---|
+| `dashboard-tabs-all-members` | `AdminDashboardTest::testTabsListTheMembersWhoBeganTheirLanguage`, with `testEveryRowShowsTheMembersOwnFigures` checking that the rows are exactly the member and language pairs begun |
+
+The dashboard also gained a quick search box. `User_Search` in `admn.js`
+keeps only the rows whose user name or email holds the typed text,
+ignoring case and accents, and marks the tabs with matches. The suite
+can't run the script itself, so
+`AdminDashboardTest::testEveryMemberRowCarriesItsSearchText` checks
+what the script reads: the box, every row's `data-search` text, and
+each tab's row for a search that finds nobody.
+
+The users page followed. It used to cut the members into pages of 25,
+which a search in the browser could not reach past. It now lists them
+all on one page, newest first, with the same search and a Country
+column. A delete or a status change returns to where the page stood:
+`Post_To` notes the scroll position and the search text, and
+`Return_To_Place` puts them back.
+
+| Id | Home test |
+|---|---|
+| `users-paged` | `AdminUsersTest::testEveryMemberIsOnTheOnePage`, `testEveryRowCarriesItsSearchText` |
+| `hash-link-jump` | `TemplatesTest::testHashLinksDoNotScrollToTheTop`. Twenty-eight links to `#` (14 dialog links, 14 delete icons) still followed the link after their handler ran, which scrolled the page to the top |
+| `login-email-lost` | `LoginTest::testRefusedLoginKeepsTheEmail`, `AdminLoginTest::testRefusedLoginKeepsTheEmail`. A wrong password brought both forms back empty. Now the email comes back, the password is never kept, and both forms let the browser fill a saved login |
+| `no-tab-icon` | `TemplatesTest::testEveryLayoutLinksTheTabIcon`, `testTabIconIsARealIcon`. No page had a tab icon. The panel linked a file that didn't exist, and the root `favicon.ico` was empty. It now holds the round mark of the CyberPhish logo at 16, 32 and 48 pixels |
+
 No `*DefectsTest.php` file is left; a new pin starts its folder's file
 again.
 

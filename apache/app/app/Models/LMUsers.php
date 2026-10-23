@@ -167,12 +167,13 @@ class LMUsers extends Model
     // country_progress
     // -----------------------------------------------------------
     //
-    // The course progress of every member of the country in
-    // every language, keyed by language id and then member
-    // id, from one statement. The stored function runs only
-    // for the member and language pairs that have a row of
-    // the member's own in one of the four tables its shares
-    // count — a completed lesson of the language, a finished
+    // The course progress of every member of the country —
+    // of every country when the country is null — in every
+    // language, keyed by language id and then member id, from
+    // one statement. The stored function runs only for the
+    // member and language pairs that have a row of the
+    // member's own in one of the four tables its shares count
+    // — a completed lesson of the language, a finished
     // self-evaluation, knowledge test or simulation run —
     // because every other pair is 0 by the function's own
     // sums, as mysql/init.sql notes beside it. A pair missing
@@ -184,7 +185,8 @@ class LMUsers extends Model
     //
     // Used by:
     //   - Admin\ManagerMainController::dashboard — the course
-    //     progress of every language tab
+    //     progress of every language tab, of every country
+    //     for a main admin
     // -----------------------------------------------------------
 
     public static function country_progress($country)
@@ -197,7 +199,7 @@ class LMUsers extends Model
                 UNION SELECT user_id, lang_id FROM bei_users_scenarios WHERE finished = 1
             ) AS pairs
             JOIN bei_users ON bei_users.id = pairs.user_id
-            WHERE bei_users.country = ?", [$country]);
+            WHERE ? IS NULL OR bei_users.country = ?", [$country, $country]);
 
         $progress = array();
         foreach($rows as $row){

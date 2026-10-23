@@ -18,7 +18,7 @@
                   @if(count($langlist) > 0)
 
                         @foreach ($langlist as $key => $value)
-                  <li class="nav-item"><a class="nav-link {{ $loop->iteration === 1 ? 'active' : '' }}" href="#a{{ $key }}" data-toggle="tab" role="tab">{{ $value }}</a></li>
+                  <li class="nav-item"><a class="nav-link {{ $loop->iteration === 1 ? 'active' : '' }}" href="#a{{ $key }}" data-target="#tab-a{{ $key }}" data-toggle="tab" role="tab">{{ $value }}</a></li>
                   		@endforeach
 
                   @endif
@@ -28,14 +28,14 @@
                 @if(count($langlist) > 0)
 
                         @foreach ($langlist as $key1 => $value1)
-                       		<div class="tab-pane {{ $loop->iteration === 1 ? 'active' : '' }}" id="a{{ $key1 }}" role="tabpanel">
+                       		<div class="tab-pane {{ $loop->iteration === 1 ? 'active' : '' }}" id="tab-a{{ $key1 }}" role="tabpanel">
 
 								<br>
                 				<div class="card-body table-responsive">
                                   <table class="table table-bordered" id="table1">
                                     <thead>
                                       <tr>
-                                        <th><a href="#" onClick="simulation_import({{ $key1 }})" class="btn btn-primary">Import Simulation</a></th>
+                                        <th><a href="#" onClick="simulation_import({{ $key1 }}); return false;" class="btn btn-primary">Import Simulation</a></th>
                                         <th>Goal</th>
                                         <th>Type</th>
                                         <th>Attack Type</th>
@@ -56,7 +56,7 @@
                                             <td>{{ $value['attack_type'] }}</td>
                                             <td> <a href="javascript:simulation_categories({{ $value['lang_id'] }},{{ $value['id'] }});">Categories</a> </td>
                                             <td class="actions"><a class="icon" href="{{ env('APP_URL_ADMIN') }}/admin_simulations/edit/{{ $value['id'] }}"><i class="mdi mdi-cogs"></i></a></td>
-                                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/admin_simulations/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/admin_simulations/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                                           </tr>
                                         @endforeach
 

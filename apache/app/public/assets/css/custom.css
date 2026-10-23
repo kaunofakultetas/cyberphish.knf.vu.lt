@@ -5,3 +5,83 @@
 .member_type2 {
 	display:none;
 }
+
+/* The KNF logo. logo-xx.png is 205x119 pixels with its drawing in the
+   middle 145x75, not the 102x27 strip of the template's own logo, and
+   app.css drew it at its natural size in a 44px box on an ordinary
+   screen, cutting off its top and bottom, and squeezed it into 102x27
+   on a high-DPI one. Drawn 79px high on every screen instead, the
+   drawing is 50px high, centred in the 60px top bar, 20px in from the
+   left. */
+.be-top-header .be-navbar-header .navbar-brand {
+	height:60px;
+	background-size:auto 79px;
+	background-position:6px center;
+}
+
+/* The dashboard's quick search box, above the tabs. The browser's
+   own small clear button is hidden for the page's: a burgundy circle
+   with a white cross inside the box's right end, shown while the box
+   holds text. */
+.user-search {
+	position:relative;
+	max-width:360px;
+	margin-bottom:15px;
+}
+
+#user-search {
+	padding-right:40px;
+}
+
+#user-search::-webkit-search-cancel-button {
+	-webkit-appearance:none;
+	display:none;
+}
+
+.user-search-clear {
+	position:absolute;
+	top:50%;
+	right:10px;
+	width:22px;
+	height:22px;
+	margin-top:-11px;
+	padding:0;
+	border:0;
+	border-radius:50%;
+	background-color:#78003F;
+	color:#fff;
+	font-size:14px;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	cursor:pointer;
+}
+
+.user-search-clear:hover {
+	background-color:#5a002f;
+}
+
+.user-search-clear:focus {
+	outline:none;
+	box-shadow:0 0 0 3px rgba(120, 0, 63, .3);
+}
+
+/* The marks User_Search puts on the tabs: a tab holding matching
+   members is bold, tinted unless it is the open one, with a badge
+   counting them; a tab holding none fades. */
+
+.nav-tabs-classic > li.nav-item a.nav-link.search-hit {
+	font-weight:bold;
+}
+
+.nav-tabs-classic > li.nav-item a.nav-link.search-hit:not(.active) {
+	background-color:#f5e6ee;
+}
+
+.nav-tabs-classic > li.nav-item a.nav-link.search-miss {
+	opacity:.45;
+}
+
+.nav-tabs-classic .search-count {
+	margin-left:6px;
+}

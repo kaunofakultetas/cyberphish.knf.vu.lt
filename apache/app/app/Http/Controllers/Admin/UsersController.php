@@ -4,11 +4,12 @@
 //  [*] UsersController — the members page of the panel
 //
 //  admin-panel/users lists every member account, whatever
-//  its country, 25 a page, with a status switch and a
-//  delete icon on each row. Its routes carry auth.admin:man
-//  and perms, so only main admins reach them; a country
-//  manager gets a 404. Both row actions are POST routes,
-//  behind the CSRF check.
+//  its country, on one page with a quick search, and a
+//  status switch and a delete icon on each row. Its routes
+//  carry auth.admin:man and perms, so only main admins
+//  reach them; a country manager gets a 404. Both row
+//  actions are POST routes, behind the CSRF check, and the
+//  page comes back to where it stood after either.
 //
 //  Used by:
 //    - routes/web_admin.php — admin-panel/users and the
@@ -19,9 +20,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Http\Request;
-use App\Http\Controllers\SettingsController;
 use App\Models\Members as Members;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -40,7 +38,7 @@ use Illuminate\Support\Facades\Validator;
 // The list and its two row actions, which both redirect
 // back to the list.
 //
-//   index         — the paged list of members
+//   index         — the list of members
 //   delete        — removes an account
 //   change_status — switches an account on or off
 //
@@ -116,54 +114,27 @@ class UsersController extends BaseController
     //
     // GET /admin-panel/users
     //
-    // Every member account in table order, whatever its
-    // country, 25 a page. The whole of bei_users is loaded —
-    // twice, once only to count it — and the page is cut out
-    // of it by hand for a LengthAwarePaginator; a page
-    // parameter that is not a whole number from 1 means page 1
-    // (SettingsController::page_number). With no members at
-    // all the view gets an empty array instead of the
-    // paginator. Main admins only (auth.admin:man, perms).
-    // Answers with admin-panel/users.blade.php.
+    // Every member account, whatever its country, newest
+    // first, on one page as on the dashboard — the page's
+    // quick search (User_Search of admn.js) filters the rows
+    // as the admin types, so the list is not cut into pages,
+    // and a page parameter is ignored. Each row carries the
+    // user name and email the search matches, and the country
+    // by its name (Members::COUNTRIES). Main admins only
+    // (auth.admin:man, perms). Answers with
+    // admin-panel/users.blade.php.
     //
     // Used by:
     //   - admin-panel/sidebar.blade.php — the Users entry of
     //     the menu, shown to main admins
-    //   - admin-panel/users.blade.php — its page links
     //   - delete, change_status (below) — they redirect here
     // -----------------------------------------------------------
 
-    public function index(Request $request)
+    public function index()
     {
-        if(count(Members::all()->toArray()) > 0){
+        $userlist = Members::select(['id', 'username', 'email', 'country', 'last_login', 'last_ip', 'status'])->orderByDesc('id')->get()->toArray();
 
-            $arr = Members::all()->toArray();
-
-        } else {
-
-            $arr = array();
-
-        }
-
-        $perPage = 25;
-
-        $curr_page = SettingsController::page_number($request->get('page'), count($arr), $perPage);
-
-        $currentItems = array_slice($arr, $perPage * ($curr_page - 1), $perPage);
-
-        $paginator = new LengthAwarePaginator($currentItems, count($arr), $perPage, $curr_page, [
-            'path' => url('admin-panel/users')
-        ]);
-
-        $paginator = $paginator->appends('page', request('page'));
-
-        if (count($arr) == 0) {
-
-            $arr = array();
-            $paginator = array();
-        }
-
-        return view('admin-panel.users', ['userlist' => $paginator]);
+        return view('admin-panel.users', ['userlist'=>$userlist, 'countries'=>Members::COUNTRIES]);
     }
 
 

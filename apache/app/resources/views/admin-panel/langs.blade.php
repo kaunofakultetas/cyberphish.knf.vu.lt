@@ -15,7 +15,7 @@
                   <table class="table" id="table1">
                     <thead>
                       <tr>
-                        <th><a href="#" onClick="lang_form('new', '')" class="btn btn-primary">Create Language</a></th>
+                        <th><a href="#" onClick="lang_form('new', ''); return false;" class="btn btn-primary">Create Language</a></th>
                         <th class="actions"></th>
                         <th class="actions"></th>
                       </tr>
@@ -27,8 +27,8 @@
                         @foreach ($recordlist as $value)
                             <tr>
                             <td>{{ $value['name'] }}</td>
-                            <td class="actions"><a class="icon" href="#" onClick="lang_form('edit', '{{ $value['id'] }}')"><i class="mdi mdi-settings"></i></a></td>
-                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/settings/languages/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="lang_form('edit', '{{ $value['id'] }}'); return false;"><i class="mdi mdi-settings"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/settings/languages/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                           </tr>
                         @endforeach
 

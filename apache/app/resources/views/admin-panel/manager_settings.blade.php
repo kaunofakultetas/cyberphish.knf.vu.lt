@@ -22,7 +22,7 @@
                     <thead>
                       <tr>
                       	<th colspan="10">
-                      		<a href="#" onClick="managers_form('new', '')" class="btn btn-primary">Create Manager</a>
+                      		<a href="#" onClick="managers_form('new', ''); return false;" class="btn btn-primary">Create Manager</a>
                       	</th>
                       </tr>
                       <tr>
@@ -52,8 +52,8 @@
                             <td>{{ \App\Http\Controllers\SettingsController::local_time($value['last_login']) }}</td>
                             <td>{{ $value['last_ip'] }}</td>
 
-                            <td class="actions"><a class="icon" href="#" onClick="managers_form('edit', {{ $value['id'] }})"><i class="mdi mdi-border-color"></i></a></td>
-                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL') }}/admin-panel/settings/manager/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="managers_form('edit', {{ $value['id'] }}); return false;"><i class="mdi mdi-border-color"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL') }}/admin-panel/settings/manager/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                           </tr>
                         @endforeach
 

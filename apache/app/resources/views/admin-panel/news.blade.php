@@ -18,7 +18,7 @@
                   @if(count($langlist) > 0)
 
                         @foreach ($langlist as $key => $value)
-                  <li class="nav-item"><a class="nav-link {{ $loop->iteration === 1 ? 'active' : '' }}" href="#a{{ $key }}" data-toggle="tab" role="tab">{{ $value }}</a></li>
+                  <li class="nav-item"><a class="nav-link {{ $loop->iteration === 1 ? 'active' : '' }}" href="#a{{ $key }}" data-target="#tab-a{{ $key }}" data-toggle="tab" role="tab">{{ $value }}</a></li>
                   		@endforeach
 
                   @endif
@@ -28,7 +28,7 @@
                 @if(count($langlist) > 0)
 
                         @foreach ($langlist as $key1 => $value1)
-                       		<div class="tab-pane {{ $loop->iteration === 1 ? 'active' : '' }}" id="a{{ $key1 }}" role="tabpanel">
+                       		<div class="tab-pane {{ $loop->iteration === 1 ? 'active' : '' }}" id="tab-a{{ $key1 }}" role="tabpanel">
 
 								<br>
                 				<div class="card-body table-responsive">
@@ -50,7 +50,7 @@
                                             <td>{{ $value['title'] }}</td>
                                             <td><center> {{ \App\Http\Controllers\SettingsController::local_time($value['created']) }} </center></td>
                                             <td class="actions"><a class="icon" href="{{ env('APP_URL') }}/admin-panel/news/edit/{{ $value['id'] }}"><i class="mdi mdi-settings"></i></a></td>
-                                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/news/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/news/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                                           </tr>
                                         @endforeach
 

@@ -76,8 +76,8 @@ use Illuminate\Notifications\Notifiable;
 //     row while an attempt is drawn
 //   - ValidateReset::handle
 //   - Admin\UsersController — index, delete, change_status
-//   - Admin\ManagerMainController — dashboard,
-//     self_evaluation_history, simulations_history,
+//   - Admin\ManagerMainController — dashboard (COUNTRIES
+//     too), self_evaluation_history, simulations_history,
 //     simulation_report, knowledge_report, member_in_scope
 //     (whether a country manager may read the member)
 //   - World::member, TestCase::signInMember,
@@ -92,6 +92,18 @@ class Members extends Authenticatable
     // nothing notifies a member, the mails go out through
     // the Mail facade
     use Notifiable;
+
+    // The country column's ids and their names, as the
+    // registration form (auth/register.blade.php) offers them;
+    // the manager form names 3 just Greece
+    public const COUNTRIES = [
+        1 => 'Lithuania',
+        2 => 'Estonia',
+        3 => 'Greece / Cyprus',
+        4 => 'Latvia',
+        5 => 'Malta',
+        0 => 'Other',
+    ];
 
     // The table, which has no created_at / updated_at
     // columns. rememberTokenName false switches the model's

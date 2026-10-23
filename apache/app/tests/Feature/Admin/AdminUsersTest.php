@@ -3,12 +3,13 @@
 // -----------------------------------------------------------
 //  [*] AdminUsersTest — the members page of the panel
 //
-//  admin-panel/users (UsersController) lists every member,
-//  25 a page; user/status/{status_id}/{user_id} switches a
-//  member on or off and user/delete/{user_id} removes the
-//  account with its completed lessons. Both changes are
-//  POST routes behind the CSRF check: a link opened from a
-//  mail changes nothing.
+//  admin-panel/users (UsersController) lists every member
+//  on one page, newest first, with a quick search;
+//  user/status/{status_id}/{user_id} switches a member on
+//  or off and user/delete/{user_id} removes the account
+//  with its completed lessons. Both changes are POST routes
+//  behind the CSRF check: a link opened from a mail changes
+//  nothing.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -18,6 +19,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Members;
+use Dom\HTMLDocument;
 use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
@@ -99,12 +101,79 @@ class AdminUsersTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testEveryMemberIsOnTheOnePage
+    // -----------------------------------------------------------
+    //
+    // Thirty members all stand on the one page, newest first,
+    // where the list once showed 25 a page and the quick search
+    // could not have reached the rest.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEveryMemberIsOnTheOnePage(): void
+    {
+        $members = [];
+        for ($i = 0; $i < 30; $i++) {
+            $members[] = $this->world->member();
+        }
+
+        $page = $this->signInManager($this->admin)->get('/admin-panel/users')->assertOk();
+
+        foreach ($members as $member) {
+            $page->assertSee($member->email);
+        }
+        $page->assertSeeInOrder([end($members)->email, $members[0]->email]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEveryRowCarriesItsSearchText
+    // -----------------------------------------------------------
+    //
+    // The page has the quick search box with its clear button,
+    // each member's row carries the user name and email that
+    // User_Search of admn.js matches and names the member's
+    // country, and the list has the hidden row that answers a
+    // search finding nobody.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEveryRowCarriesItsSearchText(): void
+    {
+        $member = $this->world->member(['country' => 4]);
+
+        $html = $this->signInManager($this->admin)->get('/admin-panel/users')->assertOk()->getContent();
+        $document = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+        $this->assertNotNull($document->querySelector('.user-search #user-search'), 'the page has no search box');
+        $this->assertNotNull($document->querySelector('.user-search .user-search-clear'), 'the search box has no clear button');
+        $row = $document->querySelector("tr[data-search=\"{$member->username} {$member->email}\"]");
+        $this->assertNotNull($row, 'the member has no searchable row');
+        $this->assertSame('Latvia', trim($row->querySelectorAll('td')->item(2)->textContent));
+        $this->assertCount(1, $document->querySelectorAll('tr.search-none'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testHugePageNumberOpensTheMemberList
     // -----------------------------------------------------------
     //
-    // A page number past PHP's integers opens the first page of
-    // the member list instead of a 500, as on every list the
-    // panel cuts into pages by hand.
+    // A page number past PHP's integers still opens the member
+    // list instead of a 500: the list has no pages any more,
+    // and such a number once reached the page cutting as a
+    // float.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)

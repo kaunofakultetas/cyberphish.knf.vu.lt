@@ -26,6 +26,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\Members;
+use Dom\HTMLDocument;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\FeatureTestCase;
@@ -284,6 +285,39 @@ class LoginTest extends FeatureTestCase
         $this->signIn($member->email, 'Wrong-Password-12')
             ->assertRedirect('/login')
             ->assertSessionHasErrors();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRefusedLoginKeepsTheEmail
+    // -----------------------------------------------------------
+    //
+    // A refused sign-in brings the form back with the email
+    // already in its field and the cursor in the password
+    // field, so only the password needs typing again; the
+    // password itself never goes into the session. The form
+    // once came back empty.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRefusedLoginKeepsTheEmail(): void
+    {
+        $member = $this->world->member();
+
+        $this->signIn($member->email, 'Wrong-Password-12')->assertRedirect('/login');
+        $this->assertSame($member->email, session()->getOldInput('email'));
+        $this->assertNull(session()->getOldInput('password'));
+
+        $html = $this->get('/login')->assertOk()->assertSee('value="' . $member->email . '"', false)->getContent();
+        $document = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $this->assertTrue($document->querySelector('input[name="password"]')->hasAttribute('autofocus'), 'the cursor is not in the password field');
+        $this->assertFalse($document->querySelector('input[name="email"]')->hasAttribute('autofocus'), 'the cursor is in the email field');
     }
 
 

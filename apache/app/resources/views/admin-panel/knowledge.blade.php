@@ -29,7 +29,7 @@
                             <tr>
                             <td> {{ $value['question'] }} </td>
                             <td class="actions"><a class="icon" href="{{ env('APP_URL_ADMIN') }}/lm/knowledge_test/edit/{{ $value['id'] }}"><i class="mdi mdi-cogs"></i></a></td>
-                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/lm/knowledge_test/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/lm/knowledge_test/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                           </tr>
                         @endforeach
 

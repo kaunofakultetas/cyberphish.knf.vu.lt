@@ -24,6 +24,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Managers;
+use Dom\HTMLDocument;
 use Illuminate\Testing\TestResponse;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
@@ -179,6 +180,39 @@ class AdminLoginTest extends FeatureTestCase
         $this->signIn($admin->email, 'Wrong-Password-1')
             ->assertRedirect('/admin-panel')
             ->assertSessionHasErrors();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRefusedLoginKeepsTheEmail
+    // -----------------------------------------------------------
+    //
+    // A refused sign-in brings the form back with the email
+    // already in its field and the cursor in the password
+    // field, so only the password needs typing again; the
+    // password itself never goes into the session. The form
+    // once came back empty.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRefusedLoginKeepsTheEmail(): void
+    {
+        $admin = $this->world->manager();
+
+        $this->signIn($admin->email, 'Wrong-Password-1')->assertRedirect('/admin-panel');
+        $this->assertSame($admin->email, session()->getOldInput('email'));
+        $this->assertNull(session()->getOldInput('password'));
+
+        $html = $this->get('/admin-panel')->assertOk()->assertSee('value="' . $admin->email . '"', false)->getContent();
+        $document = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $this->assertTrue($document->querySelector('input[name="password"]')->hasAttribute('autofocus'), 'the cursor is not in the password field');
+        $this->assertFalse($document->querySelector('input[name="email"]')->hasAttribute('autofocus'), 'the cursor is in the email field');
     }
 
 

@@ -10,6 +10,7 @@
     <meta name="author" content="">
 
     <title>{{ config('app.name', 'CYBERPHISH') }}</title>
+    <link rel="icon" type="image/x-icon" href="{{ env('APP_URL') }}/favicon.ico?v={{ filemtime(public_path('favicon.ico')) }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="{{ env('APP_URL') }}/m_assets/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">

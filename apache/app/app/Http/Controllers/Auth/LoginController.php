@@ -171,8 +171,14 @@ class LoginController extends BaseController
     // with auth.throttle in the session's language until
     // fifteen minutes after the first refusal. A sign-in
     // clears the count. A refusal goes straight back to the
-    // form with its error; the page that asked for a sign-in
-    // stays parked in the session for the next try.
+    // form with its error and the email typed, so only the
+    // password needs typing again; the page that asked for a
+    // sign-in stays parked in the session for the next try.
+    // The password itself never goes into the session — not
+    // here, where only the email is passed back, nor in the
+    // validation and lockout refusals Laravel answers itself,
+    // which keep the email too and leave out every field of
+    // Handler::$dontFlash.
     //
     // Used by:
     //   - auth/login.blade.php — the login form posts here
@@ -207,7 +213,7 @@ class LoginController extends BaseController
 
         $this->incrementLoginAttempts($request);
 
-        return redirect(route('login'))->withErrors([__('main.auth_failed')]);
+        return redirect(route('login'))->withInput($request->only('email'))->withErrors([__('main.auth_failed')]);
     }
 
 

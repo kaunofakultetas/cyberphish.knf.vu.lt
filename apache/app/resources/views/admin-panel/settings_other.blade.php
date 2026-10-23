@@ -16,15 +16,15 @@
               <div class="tab-container">
                 <ul class="nav nav-tabs nav-tabs-classic" role="tablist" id="TTAB">
 
-                  <li class="nav-item"><a class="nav-link active" href="#a1" data-toggle="tab" role="tab">Main page</a></li>
-                  <li class="nav-item"><a class="nav-link" href="#a2" data-toggle="tab" role="tab">Self Evaluation</a></li>
-                  <li class="nav-item"><a class="nav-link" href="#a3" data-toggle="tab" role="tab">Knowledge Test</a></li>
-                  <li class="nav-item"><a class="nav-link" href="#a4" data-toggle="tab" role="tab">Download Simulations</a></li>
+                  <li class="nav-item"><a class="nav-link active" href="#a1" data-target="#tab-a1" data-toggle="tab" role="tab">Main page</a></li>
+                  <li class="nav-item"><a class="nav-link" href="#a2" data-target="#tab-a2" data-toggle="tab" role="tab">Self Evaluation</a></li>
+                  <li class="nav-item"><a class="nav-link" href="#a3" data-target="#tab-a3" data-toggle="tab" role="tab">Knowledge Test</a></li>
+                  <li class="nav-item"><a class="nav-link" href="#a4" data-target="#tab-a4" data-toggle="tab" role="tab">Download Simulations</a></li>
 
                 </ul>
                 <div class="tab-content">
 
-                       		<div class="tab-pane active" id="a1" role="tabpanel">
+                       		<div class="tab-pane active" id="tab-a1" role="tabpanel">
 
 								<br> <br>
 								{{ Form::open(array('url' => env('APP_URL_ADMIN').'/settings/about_us_save' )) }}
@@ -52,7 +52,7 @@
 
 
                             </div>
-                            <div class="tab-pane" id="a2" role="tabpanel">
+                            <div class="tab-pane" id="tab-a2" role="tabpanel">
 								<br> <br>
 								{{ Form::open(array('url' => env('APP_URL_ADMIN').'/settings/self_eval_save' )) }}
 
@@ -64,7 +64,7 @@
 								{{ Form::close() }}
 								<br> <br>
                             </div>
-                            <div class="tab-pane" id="a3" role="tabpanel">
+                            <div class="tab-pane" id="tab-a3" role="tabpanel">
 								<br> <br>
 								{{ Form::open(array('url' => env('APP_URL_ADMIN').'/settings/knowledge_test_settings_save' )) }}
 
@@ -114,7 +114,7 @@
                             
                             
                             
-                            <div class="tab-pane" id="a4" role="tabpanel">
+                            <div class="tab-pane" id="tab-a4" role="tabpanel">
 								<br> <br> 
                         			<div class="row">
   

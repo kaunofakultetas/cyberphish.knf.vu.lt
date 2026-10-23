@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="{{ route('home') }}/assets/lib/perfect-scrollbar/css/perfect-scrollbar.css"/>
     <link rel="stylesheet" type="text/css" href="{{ route('home') }}/assets/lib/material-design-icons/css/material-design-iconic-font.min.css"/>
     <link rel="stylesheet" href="{{ route('home') }}/assets/css/app.css" type="text/css"/>
-    <link href="{{ route('home') }}/assets/img/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" />
+    <link rel="icon" type="image/x-icon" href="{{ env('APP_URL') }}/favicon.ico?v={{ filemtime(public_path('favicon.ico')) }}">
  
   </head>
   <body class="be-splash-screen">

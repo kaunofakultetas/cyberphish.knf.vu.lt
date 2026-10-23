@@ -31,7 +31,7 @@
                             <td>{{ $value['title'] }}</td>
                             <td>{{ $value['lang_name'] }}</td>
 							<td class="actions"><a class="icon" href="{{ env('APP_URL_ADMIN') }}/information/edit/{{ $value['id'] }}"><i class="mdi mdi-settings"></i></a></td>
-                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/information/delete/{{ $value['id'] }}')"><i class="mdi mdi-delete"></i></a></td>
+                            <td class="actions"><a class="icon" href="#" onClick="Confirm_Dialog('{{ env('APP_URL_ADMIN') }}/information/delete/{{ $value['id'] }}'); return false;"><i class="mdi mdi-delete"></i></a></td>
                           </tr>
                         @endforeach
 

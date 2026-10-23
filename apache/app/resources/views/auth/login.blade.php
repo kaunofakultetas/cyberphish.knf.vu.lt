@@ -44,10 +44,10 @@
 									{{ Form::open(array('url' => route('login'), 'class'=>'user' )) }}
 
                                         <div class="form-group">
-											{{ Form::email('email', '', ['class' => 'form-control form-control-user', 'placeholder'=>__('main.enter_email')]) }}
+											{{ Form::email('email', '', ['class' => 'form-control form-control-user', 'placeholder'=>__('main.enter_email'), 'autocomplete'=>'username']) }}
                                         </div>
                                         <div class="form-group">
-                                        	{{ Form::password('password', ['class' => 'form-control form-control-user', 'minlength'=>'12', 'maxlength'=>'50', 'required' => 'required', 'placeholder'=>__('main.passw')]) }}
+                                        	{{ Form::password('password', ['class' => 'form-control form-control-user', 'minlength'=>'12', 'maxlength'=>'50', 'required' => 'required', 'placeholder'=>__('main.passw'), 'autocomplete'=>'current-password'] + (old('email') ? ['autofocus'=>'autofocus'] : [])) }}
                                         </div>
 
 										<br>
