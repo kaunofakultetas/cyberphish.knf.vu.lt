@@ -353,14 +353,12 @@ CREATE TABLE IF NOT EXISTS `bei_users_scenarios_options` (
 --  Stored function
 -- ========================================================
 
--- Each of the four shares counts rows of the member's own —
--- in bei_lm_users, bei_users_selfeval_test,
--- bei_users_knowledge_test or bei_users_scenarios — so a
--- member with none of them in a language stands at 0 there.
--- LMUsers::country_progress relies on that and runs the
--- function only for the member and language pairs that have
--- such a row; a share counted from any other table has to
--- join that list too.
+-- LMUsers::country_progress repeats these four shares,
+-- expression for expression, in one statement over every
+-- member and language, for the admin dashboard: calling this
+-- function per pair made that page take over a second. A
+-- change here has to be made there too; AdminDashboardTest
+-- holds the two to the same figures.
 
 /*!50003 DROP FUNCTION IF EXISTS `bei_user_course_progress` */;
 DELIMITER ;;

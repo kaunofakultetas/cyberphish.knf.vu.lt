@@ -307,6 +307,104 @@ class AdminDashboardTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testProgressMatchesTheFunctionAtHalfwayPoints
+    // -----------------------------------------------------------
+    //
+    // LMUsers::country_progress repeats the stored function's
+    // arithmetic in one statement; for members built to land
+    // on halves and thirds — half the lessons, half the
+    // simulations, a third or two of the self-evaluations, a
+    // passed test, and their sums — every member and language
+    // comes out exactly as bei_user_course_progress has it,
+    // rounding included: half the lessons alone is 12, where
+    // the double 12.5 rounds to the even 12.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testProgressMatchesTheFunctionAtHalfwayPoints(): void
+    {
+        $lesson = $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
+        $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
+        $categories = [];
+        for ($i = 0; $i < 3; $i++) {
+            $categories[] = $category = $this->world->lmCategory($this->en);
+            $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+        }
+        $scenario = $this->world->scenario($this->en);
+        $this->world->scenario($this->en);
+
+        $halfLessons = $this->world->member(['country' => 2]);
+        $this->world->lessonDone($halfLessons->id, $lesson);
+        $halfRuns = $this->world->member(['country' => 2]);
+        $this->world->scenarioAttempt($halfRuns->id, $scenario, $this->en);
+        $halves = $this->world->member(['country' => 2]);
+        $this->world->lessonDone($halves->id, $lesson);
+        $this->world->scenarioAttempt($halves->id, $scenario, $this->en);
+        $third = $this->world->member(['country' => 2]);
+        $this->world->selfEvalAttempt($third->id, $categories[0], $this->en);
+        $this->world->scenarioAttempt($third->id, $scenario, $this->en);
+        $passed = $this->world->member(['country' => 2]);
+        $this->world->knowledgeAttempt($passed->id, $this->en, ['results' => 80]);
+        $this->world->lessonDone($passed->id, $lesson);
+        $twoThirds = $this->world->member(['country' => 2]);
+        $this->world->selfEvalAttempt($twoThirds->id, $categories[0], $this->en);
+        $this->world->selfEvalAttempt($twoThirds->id, $categories[1], $this->en);
+        $this->world->lessonDone($twoThirds->id, $lesson);
+        $this->world->scenarioAttempt($twoThirds->id, $scenario, $this->en);
+        $idle = $this->world->member(['country' => 2]);
+
+        $progress = LMUsers::country_progress(2);
+
+        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle] as $member) {
+            foreach ([$this->en, $this->lt] as $langId) {
+                $this->assertEquals(LMUsers::course_progress($member->id, $langId), $progress[$langId][$member->id] ?? 0, "member {$member->id} in language $langId");
+            }
+        }
+        $this->assertEquals(12, $progress[$this->en][$halfLessons->id]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDashboardRunsNoProgressFunction
+    // -----------------------------------------------------------
+    //
+    // The dashboard never calls bei_user_course_progress: once
+    // per member and language, in one statement as before, it
+    // kept the main admin's page waiting over a second.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDashboardRunsNoProgressFunction(): void
+    {
+        $lesson = $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
+        $this->busyMembers(2, $lesson, $this->world->scenario($this->en));
+
+        $manager = $this->signInManager($this->manager);
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $manager->get('/admin-panel/dashboard')->assertOk();
+        $queries = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+
+        $this->assertSame([], array_values(array_filter($queries, function (string $query) {
+            return str_contains($query, 'bei_user_course_progress');
+        })));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testDashboardQueriesDoNotGrowWithTheMembers
     // -----------------------------------------------------------
     //

@@ -40,7 +40,9 @@
 // -----------------------------------------------------------
 //
 // Runs once the document is ready. Summernote takes over
-// the #summernote textarea at 500 pixels high. A click on
+// the #summernote textarea at 500 pixels high, on the three
+// forms that have one and load it — the lesson, news and
+// information forms. A click on
 // a tab of #TTAB opens the tab instead of following its
 // link; each tab that opens puts its link's href in the
 // URL's hash, and the tab the hash names on arrival opens
@@ -65,9 +67,12 @@
 
 $(document).ready(function(){
  
-	 $('#summernote').summernote({
+	// Summernote is loaded only by the pages that have the field
+	if ($('#summernote').length) {
+		$('#summernote').summernote({
 			height: 500
-     });
+		});
+	}
 
 	$('#TTAB a').click(function(e) {
 	  e.preventDefault();

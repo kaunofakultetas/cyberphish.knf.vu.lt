@@ -16,7 +16,8 @@
 //  return false still follows the link once the handler is
 //  done, and the browser scrolls the page to its top —
 //  behind the dialog that opens, or after a delete that was
-//  cancelled.
+//  cancelled. And the panel's layout loads only the scripts
+//  its pages use.
 //
 //  Used by:
 //    - PHPUnit — the Platform suite (runTests.sh)
@@ -168,5 +169,38 @@ class TemplatesTest extends TestCase
         }
         $this->assertContains(16, $sizes);
         $this->assertContains(32, $sizes);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPanelLoadsOnlyTheScriptsItUses
+    // -----------------------------------------------------------
+    //
+    // The panel's layout loads no jQuery UI, sparkline or
+    // date-picker, which no page of the panel uses, and no
+    // Summernote: the three forms with an editor — lesson,
+    // news, information — load it themselves. Every page once
+    // loaded and ran all of them, half a megabyte of script.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPanelLoadsOnlyTheScriptsItUses(): void
+    {
+        $layout = file_get_contents(resource_path('views/admin-panel/layouts/main.blade.php'));
+        foreach (['jquery-ui', 'sparkline', 'datetimepicker', 'summernote'] as $library) {
+            $this->assertStringNotContainsString($library, $layout, "the panel's layout loads $library");
+        }
+
+        foreach (['news_form', 'information_form', 'lm_content_form'] as $form) {
+            $html = file_get_contents(resource_path("views/admin-panel/$form.blade.php"));
+            $this->assertStringContainsString('summernote.min.js', $html, "$form does not load the editor");
+            $this->assertStringContainsString('summernote.min.css', $html, "$form does not load the editor's styles");
+        }
     }
 }

@@ -69,3 +69,11 @@
     	</div>
 
 @endsection
+
+@push('head')
+    <link href="/static/css/summernote.min.css" rel="stylesheet">
+@endpush
+
+@push('scripts')
+    <script src="/static/js/summernote.min.js"></script>
+@endpush

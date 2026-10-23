@@ -13,8 +13,7 @@
     <link rel="stylesheet" type="text/css" href="{{ env('APP_URL') }}/assets/lib/perfect-scrollbar/css/perfect-scrollbar.css"/>
     <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/lib/material-design-icons/css/material-design-iconic-font.min.css">
     <link rel="stylesheet" href="/static/css/materialdesignicons.min.css">
-    <link rel="stylesheet" type="text/css" href="{{ env('APP_URL') }}/assets/lib/datetimepicker/css/bootstrap-datetimepicker.min.css"/>
-    <link href="/static/css/summernote.min.css" rel="stylesheet">
+    @stack('head')
     <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/css/app.css" type="text/css"/>
     <link rel="stylesheet" href="{{ env('APP_URL') }}/assets/css/custom.css?v={{ filemtime(public_path('assets/css/custom.css')) }}" type="text/css"/>
 
@@ -67,9 +66,7 @@
     <script src="{{ env('APP_URL') }}/assets/lib/perfect-scrollbar/js/perfect-scrollbar.min.js" type="text/javascript"></script>
     <script src="{{ env('APP_URL') }}/assets/lib/bootstrap/dist/js/bootstrap.bundle.min.js" type="text/javascript"></script>
     <script src="{{ env('APP_URL') }}/assets/js/app.js" type="text/javascript"></script>
-    <script src="{{ env('APP_URL') }}/assets/lib/jquery.sparkline/jquery.sparkline.min.js" type="text/javascript"></script>
-    <script src="{{ env('APP_URL') }}/assets/lib/jquery-ui/jquery-ui.min.js" type="text/javascript"></script>
-    <script src="/static/js/summernote.min.js"></script>
+    @stack('scripts')
     <script src="{{ env('APP_URL') }}/js/window.js" type="text/javascript"></script>
     <script src="{{ env('APP_URL') }}/js/admn.js?v={{ filemtime(public_path('js/admn.js')) }}" type="text/javascript"></script>
 

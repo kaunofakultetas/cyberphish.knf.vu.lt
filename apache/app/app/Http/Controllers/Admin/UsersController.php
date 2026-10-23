@@ -132,7 +132,11 @@ class UsersController extends BaseController
 
     public function index()
     {
-        $userlist = Members::select(['id', 'username', 'email', 'country', 'last_login', 'last_ip', 'status'])->orderByDesc('id')->get()->toArray();
+        // Plain rows: a model built per member cost a quarter
+        // of a second
+        $userlist = DB::table('bei_users')->select(['id', 'username', 'email', 'country', 'last_login', 'last_ip', 'status'])->orderByDesc('id')->get()->map(function($row){
+            return (array) $row;
+        })->all();
 
         return view('admin-panel.users', ['userlist'=>$userlist, 'countries'=>Members::COUNTRIES]);
     }

@@ -170,18 +170,29 @@ class LMUsers extends Model
     // The course progress of every member of the country —
     // of every country when the country is null — in every
     // language, keyed by language id and then member id, from
-    // one statement. The stored function runs only for the
-    // member and language pairs that have a row of the
-    // member's own in one of the four tables its shares count
-    // — a completed lesson of the language, a finished
-    // self-evaluation, knowledge test or simulation run —
-    // because every other pair is 0 by the function's own
-    // sums, as mysql/init.sql notes beside it. A pair missing
-    // from the result is therefore 0. Most members work in
-    // one language, so most pairs never reach the function,
-    // which the dashboard of a large country once called for
-    // every member in every language. A NULL from the
-    // function comes back as 0, as in course_progress.
+    // one statement; a pair at 0 is left out, so a pair
+    // missing from the result is 0. The statement works out
+    // the stored function's four shares for all the pairs at
+    // once instead of calling bei_user_course_progress per
+    // pair — seven queries a call, which made the dashboard
+    // of every country take over a second. The rows the
+    // shares count — completed lessons, finished
+    // self-evaluations, passed tests, finished runs — are
+    // stacked into one list and grouped by member and
+    // language in a single pass, then set against each
+    // language's totals: joining the four groupings to every
+    // member and language instead leaned on keys MySQL builds
+    // only while its table statistics are settled, and took
+    // 3.8 seconds on a freshly restored database. The
+    // arithmetic is the function's, expression for
+    // expression, on the same column types, so MySQL rounds
+    // alike: the lesson hours are a FLOAT, whose doubles round
+    // half to even, the counts are exact and round half away
+    // from zero, and the sum turns into a whole number as the
+    // function's INT return does. A change to the function
+    // must be made here too, as mysql/init.sql notes beside
+    // it; AdminDashboardTest holds these figures to the
+    // function's, halfway cases included.
     //
     // Used by:
     //   - Admin\ManagerMainController::dashboard — the course
@@ -191,19 +202,44 @@ class LMUsers extends Model
 
     public static function country_progress($country)
     {
-        $rows = DB::select("SELECT pairs.user_id, pairs.lang_id, bei_user_course_progress(pairs.user_id, pairs.lang_id) AS progress
+        $rows = DB::select("SELECT pairs.user_id, pairs.lang_id,
+                CAST(ROUND(
+                      IFNULL(ROUND(pairs.hours * 100 / NULLIF(totals.hours, 0), 0) * 0.25, 0)
+                    + IFNULL(ROUND(pairs.categories * 100 / NULLIF(totals.categories, 0), 0) * 0.2, 0)
+                    + IF(pairs.passed = 1, 30, 0)
+                    + IFNULL(ROUND(pairs.scenarios * 100 / NULLIF(totals.scenarios, 0), 0) * 0.25, 0)
+                , 2) AS SIGNED) AS progress
             FROM (
-                SELECT bei_lm_users.user_id, bei_lm_content.lang_id FROM bei_lm_users JOIN bei_lm_content ON bei_lm_content.id = bei_lm_users.content_id
-                UNION SELECT user_id, lang_id FROM bei_users_selfeval_test WHERE finished = 1
-                UNION SELECT user_id, lang_id FROM bei_users_knowledge_test WHERE finished = 1
-                UNION SELECT user_id, lang_id FROM bei_users_scenarios WHERE finished = 1
+                SELECT shares.user_id, shares.lang_id, SUM(shares.hours) AS hours,
+                    COUNT(DISTINCT shares.cat_id) AS categories, MAX(shares.passed) AS passed,
+                    COUNT(DISTINCT shares.scenario_id) AS scenarios
+                FROM (
+                    SELECT bei_lm_users.user_id, bei_lm_content.lang_id, bei_lm_content.hours, NULL AS cat_id, 0 AS passed, NULL AS scenario_id
+                        FROM bei_lm_users JOIN bei_lm_content ON bei_lm_content.id = bei_lm_users.content_id
+                    UNION ALL
+                    SELECT t.user_id, t.lang_id, NULL, t.cat_id, 0, NULL
+                        FROM bei_users_selfeval_test t JOIN bei_lm_category c ON c.id = t.cat_id AND c.lang_id = t.lang_id
+                        WHERE t.finished = 1 AND t.cat_id IN (SELECT cat_id FROM bei_selfeval_question)
+                    UNION ALL
+                    SELECT user_id, lang_id, NULL, NULL, 1, NULL FROM bei_users_knowledge_test WHERE finished = 1 AND results >= 75
+                    UNION ALL
+                    SELECT user_id, lang_id, NULL, NULL, 0, scenario_id FROM bei_users_scenarios WHERE finished = 1
+                ) AS shares
+                WHERE shares.user_id IN (SELECT id FROM bei_users WHERE ? IS NULL OR country = ?)
+                GROUP BY shares.user_id, shares.lang_id
             ) AS pairs
-            JOIN bei_users ON bei_users.id = pairs.user_id
-            WHERE ? IS NULL OR bei_users.country = ?", [$country, $country]);
+            JOIN (
+                SELECT bei_lang.id AS lang_id,
+                    (SELECT SUM(hours) FROM bei_lm_content WHERE bei_lm_content.lang_id = bei_lang.id) AS hours,
+                    (SELECT COUNT(DISTINCT q.cat_id) FROM bei_selfeval_question q JOIN bei_lm_category c ON c.id = q.cat_id WHERE c.lang_id = bei_lang.id) AS categories,
+                    (SELECT COUNT(*) FROM bei_scenarios WHERE bei_scenarios.lang_id = bei_lang.id) AS scenarios
+                FROM bei_lang
+            ) AS totals ON totals.lang_id = pairs.lang_id
+            HAVING progress <> 0", [$country, $country]);
 
         $progress = array();
         foreach($rows as $row){
-            $progress[$row->lang_id][$row->user_id] = $row->progress ?? 0;
+            $progress[$row->lang_id][$row->user_id] = $row->progress;
         }
 
         return $progress;

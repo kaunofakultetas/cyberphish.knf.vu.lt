@@ -162,27 +162,32 @@ class ManagerMainController extends BaseController
         $scope = function($query) use ($country){
             return $query->where(['country'=>$country]);
         };
-        $members = Members::select(['id', 'username', 'email', 'last_login', 'country'])->when($country !== null, $scope)->orderByDesc('id')->get()->toArray();
+
+        // Plain rows: a model built per member cost a quarter
+        // of a second for every country's members
+        $members = DB::table('bei_users')->select(['id', 'username', 'email', 'last_login', 'country'])->when($country !== null, $scope)->orderByDesc('id')->get()->map(function($row){
+            return (array) $row;
+        })->all();
 
 
         // STEP 2: every figure of every language at once,
         // keyed by language id and then member id; a member
         // missing there has 0, or no results
         // =================================================
-        $in_scope = Members::select('id')->when($country !== null, $scope);
+        $in_scope = DB::table('bei_users')->select('id')->when($country !== null, $scope);
         $begun = ManagerMainController::begun($country);
         $progress = LMUsers::country_progress($country);
         $simulations = Scenarios::selectRaw('lang_id, COUNT(*) AS total')->groupBy('lang_id')->pluck('total', 'lang_id')->toArray();
 
         $started = array();
-        foreach(ScenariosUsers::selectRaw('user_id, lang_id, COUNT(DISTINCT scenario_id) AS tried')->whereIn('user_id', $in_scope)->groupBy('user_id', 'lang_id')->get() as $row){
+        foreach(DB::table('bei_users_scenarios')->selectRaw('user_id, lang_id, COUNT(DISTINCT scenario_id) AS tried')->whereIn('user_id', $in_scope)->groupBy('user_id', 'lang_id')->get() as $row){
             $started[$row->lang_id][$row->user_id] = $row->tried;
         }
 
         // Oldest first, the order the results line lists them
         $results = array();
-        foreach(KnowledgeUserTest::select(['user_id', 'lang_id', 'public_id', 'results'])->where(['finished'=>1])->whereIn('user_id', $in_scope)->orderBy('id')->get()->toArray() as $row){
-            $results[$row['lang_id']][$row['user_id']][] = $row;
+        foreach(DB::table('bei_users_knowledge_test')->select(['user_id', 'lang_id', 'public_id', 'results'])->where(['finished'=>1])->whereIn('user_id', $in_scope)->orderBy('id')->get() as $row){
+            $results[$row->lang_id][$row->user_id][] = (array) $row;
         }
 
 

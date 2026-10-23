@@ -366,6 +366,8 @@ column. A delete or a status change returns to where the page stood:
 | `hash-link-jump` | `TemplatesTest::testHashLinksDoNotScrollToTheTop`. Twenty-eight links to `#` (14 dialog links, 14 delete icons) still followed the link after their handler ran, which scrolled the page to the top |
 | `login-email-lost` | `LoginTest::testRefusedLoginKeepsTheEmail`, `AdminLoginTest::testRefusedLoginKeepsTheEmail`. A wrong password brought both forms back empty. Now the email comes back, the password is never kept, and both forms let the browser fill a saved login |
 | `no-tab-icon` | `TemplatesTest::testEveryLayoutLinksTheTabIcon`, `testTabIconIsARealIcon`. No page had a tab icon. The panel linked a file that didn't exist, and the root `favicon.ico` was empty. It now holds the round mark of the CyberPhish logo at 16, 32 and 48 pixels |
+| `dashboard-progress-calls` | `AdminDashboardTest::testDashboardRunsNoProgressFunction`, with `testProgressMatchesTheFunctionAtHalfwayPoints` holding the new statement to the stored function. With every country on it, the main admin's dashboard took about 1.5 seconds, a second of that in 804 calls of the progress function. One statement now works out every pair, and plain rows replace a model per member. Main admin 1,553 → 249 ms, users page 354 → 87 ms, a country manager 800 → 226 ms, measured on a copy of production |
+| `panel-unused-scripts` | `TemplatesTest::testPanelLoadsOnlyTheScriptsItUses`. Every panel page loaded and ran jQuery UI, sparkline and Summernote, about 470 KB of script. Only the three editor forms use Summernote, and they now load it themselves |
 
 No `*DefectsTest.php` file is left; a new pin starts its folder's file
 again.
