@@ -16,11 +16,13 @@
 //  last step one level up. The names are looked up in the
 //  import's language only, and a sheet marking a category
 //  or attribute the language lacks is refused before
-//  anything is saved. Editing changes the texts — the
-//  description of a simulation without steps too; deleting
-//  removes the simulation with everything that hangs off
-//  it, and the delete icons of categories and attributes
-//  reach their routes.
+//  anything is saved, as is one with a blank description,
+//  or a step without a level or an answer type, or more
+//  than a level below the step before it. Editing changes
+//  the texts — the description of a simulation without
+//  steps too; deleting removes the simulation with
+//  everything that hangs off it, and the delete icons of
+//  categories and attributes reach their routes.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -267,6 +269,50 @@ class AdminSimulationsTest extends FeatureTestCase
             ->assertSessionHasErrors();
 
         $this->assertSame('No file was uploaded!', session('errors')->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSheetWithBlankCellsIsRefusedWithAMessage
+    // -----------------------------------------------------------
+    //
+    // A sheet without a description, or with a step that has
+    // no level, no answer type, or a level more than one below
+    // the step before it, goes back with a message naming the
+    // cell or the step's row, and nothing is saved. The first
+    // three were 500s halfway through the
+    // saves — the NOT NULL description, the parent of level
+    // -1, an undefined answer type — and the last step was
+    // saved where no run could reach it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSheetWithBlankCellsIsRefusedWithAMessage(): void
+    {
+        $this->world->scenarioCategory($this->en, ['name' => 'Credential theft']);
+        $this->world->scenarioAttribute($this->en, ['name' => 'Urgency']);
+        $cases = [
+            'no description'                 => [['C19' => null], 'The description in C19 is empty!'],
+            'a step without a level'         => [['C61' => 'Forward it', 'D61' => 'Incorrect'], 'Row 61: the step needs a level of 1 or more in column A!'],
+            'a step without an answer type'  => [['A61' => 1, 'C61' => 'Forward it'], 'Row 61: the answer type in column D must be Correct, Semi-correct, Semi-incorrect or Incorrect!'],
+            'a step two levels below the last' => [['A61' => 3, 'C61' => 'Forward it', 'D61' => 'Incorrect'], 'Row 61: the step is more than one level below the step before it!'],
+        ];
+
+        foreach ($cases as $case => list($cells, $message)) {
+            $response = $this->admin()->from('/admin-panel/admin_simulations')
+                ->post('/admin-panel/admin_simulations/import', ['lang_id' => $this->en, 'doc' => $this->simulationSheet($cells)]);
+
+            $this->assertLessThan(500, $response->getStatusCode(), "$case: a server error");
+            $response->assertRedirect('/admin-panel/admin_simulations')->assertSessionHasErrors();
+            $this->assertSame($message, session('errors')->first(), $case);
+        }
+        $this->assertFalse(DB::table('bei_scenarios')->where('lang_id', $this->en)->exists());
     }
 
 

@@ -5,19 +5,19 @@
 //
 //  {lang}/self-evaluation-test/{cat_id} starts an attempt,
 //  cp/se/{public_id}/{cat_id} asks the category's questions
-//  one by one in random order and stores the chosen
-//  options, and the FinishedSe middleware closes the
-//  attempt once as many questions are answered as settings
-//  row 2 asks for, or every question of a category that has
-//  fewer: every answer worth the question's best
-//  option is added for a correct choice and taken away for
-//  a wrong one, never below zero. A question takes one
-//  answer, from its own options, each counted once, so a
-//  forged form scores no more than an honest one; a closed
-//  attempt keeps its end date. Visiting the start page again
-//  resumes the open attempt. The first finished
-//  self-evaluation earns its badge, announced in the
-//  member's language. cp/se_r shows the result and
+//  one by one in random order and stores the chosen options,
+//  and the FinishedSe middleware closes the attempt once as
+//  many questions are answered as settings row 2 asks for,
+//  or every question of a category that has fewer: every
+//  answer worth the question's best option is added for a
+//  correct choice and taken away for a wrong one, never
+//  below zero. A question takes one answer, from its own
+//  options, each counted once, so a forged form scores no
+//  more than an honest one; a closed attempt keeps its end
+//  date. Visiting the start page again resumes the open
+//  attempt. The first finished self-evaluation earns its
+//  badge in the attempt's language, announced in the
+//  member's. cp/se_r shows the result and
 //  cp/self-evaluation-history the member's attempts. An
 //  attempt is its member's alone.
 //
@@ -834,5 +834,73 @@ class SelfEvaluationTest extends FeatureTestCase
         $attempt = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->first();
         $this->assertSame('2020-01-01 00:00:00', $attempt->ended, 'the visit moved the end date');
         $this->assertEquals(200, $attempt->points);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBadgeTakesTheAttemptsLanguage
+    // -----------------------------------------------------------
+    //
+    // An attempt takes its category's language, and so does
+    // badge_self_evaluation_test: a Lithuanian attempt
+    // finished after an English page — in another tab, or
+    // after signing in again — earns the Lithuanian badge.
+    // FinishedSe once filed it under the session's language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBadgeTakesTheAttemptsLanguage(): void
+    {
+        $lt = $this->world->language('lt');
+        $category = $this->world->lmCategory($lt);
+        $question = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+        $location = $this->signInMember($this->member)->get("/lt/self-evaluation-test/$category")->assertRedirect()->headers->get('Location');
+        $publicId = explode('/', parse_url($location, PHP_URL_PATH))[3];
+        $this->signInMember($this->member)->get('/en/news')->assertOk();
+        $this->answerSelfEvaluation($this->member, $publicId, $category, $question['question'], [$question['options'][0]]);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/$category")->assertRedirect("/cp/se_r/$publicId");
+
+        $this->assertEquals([$lt], DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'name' => 'badge_self_evaluation_test'])
+            ->pluck('lang_id')->map(function ($id) {
+                return (int) $id;
+            })->all());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerPostedAsAListIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // An answer whose question hash comes as a list stores
+    // nothing and leads back to the question. The list once
+    // reached the query's one binding as several values, which
+    // PDO refused: a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerPostedAsAListIsNoServerError(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+
+        $this->signInMember($this->member)->post("/cp/se/$publicId/{$this->category}", [
+            'pbid' => [md5(md5($this->first['question'])), 'x'],
+            'a'    => [$this->first['options'][0]],
+        ])->assertRedirect("/cp/se/$publicId/{$this->category}");
+
+        $this->assertFalse(DB::table('bei_users_selfeval')->where('public_id', $publicId)->exists());
     }
 }

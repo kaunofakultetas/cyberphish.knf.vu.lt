@@ -373,15 +373,19 @@ class SimulationsController extends BaseController
     // member's). The member's latest choice decides the step:
     // before the first one the level 1 choices, afterwards
     // the choices under the latest one, a level deeper
-    // (step_options). When there are none the run is over: a
-    // run still open is closed with its points and the
+    // (step_options). When there are none the run is over —
+    // at once for a simulation without steps: a run still
+    // open is closed with its points and the
     // SimulationsResults mail takes them to the member — once
     // per run, however often the end page is shown; a mail
     // relay that cannot be reached is logged, and the page
-    // still shows the result —
-    // badge_all_simulations follows once every simulation of
-    // the language is finished, and in mode 2 the page lists
-    // the feedback of every choice. Answers
+    // still shows the result — badge_all_simulations follows
+    // once every simulation of the run's language is
+    // finished, and in mode 2 the page lists the feedback of
+    // every choice. The run's language is the one it was
+    // started in, whatever code the URL carries now: another
+    // language's, or one no language has, which once stored
+    // the badge with no language, a 500. Answers
     // simulation_do_stuff.blade.php with the choices, the
     // run's ids, whether it is finished and the points so
     // far; the mode 1 feedback of the last choice reaches the
@@ -396,12 +400,14 @@ class SimulationsController extends BaseController
 
     public function simulation_do_stuff(Request $request, $lang, $public_id)
     {
-        // STEP 1: the run so far — whether it holds a choice
-        // yet, and its simulation
-        // ==================================================
-        $if_any = ScenariosUsersOptions::where(['user_scenario_public_id'=>$public_id])->count();
-
+        // STEP 1: the run so far — its simulation and the
+        // language it was started in
+        // ===============================================
         $scenario_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('scenario_id')->first();
+
+        // The badge goes to the run's own language: the URL's code
+        // may name another language, or none at all
+        $lang_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('lang_id')->first();
 
         $finished=0;
 
@@ -414,61 +420,58 @@ class SimulationsController extends BaseController
         // ====================================================
         $options = SimulationsController::step_options($public_id, $scenario_id);
 
-        if($if_any > 0){
+        if(count($options)==0){
+            // STEP 3: no choice left, the run is over — at once
+            // for a simulation without steps: close it with its
+            // points while it is still open, mail the result
+            // when this visit closed it, and award
+            // badge_all_simulations once every simulation of
+            // the run's language is finished
+            // =================================================
+            $finished=1;
 
-            if(count($options)==0){
-                // STEP 3: no choice left, the run is over — close
-                // it with its points while it is still open, mail
-                // the result when this visit closed it, and award
-                // badge_all_simulations once every simulation of
-                // the language is finished
-                // ===============================================
-                $finished=1;
+            $closed = ScenariosUsers::where([
+                    'public_id'=>$public_id,
+                    'user_id'=>Auth::guard('mem')->id(),
+                    'finished'=>0])->update(['ended'=>date("Y-m-d H:i:s"),
+                        'finished'=>1,
+                        'points'=>SimulationsController::simulation_total_points($public_id)]);
 
-                $closed = ScenariosUsers::where([
-                        'public_id'=>$public_id,
-                        'user_id'=>Auth::guard('mem')->id(),
-                        'finished'=>0])->update(['ended'=>date("Y-m-d H:i:s"),
-                            'finished'=>1,
-                            'points'=>SimulationsController::simulation_total_points($public_id)]);
+            // The mail is a courtesy: when the relay cannot be reached
+            // the failure is logged and the end page still comes, the
+            // run being closed already
+            if($closed > 0){
+                try {
+                    Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
+                    ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
 
-                // The mail is a courtesy: when the relay cannot be
-                // reached the failure is logged and the end page
-                // still comes, the run being closed already
-                if($closed > 0){
-                    try {
-                        Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
-                        ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
-                    } catch (\Throwable $e) {
-                        report($e);
-                    }
+            if(!in_array(0, SimulationsController::check_if_all_simulations_finished($lang_id))){
+
+                if(Badges::save_badge($lang_id, 'badge_all_simulations') == true){
+                    $request->session()->now('success', __('main.new_badge'));
                 }
 
-                if(!in_array(0, SimulationsController::check_if_all_simulations_finished(Langs::getLangId($lang)))){
-
-                    if(Badges::save_badge(Langs::getLangId($lang), 'badge_all_simulations') == true){
-                        $request->session()->now('success', __('main.new_badge'));
-                    }
-
-                }
+            }
 
 
-                // STEP 4: mode 2 lists every choice that has
-                // feedback on the end page
-                // ==========================================
-                if(Session::get('simulation_type_'.$public_id) == 2){
+            // STEP 4: mode 2 lists every choice that has
+            // feedback on the end page
+            // ==========================================
+            if(Session::get('simulation_type_'.$public_id) == 2){
 
-                    $feedback_list = ScenariosUsersOptions::selectraw('bei_users_scenarios_options.*, bei_scenarios_options.feedback, bei_scenarios_options.situation')
-                    ->leftJoin('bei_scenarios_options', 'bei_users_scenarios_options.option_id', 'bei_scenarios_options.id')
-                    ->where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])
-                    ->whereraw("bei_scenarios_options.feedback != ''")
-                    ->get()
-                    ->toArray();
+                $feedback_list = ScenariosUsersOptions::selectraw('bei_users_scenarios_options.*, bei_scenarios_options.feedback, bei_scenarios_options.situation')
+                ->leftJoin('bei_scenarios_options', 'bei_users_scenarios_options.option_id', 'bei_scenarios_options.id')
+                ->where(['user_scenario_public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])
+                ->whereraw("bei_scenarios_options.feedback != ''")
+                ->get()
+                ->toArray();
 
-                } else {
-                    // mode 1 showed each choice's feedback on the way
-                }
-
+            } else {
+                // mode 1 showed each choice's feedback on the way
             }
 
         }

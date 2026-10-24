@@ -81,6 +81,7 @@ return [
     'auth_failed'=>'Vale email ja/või parool',
     'forgot_pass_msg'=>                                     'Kui meie andmebaasis on meiliaadress, saate lähtestamise lingi.',
     'new_pass_emailed'=>'Saatsime teile meili teel uue parooli',
+    'mail_failed'=>'Meili ei õnnestunud praegu saata. Palun proovige hiljem uuesti.',
     'user_verified'=>'Kasutaja kinnitatud.',
     'user_registered'=>'Kasutaja registreeritud',
     'pass_dont_match'=>'Paroolid ei kattu',

@@ -5,7 +5,8 @@
 //
 //  Pins the runtime of the production image: PHP 8.4.27
 //  with the extensions the app needs, the production
-//  php.ini, and the disable_functions list the Dockerfile
+//  php.ini with room for the course's uploads, and the
+//  disable_functions list the Dockerfile
 //  builds — the functions that run shell commands or read
 //  files around the app stay off, and the ones the app
 //  itself needs stay on (switching unlink, base64_encode
@@ -171,6 +172,33 @@ class PhpRuntimeTest extends TestCase
         $this->assertFalse((bool) ini_get('display_startup_errors'));
         $this->assertTrue((bool) ini_get('log_errors'));
         $this->assertSame('-1', ini_get('zend.assertions'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUploadsTakeTheCoursesLessonFiles
+    // -----------------------------------------------------------
+    //
+    // Uploads of 10 MB pass, with the post limit above the
+    // file. php.ini-production's 2 MB dropped 68 of
+    // production's 83 lesson files, of 2.1 to 5.4 MB, before
+    // the app saw them: "No file was uploaded!".
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUploadsTakeTheCoursesLessonFiles(): void
+    {
+        $upload = ini_parse_quantity(ini_get('upload_max_filesize'));
+        $post = ini_parse_quantity(ini_get('post_max_size'));
+
+        $this->assertGreaterThanOrEqual(6 * 1024 * 1024, $upload, 'upload_max_filesize is below 6 MB');
+        $this->assertGreaterThan($upload, $post, 'post_max_size does not leave room above the file');
     }
 
 

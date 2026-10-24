@@ -152,7 +152,8 @@ class NewsController extends BaseController
     // one, filled from the article — a query per field — and
     // posting to news/update. While the article has a picture
     // the form shows it with a remove link instead of the
-    // upload field.
+    // upload field; that link hands the id to the page's
+    // script, so the id reaches the form as a number.
     //
     // Used by:
     //   - admin-panel/news.blade.php — the Create News Article
@@ -172,7 +173,7 @@ class NewsController extends BaseController
             return view('admin-panel.news_form',
                 [
                     'url'=>env('APP_URL').'/admin-panel/news/update',
-                    'uid'=>$uid,
+                    'uid'=>(int) $uid,
                     'title'=>News::where(['id'=>$uid])->pluck('title')->first(),
                     'feat_img'=>News::where(['id'=>$uid])->pluck('feat_img')->first(),
                     'content'=>News::where(['id'=>$uid])->pluck('content')->first(),

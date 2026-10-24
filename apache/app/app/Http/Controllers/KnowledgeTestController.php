@@ -138,7 +138,7 @@ class KnowledgeTestController extends BaseController
 
     public function index(Request $request, $lang)
     {
-        if(!Badges::get_badge('badge_all_presentations')){
+        if(!Badges::get_badge(Langs::getLangId($lang), 'badge_all_presentations')){
             return redirect('/'.$lang.'/cp/learning-material');
         }
 
@@ -188,11 +188,14 @@ class KnowledgeTestController extends BaseController
     // (draw_or_resume). A member who has not done every
     // lesson of the language — badge_all_presentations, the
     // badge index waits for — is sent to the lessons, and no
-    // attempt is drawn. The member's row stays locked until
-    // the attempt is stored, so starts posted at the same
-    // moment take their turns: each later one finds the
-    // attempt the first stored, and none passes the three-try
-    // check alongside it.
+    // attempt is drawn. The badge is looked for in the URL's
+    // language, the one the attempt is filed under, and not
+    // in the session's, which a code of other case leaves as
+    // it was. The member's row stays locked until the attempt
+    // is stored, so starts posted at the same moment take
+    // their turns: each later one finds the attempt the first
+    // stored, and none passes the three-try check alongside
+    // it.
     //
     // Used by:
     //   - knowledge_test.blade.php — the start form
@@ -200,7 +203,7 @@ class KnowledgeTestController extends BaseController
 
     public function start(Request $request, $lang)
     {
-        if(!Badges::get_badge('badge_all_presentations')){
+        if(!Badges::get_badge(Langs::getLangId($lang), 'badge_all_presentations')){
             return redirect('/'.$lang.'/cp/learning-material');
         }
 
@@ -366,12 +369,15 @@ class KnowledgeTestController extends BaseController
     // question does, and the attempt can still close. Once none is left an open
     // attempt closes — finished, ended now, the result from
     // calculate_results — and a pass (above 74) earns
-    // badge_final_test of the language, whichever try it is,
-    // with a message on this page when the badge is new
-    // (save_badge refuses a second copy). A finished attempt
-    // keeps its end date, the date the certificate prints,
-    // and its result. The page is knowledge_progress.blade.php
-    // either way.
+    // badge_final_test of the attempt's language, whichever
+    // try it is, with a message on this page when the badge is
+    // new (save_badge refuses a second copy). The attempt's
+    // language is the one it was drawn in, whatever code the
+    // URL carries now: another language's, or one no language
+    // has, which once stored the badge with no language, a
+    // 500. A finished attempt keeps its end date, the date the
+    // certificate prints, and its result. The page is
+    // knowledge_progress.blade.php either way.
     //
     // Used by:
     //   - index, start, progress_save (this class) — their
@@ -383,7 +389,6 @@ class KnowledgeTestController extends BaseController
         // STEP 1: the member's own attempt — any other public
         // id is a 404
         // ===================================================
-        $lang_id = Langs::getLangId($lang);
         $attempt = KnowledgeUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->first();
 
         if($attempt == null){
@@ -461,9 +466,11 @@ class KnowledgeTestController extends BaseController
 
             KnowledgeUserTest::where(['id'=>$id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date('Y-m-d H:i:s'), 'results'=>$results]);
 
+            // The badge of the attempt's own language: the URL's code
+            // may name another language, or none at all
             if($results > 74){
 
-                $a = Badges::save_badge($lang_id, 'badge_final_test');
+                $a = Badges::save_badge($attempt->lang_id, 'badge_final_test');
 
                 if($a == true){
                     $request->session()->now('success', __('main.new_badge'));

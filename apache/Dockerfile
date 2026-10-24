@@ -14,13 +14,14 @@
 #  link the uploads, becomes a link to storage/app/public,
 #  where the panel stores them. php.ini is PHP's production
 #  file with expose_php off, so no response names PHP's
-#  version, and with a disable_functions list that takes
-#  away the functions that start programs and readfile,
-#  symlink and link, while the ones the app needs stay —
-#  PhpRuntimeTest (app/tests/Platform) pins both lists.
-#  The image runs as user 1000, as docker-compose.yml runs
-#  the container too. The build context is this folder;
-#  .dockerignore keeps the test suite out.
+#  version, with room for uploads of 10 MB, and with a
+#  disable_functions list that takes away the functions
+#  that start programs and readfile, symlink and link,
+#  while the ones the app needs stay — PhpRuntimeTest
+#  (app/tests/Platform) pins both lists. The image runs as
+#  user 1000, as docker-compose.yml runs the container too.
+#  The build context is this folder; .dockerignore keeps
+#  the test suite out.
 #
 #  Used by:
 #    - pushDockerhub.sh (this folder) — builds it and
@@ -94,6 +95,14 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # --- Hide PHP's version: php.ini-production leaves expose_php on, which
 # puts X-Powered-By with the exact version on every response
 RUN sed -i 's/^expose_php = On$/expose_php = Off/' "$PHP_INI_DIR/php.ini"
+
+
+# --- Uploads: php.ini-production takes files of 2 MB, while most of the
+# course's lesson files weigh 2 to 5.4 MB, and PHP drops a larger one
+# before the app sees it ("No file was uploaded!"); the post around the
+# file needs room above it
+RUN sed -i -e 's/^upload_max_filesize = .*/upload_max_filesize = 10M/'          \
+           -e 's/^post_max_size = .*/post_max_size = 12M/' "$PHP_INI_DIR/php.ini"
 
 
 

@@ -17,7 +17,10 @@
 //  result above 74 passes, earns badge_final_test on
 //  whichever try, and unlocks the certificate
 //  (CertificateTest). A start with nothing to draw — a
-//  language the limits leave out — stores no attempt.
+//  language the limits leave out — stores no attempt. The
+//  lessons gate and the badge both follow the language of
+//  the attempt — the URL's at the start — and not the
+//  session's, nor the code the closing visit's URL carries.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -840,6 +843,162 @@ class KnowledgeExamTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLessonsGateFollowsTheTestsLanguage
+    // -----------------------------------------------------------
+    //
+    // The lessons gate looks for badge_all_presentations in
+    // the URL's language, the one the attempt is filed under.
+    // A member with every Lithuanian lesson done, none in
+    // English, browsing in Lithuanian, who posts an English
+    // start at /EN/, is sent to the lessons and draws no
+    // English attempt: the gate once read the session's
+    // language, which moves only for the five exact codes,
+    // while the language lookup ignores case.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLessonsGateFollowsTheTestsLanguage(): void
+    {
+        $lt = $this->world->language('lt');
+        $member = $this->world->member();
+        $this->world->badge($member->id, $lt, 'badge_all_presentations');
+
+        $this->signInMember($member)->withSession(['lang' => 'lt'])->post('/EN/knowledge_start')
+            ->assertRedirect('/EN/cp/learning-material');
+
+        $this->assertFalse(DB::table('bei_users_knowledge_test')->where(['user_id' => $member->id, 'lang_id' => $this->en])->exists(), 'an English attempt was drawn without the English lessons');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testClosingAwardsTheAttemptsLanguage
+    // -----------------------------------------------------------
+    //
+    // The visit that closes an attempt awards badge_final_test
+    // in the attempt's own language: an English pass closed
+    // under /lt/ earns the English badge, and no Lithuanian
+    // one. The URL's language once took it, and as later
+    // visits find the attempt closed and award nothing,
+    // English never got its badge.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testClosingAwardsTheAttemptsLanguage(): void
+    {
+        $this->world->language('lt');
+        $publicId = $this->answerEverythingRight();
+
+        $this->signInMember($this->member)->get("/lt/knowledge_test/progress/$publicId")->assertOk();
+
+        $this->assertEquals([$this->en], DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'name' => 'badge_final_test'])
+            ->pluck('lang_id')->map(function ($id) {
+                return (int) $id;
+            })->all());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUnknownLanguageClosingIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // Under a language code no language has, the closing visit
+    // closes the attempt and awards the badge of its own
+    // language. It once stored badge_final_test with no
+    // language, which the NOT NULL column refused — a 500, and
+    // the attempt, closed already, never awarded it again.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUnknownLanguageClosingIsNoServerError(): void
+    {
+        $publicId = $this->answerEverythingRight();
+
+        $this->signInMember($this->member)->get("/xx/knowledge_test/progress/$publicId")->assertOk();
+
+        $this->assertEquals(1, $this->attemptRow($publicId)->finished);
+        $this->assertTrue(DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'lang_id' => $this->en, 'name' => 'badge_final_test'])->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerPostedAsAListIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // An answer whose question hash comes as a list stores
+    // nothing and leads back to the question. The list once
+    // reached the query's one binding as several values, which
+    // PDO refused: a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerPostedAsAListIsNoServerError(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+
+        $this->signInMember($this->member)->post("/en/knowledge_test/progress/$publicId", [
+            'pbid' => [md5(md5($this->questions[0]['question'])), 'x'],
+            'a'    => [$this->questions[0]['options'][0]],
+        ])->assertRedirect("/en/knowledge_test/progress/$publicId");
+
+        $this->assertFalse(DB::table('bei_users_knowledge_options')->where('public_id', $publicId)->exists());
+        $this->assertSame([0, 0, 0], array_values(json_decode($this->attemptRow($publicId)->question_set, true)));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // answerEverythingRight
+    // -----------------------------------------------------------
+    //
+    // Starts a test and answers its three questions right,
+    // without the visit that closes it; returns the attempt's
+    // public id.
+    //
+    // Used by:
+    //   - testClosingAwardsTheAttemptsLanguage,
+    //     testUnknownLanguageClosingIsNoServerError (above)
+    // -----------------------------------------------------------
+
+    private function answerEverythingRight(): string
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+        foreach ($this->questions as $question) {
+            $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][0]]);
+        }
+        return $publicId;
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // finishWith
     // -----------------------------------------------------------
     //
@@ -883,7 +1042,9 @@ class KnowledgeExamTest extends FeatureTestCase
     //     testSkippedQuestionsCountAsWrong,
     //     testTestWithEveryQuestionSkippedCloses,
     //     testRepeatedOptionCountsOnce,
-    //     testFinishedAttemptStaysClosed (above)
+    //     testFinishedAttemptStaysClosed,
+    //     testUnknownLanguageClosingIsNoServerError,
+    //     testAnswerPostedAsAListIsNoServerError (above)
     // -----------------------------------------------------------
 
     private function attemptRow(string $publicId): \stdClass

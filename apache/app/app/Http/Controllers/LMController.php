@@ -556,7 +556,11 @@ class LMController extends BaseController
         // ======================================================
         $a = $request->get('a');
 
-        $question_id = SelfEval::select('id')->whereRaw("MD5(MD5(id))=?", [$request->get('pbid')])->where(['cat_id'=>$cat_id])->get()->pluck('id')->first();
+        // The hash comes as one string: a list would reach the
+        // binding as several values, which PDO refuses with a 500
+        $pbid = $request->get('pbid');
+
+        $question_id = is_string($pbid) ? SelfEval::select('id')->whereRaw("MD5(MD5(id))=?", [$pbid])->where(['cat_id'=>$cat_id])->get()->pluck('id')->first() : null;
 
         $test_id = SelfEvalUserTest::select('id')->where(['public_id'=>$public_id])->get()->pluck('id')->first();
 

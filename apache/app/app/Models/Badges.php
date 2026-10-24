@@ -22,11 +22,9 @@
 
 namespace App\Models;
 
-use Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Langs;
 
 
 
@@ -139,9 +137,15 @@ class Badges extends Model
     // -----------------------------------------------------------
     //
     // Whether the signed-in member holds the badge in the
-    // language the session shows: true for a row of it, even
-    // for two — save_badge's unlocked check lets two requests
-    // at the same moment store it twice — false for none.
+    // given language: true for a row of it, even for two
+    // — save_badge's unlocked check lets two requests at
+    // the same moment store it twice — false for none,
+    // and for no language at all. The caller names the
+    // language, as for save_badge: the page's for the
+    // sidebar, the URL's for the knowledge test, whose
+    // attempt is filed under the URL's language — the
+    // session's moves only for the five exact codes,
+    // while the lookup ignores case.
     //
     // Used by:
     //   - BaseController::__construct — badge_all_presentations,
@@ -150,9 +154,9 @@ class Badges extends Model
     //     badge_all_presentations, which opens the test
     // -----------------------------------------------------------
 
-    public static function get_badge($name)
+    public static function get_badge($lang_id, $name)
     {
-        $num = Badges::where(['name'=>$name, 'user_id'=>Auth::guard('mem')->id(), 'lang_id'=>Langs::getLangId(Session::get('lang'))])->count();
+        $num = Badges::where(['name'=>$name, 'user_id'=>Auth::guard('mem')->id(), 'lang_id'=>$lang_id])->count();
 
         return $num > 0;
     }

@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Langs;
 use App\Models\Badges;
 use App\Models\SelfEvalUserTest;
 use App\Models\SelfEval;
@@ -82,8 +81,11 @@ class FinishedSe
     // the results page; more can be answered when the length
     // was lowered, or questions deleted, after the attempt
     // began. Every close saves badge_self_evaluation_test in
-    // the session's language; the one that earns it carries
-    // the new-badge message, translated into that language —
+    // the attempt's language — its category's, stored when it
+    // began — whichever language the session shows by then,
+    // in another tab or after signing in again; the close
+    // that earns it carries the new-badge message, translated
+    // into the session's language, the one the member reads —
     // this runs before BaseController sets the request's
     // locale. An attempt closed before keeps its end date and
     // points and only leads to its results. The answer to the
@@ -131,7 +133,7 @@ class FinishedSe
 
                 SelfEvalUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date("Y-m-d H:i:s"), 'points'=>$this->calucate_points($public_id)]);
 
-                $new = Badges::save_badge(Langs::getLangId(Session::get('lang')), 'badge_self_evaluation_test');
+                $new = Badges::save_badge(SelfEvalUserTest::where(['id'=>$test_id])->value('lang_id'), 'badge_self_evaluation_test');
 
                 if($new == true){
                     return redirect('/cp/se_r/'.$public_id)->withSuccess(__('main.new_badge', [], Session::get('lang')));

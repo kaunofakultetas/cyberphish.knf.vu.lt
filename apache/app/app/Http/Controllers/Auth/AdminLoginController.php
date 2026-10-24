@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use App\Models\Managers as Managers;
 use Route;
 use Carbon\Carbon;
@@ -47,6 +48,7 @@ use Carbon\Carbon;
 //
 //   showLoginForm — the form
 //   login         — checks the password, fills the session
+//   throttleKey   — where its failures are counted
 //   logout        — signs the manager out
 //
 // Used by:
@@ -135,31 +137,35 @@ class AdminLoginController extends Controller
     //
     // POST /admin-panel
     //
-    // Checks the form — an address, and a password of at
-    // least 6 characters — and tries the man guard with them
-    // and status 1, so a switched-off manager is refused like
-    // a wrong password. On success it records the time and
-    // the address of the visit on the manager, copies the
+    // Checks the form — an address, and a password of at least
+    // 6 characters — and tries the man guard with them and
+    // status 1, so a switched-off manager is refused like a
+    // wrong password. On success it records the time and the
+    // address of the visit on the manager, copies the
     // manager's main flag and country into the session and
-    // answers a redirect to the dashboard; on failure, back
-    // to the form with the auth.failed message. The address
-    // is the one SettingsController::getUserIP picks. The form
+    // answers a redirect to the dashboard; on failure, back to
+    // the form with the auth.failed message. The address is
+    // the one SettingsController::getUserIP picks. The form
     // has no reCAPTCHA, so the guesses are limited the way the
     // trait's login limits them: every failure counts against
     // the email and the address it came from, and once the
     // pair has ten (the properties above), every post of it —
-    // the right password included — goes back to the form
-    // with auth.throttle, in English like the rest of the
-    // panel, until fifteen minutes after the first failure. A
-    // sign-in clears the count. A success goes to the panel
-    // page auth.admin parked in the session, if any; a
-    // failure goes straight back to the form, which keeps the
-    // parked page for the next try and gets the email typed
-    // back, so only the password needs typing again. The
-    // password itself never goes into the session — not
-    // here, where only the email is passed back, nor in the
-    // validation and lockout refusals Laravel answers itself,
-    // which keep the email too and leave out every field of
+    // the right password included — goes back to the form with
+    // auth.throttle, in English like the rest of the panel,
+    // until fifteen minutes after the first failure. A sign-in
+    // clears the count — a count of its own, apart from the
+    // member login's (throttleKey). A success goes to the
+    // panel page auth.admin parked in the session, if any, and
+    // to the dashboard when the page parked is a member page,
+    // which the member side's sign-in redirect parks under the
+    // same key (SettingsController:: is_panel_url); a failure
+    // goes straight back to the form, which keeps the parked
+    // page for the next try and gets the email typed back, so
+    // only the password needs typing again. The password
+    // itself never goes into the session — not here, where
+    // only the email is passed back, nor in the validation and
+    // lockout refusals Laravel answers itself, which keep the
+    // email too and leave out every field of
     // Handler::$dontFlash.
     //
     // Used by:
@@ -186,13 +192,41 @@ class AdminLoginController extends Controller
             Session::put('main', Managers::select('main')->where(['id' => Auth::guard('man')->id(), 'status'=>1])->get()->pluck('main')->first());
             Session::put('country', Managers::select('country')->where(['id' => Auth::guard('man')->id(), 'status'=>1])->get()->pluck('country')->first());
 
-            return redirect()->intended(route('admin_dashboard'));
+            $intended = $request->session()->pull('url.intended');
+
+            return redirect($intended !== null && SettingsController::is_panel_url($intended) ? $intended : route('admin_dashboard'));
 
         }
 
         $this->incrementLoginAttempts($request);
 
         return redirect(route('admin_login'))->withInput($request->only('email'))->withErrors([__('auth.failed')]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // throttleKey
+    // -----------------------------------------------------------
+    //
+    // The key ThrottlesLogins counts this login's failures
+    // under: the trait's own, the email and the address,
+    // marked as the panel's. The member login counts under the
+    // bare key in the same cache, so ten wrong member
+    // passwords for a manager's address once locked the
+    // panel's sign-in of that address too, and the panel's
+    // failures the member login's.
+    //
+    // Used by:
+    //   - ThrottlesLogins, through login (above)
+    // -----------------------------------------------------------
+
+    protected function throttleKey(Request $request)
+    {
+        return 'admin-panel|'.Str::transliterate(Str::lower($request->input($this->username())).'|'.$request->ip());
     }
 
 

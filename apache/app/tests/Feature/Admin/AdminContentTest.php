@@ -13,10 +13,11 @@
 //  the knowledge-test limits (row 3), saved into the rows
 //  mysql/init.sql seeds — and the printout of every
 //  simulation, each with its own categories. A language
-//  name is unique and a language in use stays; an empty
-//  body is saved as one. The panel's news pages reach the
-//  panel, and removing a picture an article no longer has
-//  is harmless.
+//  name is unique and a language in use stays — one with
+//  lessons too; an empty body is saved as one. The panel's
+//  news pages reach the panel, removing a picture an
+//  article no longer has is harmless, and the article
+//  form's script gets its id only as a number.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -194,6 +195,43 @@ class AdminContentTest extends FeatureTestCase
 
         $this->assertSame('The language still has simulations, or their categories or attributes!', session('errors')->first());
         $this->assertTrue(DB::table('bei_lang')->where('id', $latvian)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageWithLessonsIsNotDeleted
+    // -----------------------------------------------------------
+    //
+    // A language that still has lessons stays, with its
+    // message — lessons whose category was deleted first
+    // included. Their foreign key lets the delete through and
+    // empties their language, so a lesson with neither once
+    // stood on no panel page, to be edited or deleted.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageWithLessonsIsNotDeleted(): void
+    {
+        $latvian = $this->world->language('lv');
+        $category = $this->world->lmCategory($latvian);
+        $lesson = $this->world->lmContent($category, $latvian);
+        $this->admin()->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$category");
+        $this->assertFalse(DB::table('bei_lm_category')->where('id', $category)->exists());
+
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post("/admin-panel/settings/languages/delete/$latvian")
+            ->assertRedirect('/admin-panel/settings/languages')
+            ->assertSessionHasErrors();
+
+        $this->assertSame('The language still has lessons!', session('errors')->first());
+        $this->assertTrue(DB::table('bei_lang')->where('id', $latvian)->exists());
+        $this->assertEquals($latvian, DB::table('bei_lm_content')->where('id', $lesson)->value('lang_id'), 'the lesson lost its language');
     }
 
 
@@ -656,6 +694,36 @@ class AdminContentTest extends FeatureTestCase
         ])->assertSessionHasErrors('feat');
 
         $this->assertFalse(DB::table('bei_news')->where('title', 'Vector cover')->exists(), 'the article was saved with an SVG picture');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewsIdNeverReachesThePagesScript
+    // -----------------------------------------------------------
+    //
+    // The article form hands the id of its URL to the remove
+    // link of the picture as a number. It once printed the
+    // segment as written into the link's onClick, where the
+    // quote {{ }} turns into an entity is a quote again: a
+    // crafted link closed the string and ran its own code on
+    // the admin's click.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsIdNeverReachesThePagesScript(): void
+    {
+        $news = $this->world->news($this->en, ['feat_img' => 'feat/cover.png']);
+
+        $html = $this->admin()->get("/admin-panel/news/edit/$news');alert(1);('")->assertOk()->getContent();
+
+        $this->assertStringContainsString("Confirm_Dialog('" . env('APP_URL_ADMIN') . "/news/delete_picture/$news')", $html);
+        $this->assertStringNotContainsString("delete_picture/$news&#039;", $html);
     }
 
 

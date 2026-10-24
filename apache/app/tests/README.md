@@ -101,48 +101,23 @@ Four files outside `tests/` belong to the suite:
 
 ## Pinned defects
 
-A second review of the whole app, on 24 October 2026, found 31 defects.
-Each is pinned by a test that reproduces it. In the table, the medium
-ones come first in each file; the rest are low.
+A second review of the whole app, on 24 October 2026, found 31 defects,
+each pinned by a test that reproduces it. The 25 whose fixes no member or
+admin would notice in normal use were fixed the same day (see Fixed
+defects). The six below remain, because each fix changes something people
+see: a badge Latvian members could not earn so far, scores that move, a
+new message, a dialog that opens differently, a login that starts to
+work, a form that keeps what was typed. In the table, the medium ones
+come first in each file; the rest are low.
 
 | Id | Pinned in | What breaks |
 |---|---|---|
 | `simulation-badge-unreachable` | `SimulationDefectsTest` | badge_all_simulations counts simulations that no category offers. In production, 6 of Latvian's 55 can't be reached, so no Latvian member can earn the badge |
-| `simulation-without-steps` | `SimulationDefectsTest` | A run of a simulation without steps never ends |
-| `simulation-badge-language` | `SimulationDefectsTest` | The end page awards the badge for the URL's language, not the run's |
-| `simulation-unknown-language` | `SimulationDefectsTest` | An end page under an unknown language code is a 500 after the run has closed |
-| `knowledge-gate-language` | `KnowledgeDefectsTest` | The lessons gate reads the session's language, the attempt the URL's (`/EN/` gets past it) |
-| `knowledge-badge-language` | `KnowledgeDefectsTest` | The closing visit awards badge_final_test for the URL's language |
-| `knowledge-unknown-language` | `KnowledgeDefectsTest` | Closing under an unknown code is a 500, and the badge is lost |
-| `lesson-delete-badge` | `LearningDefectsTest` | Deleting the lesson a member had left locks the knowledge test for good |
-| `lesson-double-completion` | `LearningDefectsTest` | A lesson stored twice counts its hours twice |
 | `selfeval-partial-points` | `LearningDefectsTest` | A fully right answer with three right options scores 99. Production has 153 such fractional options |
 | `finished-course-message` | `LearningDefectsTest` | The finished-course badge is announced on a page that shows no messages |
-| `selfeval-badge-language` | `LearningDefectsTest` | The self-evaluation badge goes to the session's language, not the attempt's |
-| `learning-array-input` | `LearningDefectsTest` | An answer or a lesson completion posted as a list is a 500 |
-| `account-array-input` | `AccountDefectsTest` | Account fields posted as lists are a 500, or stored as JSON text |
-| `ranks-url-language` | `SiteDefectsTest` | The rankings read the URL's language code, not the page's |
-| `admin-uid-script` | `AdminDefectsTest` | A crafted URL's segment runs as script on four panel pages: reflected XSS |
 | `manager-edit-country` | `AdminDefectsTest` | The manager edit dialog doesn't show the stored country, so each save overwrites it |
-| `dashboard-null-country` | `AdminDefectsTest` | A country manager with no country sees every country |
-| `language-delete-lessons` | `AdminDefectsTest` | Deleting a language leaves its uncategorised lessons without one |
-| `category-delete-hours` | `AdminDefectsTest` | Lessons left without a category still count in the progress |
-| `simulation-import-blanks` | `AdminDefectsTest` | A blank description or step level in the sheet is a 500 |
-| `lesson-file-blank-name` | `AdminDefectsTest` | A file name of only spaces is a 500, and the upload is left behind |
-| `lesson-hours-comma` | `AdminDefectsTest` | Hours typed as `0,5` are stored as 0 |
-| `question-import-no-file` | `AdminDefectsTest` | A question import without a file is a 500 |
-| `verify-switched-off` | `AuthDefectsTest` | The sign-up link switches back on an account an admin switched off |
-| `intended-cross-guard` | `AuthDefectsTest` | A login follows the page the other guard parked |
 | `reset-unverified` | `AuthDefectsTest` | A reset mails an unverified member a password that never signs in |
-| `auth-mail-outage` | `AuthDefectsTest` | A mail outage is a 500, and it reveals which addresses forgot-password knows |
-| `throttle-shared` | `AuthDefectsTest` | Failed member logins lock the panel login for the same address |
 | `register-input-lost` | `AuthDefectsTest` | A refused sign-up comes back empty |
-| `upload-limit` | `PlatformDefectsTest` | PHP refuses uploads over 2 MB, smaller than 68 of production's 83 lesson files |
-
-The 2 MB limit doesn't affect production today, because production
-mounts the upload folders read-only. `dashboard-null-country` needs a
-manager row without a country, which the panel's manager forms don't
-prevent.
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -409,8 +384,64 @@ column. A delete or a status change returns to where the page stood:
 | `dashboard-progress-calls` | `AdminDashboardTest::testDashboardRunsNoProgressFunction`, with `testProgressMatchesTheFunctionAtHalfwayPoints` holding the new statement to the stored function. With every country on it, the main admin's dashboard took about 1.5 seconds, a second of that in 804 calls of the progress function. One statement now works out every pair, and plain rows replace a model per member. Main admin 1,553 → 249 ms, users page 354 → 87 ms, a country manager 800 → 226 ms, measured on a copy of production |
 | `panel-unused-scripts` | `TemplatesTest::testPanelLoadsOnlyTheScriptsItUses`. Every panel page loaded and ran jQuery UI, sparkline and Summernote, about 470 KB of script. Only the three editor forms use Summernote, and they now load it themselves |
 
-The pins of the second review live in eight `*DefectsTest.php` files, one
-per folder they touch.
+The same day, 25 pins of the second review were fixed: every one whose
+fix no member or admin would notice in normal use. Each test was seen
+failing on the code before its fix, then moved to its home file. Siblings
+found on the way were fixed and tested with them: the knowledge test's
+answer form took a list as badly as the self-evaluation's
+(`knowledge-array-input`), the full name and the new password as badly as
+the current password, and the cases the home tests list beside each id.
+
+What changed:
+
+- Badges and the lessons gate follow the run or attempt, not the URL or
+  the session. That holds for the simulations, the knowledge test and the
+  self-evaluation, and for the knowledge test's gate, which reads the
+  attempt's language.
+- The rankings read the page's language.
+- Deleting a lesson, or a category, that a member had left now awards
+  badge_all_presentations.
+- The course progress counts each lesson once, and only lessons filed
+  under a category. The stored function `bei_user_course_progress` in
+  `mysql/init.sql` changed with `LMUsers::country_progress`, so a
+  production database needs the function replaced. Production has no
+  duplicate completions and no lesson without a category, so no figure
+  moves.
+- A mail outage at sign-up or on the reset button says so. The message is
+  `main.mail_failed`, new in all five languages. It used to be a 500.
+- PHP takes uploads of 10 MB.
+
+| Id | Home test |
+|---|---|
+| `simulation-without-steps` | `SimulationsTest::testSimulationWithoutStepsEnds` |
+| `simulation-badge-language` | `SimulationsTest::testEndPageAwardsTheRunsLanguage` |
+| `simulation-unknown-language` | `SimulationsTest::testUnknownLanguageEndPageIsNoServerError` |
+| `knowledge-gate-language` | `KnowledgeExamTest::testLessonsGateFollowsTheTestsLanguage` |
+| `knowledge-badge-language` | `KnowledgeExamTest::testClosingAwardsTheAttemptsLanguage` |
+| `knowledge-unknown-language` | `KnowledgeExamTest::testUnknownLanguageClosingIsNoServerError` |
+| `knowledge-array-input` | `KnowledgeExamTest::testAnswerPostedAsAListIsNoServerError` |
+| `lesson-delete-badge` | `LearningMaterialTest::testDeletedLessonDoesNotLockTheTestAway`, `testDeletedCategoryDoesNotLockTheTestAway` |
+| `lesson-double-completion` | `CourseProgressTest::testLessonStoredTwiceCountsOnce`, and the member with a lesson stored twice in `AdminDashboardTest::testProgressMatchesTheFunctionAtHalfwayPoints` |
+| `category-delete-hours` | `CourseProgressTest::testLessonsMembersCannotReachDoNotCount`, and the member with an uncategorised lesson in `AdminDashboardTest::testProgressMatchesTheFunctionAtHalfwayPoints` |
+| `selfeval-badge-language` | `SelfEvaluationTest::testBadgeTakesTheAttemptsLanguage` |
+| `learning-array-input` | `SelfEvaluationTest::testAnswerPostedAsAListIsNoServerError`, `LearningMaterialTest::testLessonPostedAsAListIsNoServerError` |
+| `account-array-input` | `AccountSettingsTest::testFieldsPostedAsListsAreRefused`, which covers the full name and the new password too |
+| `ranks-url-language` | `PublicPagesTest::testRankingFollowsThePagesLanguage` |
+| `dashboard-null-country` | `AdminDashboardTest::testCountryManagerWithoutACountrySeesNoOtherCountry`. Only the main flag opens every country now; a null country no longer stands for every country |
+| `admin-uid-script` | `AdminLearningTest::testUrlSegmentNeverReachesThePagesScript`, `AdminContentTest::testNewsIdNeverReachesThePagesScript`, the fourth page |
+| `language-delete-lessons` | `AdminContentTest::testLanguageWithLessonsIsNotDeleted` |
+| `simulation-import-blanks` | `AdminSimulationsTest::testSheetWithBlankCellsIsRefusedWithAMessage`, which also refuses a step without an answer type (a 500 too) and one more than a level below the step before it (saved where no run reached it) |
+| `lesson-file-blank-name` | `AdminLearningTest::testFileNamedWithSpacesOnlyIsRefused`, renaming included |
+| `lesson-hours-comma` | `AdminLearningTest::testHoursWithADecimalCommaAreNotCut`, editing included |
+| `question-import-no-file` | `AdminLearningTest::testQuestionImportWithoutAFileIsRefused` |
+| `verify-switched-off` | `VerificationTest::testLinkLeavesASwitchedOffAccountOff`, with `testLinkOfAnAccountSwitchedOnAlreadyGreets` keeping the case an admin switched on |
+| `intended-cross-guard` | `AdminLoginTest::testAdminLoginIgnoresAMemberPagesParking`, `LoginTest::testSignInIgnoresAPanelPagesParking` |
+| `auth-mail-outage` | `PasswordResetTest::testMailOutageIsNoServerErrorAndTellsNothing`, `RegistrationTest::testMailOutageCreatesNoAccount` |
+| `throttle-shared` | `AdminLoginTest::testFailedMemberLoginsDoNotLockThePanel`, `LoginTest::testFailedPanelLoginsDoNotLockTheLogin` |
+| `upload-limit` | `PhpRuntimeTest::testUploadsTakeTheCoursesLessonFiles` |
+
+The six pins left live in four `*DefectsTest.php` files, one per folder
+they touch.
 
 ## Found but not pinned
 

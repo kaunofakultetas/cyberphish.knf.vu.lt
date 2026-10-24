@@ -28,6 +28,7 @@ use App\Http\Controllers\SettingsController;
 use App\Models\Langs as Langs;
 use App\Models\Information;
 use App\Models\LMCategory;
+use App\Models\LMContent;
 use App\Models\News;
 use App\Models\Scenarios;
 use App\Models\ScenariosAttributes;
@@ -241,14 +242,18 @@ class LanguagesController extends BaseController
     //
     // POST /admin-panel/settings/languages/delete/{uid}
     //
-    // Deletes the language and answers a redirect back to
-    // the languages page. A language that still has news,
+    // Deletes the language and answers a redirect back to the
+    // languages page. A language that still has news,
     // information pages or learning-material categories —
     // their foreign keys refuse the delete — stays, and the
     // page says why. So does one that still has simulations,
     // or their categories or attributes: no foreign key holds
     // those, and the delete would leave them under a language
-    // that no longer exists.
+    // that no longer exists. So does one that still has
+    // lessons, which outlive a deleted category: their
+    // foreign key lets the delete through and empties their
+    // language, and a lesson with neither is listed on no
+    // panel page, to be edited or deleted.
     //
     // Used by:
     //   - admin-panel/langs.blade.php — each row's delete
@@ -263,6 +268,10 @@ class LanguagesController extends BaseController
 
         if(Scenarios::where(['lang_id'=>$uid])->count() > 0 || ScenariosCategory::where(['lang_id'=>$uid])->count() > 0 || ScenariosAttributes::where(['lang_id'=>$uid])->count() > 0){
             return back()->withErrors("The language still has simulations, or their categories or attributes!");
+        }
+
+        if(LMContent::where(['lang_id'=>$uid])->count() > 0){
+            return back()->withErrors("The language still has lessons!");
         }
 
         Langs::destroy($uid);

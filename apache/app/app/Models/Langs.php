@@ -99,8 +99,7 @@ class Langs extends Model
     //     KnowledgeTestController, LMController,
     //     SimulationsController — the language of the page
     //   - FinishedSe::handle (Http/Middleware/)
-    //   - Badges::get_badge, LoginLog::if_login_10 (this
-    //     folder)
+    //   - LoginLog::if_login_10 (this folder)
     // -----------------------------------------------------------
 
     public static function getLangId($locale)

@@ -21,7 +21,9 @@
 //  work on a read-only upload folder, and a file's delete
 //  link opened twice is harmless. A file posted without its
 //  Embed box is listed for download, and a post without a
-//  file gets an error.
+//  file, or a name, gets an error, as does an import
+//  without a file. Hours take a decimal comma. The id of a
+//  page's URL reaches its script only as a number.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -755,6 +757,168 @@ class AdminLearningTest extends FeatureTestCase
 
         $this->assertFalse(DB::table('bei_lm_content_files')->where('id', $file)->exists());
         $this->assertFalse(DB::table('bei_lm_content')->where('id', $gone)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUrlSegmentNeverReachesThePagesScript
+    // -----------------------------------------------------------
+    //
+    // The lesson files page and the two question pages hand
+    // the id of their URL to an onClick or a javascript: link
+    // as a number. They once printed the segment as written —
+    // {{ }} escapes HTML, not script, and MySQL reads the
+    // segment's leading digits, so the page looked as usual
+    // while a crafted link's code ran on the admin's next
+    // click.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUrlSegmentNeverReachesThePagesScript(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+        $category = $this->category;
+        $pages = [
+            "/admin-panel/lm/files/$lesson),alert(1),($lesson"              => ["lm_files_form('new', $lesson);", "lm_files_form('new', $lesson),alert(1)"],
+            "/admin-panel/lm/self_eval/$category),alert(1),($category"      => ["import_selfeval($category)\"", "import_selfeval($category),alert(1)"],
+            "/admin-panel/lm/knowledge_test/$category),alert(1),($category" => ["import_knowledge($category)\"", "import_knowledge($category),alert(1)"],
+        ];
+
+        foreach ($pages as $page => list($clean, $crafted)) {
+            $html = $this->admin()->get($page)->assertOk()->getContent();
+
+            $this->assertStringNotContainsString($crafted, $html, "$page runs the URL's code");
+            $this->assertStringContainsString($clean, $html, "$page hands its script more than the id");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFileNamedWithSpacesOnlyIsRefused
+    // -----------------------------------------------------------
+    //
+    // A file name of spaces only — which arrives as no name at
+    // all — is refused, and nothing is stored: neither the row
+    // nor the upload. The file once moved into upload/lm
+    // before the name reached its NOT NULL column: a 500, and
+    // the file left behind with no row. Renaming a file to
+    // spaces is refused too, where MySQL once stored the name
+    // empty.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFileNamedWithSpacesOnlyIsRefused(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+        $kept = $this->world->lmFile($lesson, ['name' => 'Checklist']);
+        $before = glob(public_path('upload/lm/*')) ?: [];
+
+        $created = $this->admin()->from("/admin-panel/lm/files/$lesson")->post('/admin-panel/lm/file/create', [
+            'uid'   => $lesson,
+            'name'  => '   ',
+            'embed' => 0,
+            'doc'   => $this->uploadedFile('checklist.pdf', "%PDF-1.4\n%test\n"),
+        ]);
+        $added = array_diff(glob(public_path('upload/lm/*')) ?: [], $before);
+        foreach ($added as $path) {
+            @unlink($path);
+        }
+
+        $created->assertRedirect("/admin-panel/lm/files/$lesson")->assertSessionHasErrors();
+        $this->assertSame([], array_values($added), 'the upload was left behind');
+        $this->assertSame(1, DB::table('bei_lm_content_files')->where('content_id', $lesson)->count());
+        $this->admin()->from("/admin-panel/lm/files/$lesson")->post('/admin-panel/lm/file/update', ['uid' => $kept, 'name' => '   '])
+            ->assertRedirect("/admin-panel/lm/files/$lesson")->assertSessionHasErrors();
+        $this->assertSame('Checklist', DB::table('bei_lm_content_files')->where('id', $kept)->value('name'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testHoursWithADecimalCommaAreNotCut
+    // -----------------------------------------------------------
+    //
+    // Hours typed with a decimal comma are read as with a
+    // point, when a lesson is created and when it is edited.
+    // The hours field is plain text, and MySQL, its strict
+    // mode off, once took "0,5" for 0 with only a warning —
+    // and the hours set each lesson's share of the progress.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testHoursWithADecimalCommaAreNotCut(): void
+    {
+        $this->admin()->from('/admin-panel/lm/content')->post('/admin-panel/lm/content/create', [
+            'cat_id'  => $this->category,
+            'title'   => 'Half an hour',
+            'content' => '<p>Short.</p>',
+            'hours'   => '0,5',
+            'uid'     => $this->en,
+        ]);
+        $lesson = DB::table('bei_lm_content')->where(['title' => 'Half an hour'])->first();
+        $this->assertEquals(0.5, $lesson->hours);
+
+        $this->admin()->from("/admin-panel/lm/content/edit/{$lesson->id}")->post('/admin-panel/lm/content/update', [
+            'uid'     => $lesson->id,
+            'cat_id'  => $this->category,
+            'title'   => 'Half an hour',
+            'content' => '<p>Short.</p>',
+            'hours'   => '1,5',
+        ]);
+
+        $this->assertEquals(1.5, DB::table('bei_lm_content')->where('id', $lesson->id)->value('hours'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testQuestionImportWithoutAFileIsRefused
+    // -----------------------------------------------------------
+    //
+    // Both question imports posted without a file go back to
+    // the panel with "No file was uploaded!", as the
+    // simulation import does. They once read the missing
+    // upload with file_get_contents — a scripted post, or a
+    // file PHP dropped for its size — a ValueError and a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionImportWithoutAFileIsRefused(): void
+    {
+        $imports = [
+            "/admin-panel/lm/self_eval/{$this->category}"      => '/admin-panel/lm/self_eval/import',
+            "/admin-panel/lm/knowledge_test/{$this->category}" => '/admin-panel/lm/knowledge_test/import',
+        ];
+
+        foreach ($imports as $page => $import) {
+            $this->admin()->from($page)->post($import, ['cat_id' => $this->category])
+                ->assertRedirect($page)
+                ->assertSessionHasErrors();
+
+            $this->assertSame('No file was uploaded!', session('errors')->first(), $import);
+        }
     }
 
 

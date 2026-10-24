@@ -23,6 +23,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -62,6 +63,9 @@ use Illuminate\Support\Facades\Validator;
 //   additional_files, files_form, files_create,
 //   files_update, files_delete
 //                    — the files of one lesson
+//   hours            — a lesson's hours as typed
+//   award_lessons_badge
+//                    — the badge a delete brings within reach
 //
 // Production mounts public/upload read-only
 // (docker-compose.yml): there files_create's move ends in a
@@ -218,10 +222,11 @@ class LMController extends BaseController
     // characters, the category, body and hours are taken as
     // posted — an empty editor, NULL by then
     // (ConvertEmptyStringsToNull), as an empty body and empty
-    // hours as 0, both columns being NOT NULL — and the
-    // language is the form's hidden uid. Then back to the
-    // lessons page on that language's tab, with "Created!".
-    // Main admins only (auth.admin:man, perms).
+    // hours as 0, both columns being NOT NULL, and hours
+    // typed with a decimal comma as with a point (hours) —
+    // and the language is the form's hidden uid. Then back to
+    // the lessons page on that language's tab, with
+    // "Created!". Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content_form.blade.php — the lesson
@@ -238,7 +243,7 @@ class LMController extends BaseController
         $addRecord->cat_id = $request->get('cat_id');
         $addRecord->title = $request->get('title');
         $addRecord->content = $request->get('content') ?? '';
-        $addRecord->hours = $request->get('hours') ?? 0;
+        $addRecord->hours = LMController::hours($request->get('hours')) ?? 0;
         $addRecord->lang_id = $request->get('uid');
         $addRecord->save();
 
@@ -258,10 +263,11 @@ class LMController extends BaseController
     //
     // Writes the lesson form over the lesson in the hidden
     // uid — category, title (1 to 255 characters), body and
-    // hours — and goes back with "Updated!". An emptied body
-    // or hours ends as in create, an empty body or 0 hours,
-    // but through MySQL rather than the code: strict mode is
-    // off (config/database.php), so MySQL's UPDATE stores the
+    // hours, a decimal comma read as a point (hours) — and
+    // goes back with "Updated!". An emptied body or hours
+    // ends as in create, an empty body or 0 hours, but
+    // through MySQL rather than the code: strict mode is off
+    // (config/database.php), so MySQL's UPDATE stores the
     // column's implicit default instead of the NULL. Main
     // admins only (auth.admin:man, perms).
     //
@@ -280,12 +286,37 @@ class LMController extends BaseController
             'cat_id'=>$request->get('cat_id'),
             'title'=>$request->get('title'),
             'content'=>$request->get('content'),
-            'hours'=>$request->get('hours')
+            'hours'=>LMController::hours($request->get('hours'))
         );
 
         LMContent::where(['id' => $request->get('uid')])->update($update);
 
         return back()->withSuccess("Updated!");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // hours
+    // -----------------------------------------------------------
+    //
+    // A lesson's hours as the form posts them, a decimal comma
+    // read as a point. The field is plain text, and MySQL,
+    // strict mode being off, took "0,5" for 0 with only a
+    // warning — and the hours set each lesson's share of the
+    // course progress. Anything else passes as it came, an
+    // empty field's NULL included.
+    //
+    // Used by:
+    //   - create, update (above)
+    // -----------------------------------------------------------
+
+    private static function hours($hours)
+    {
+        return is_string($hours) ? str_replace(',', '.', $hours) : $hours;
     }
 
 
@@ -306,8 +337,9 @@ class LMController extends BaseController
     // goes, as its foreign key would block the lesson's
     // delete, whether its file is still on disk or not; a
     // file on a read-only upload folder, as production mounts
-    // it, stays on disk. Main admins only (auth.admin:man,
-    // perms).
+    // it, stays on disk. A member left with every lesson of
+    // the language done gets its badge (award_lessons_badge).
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content.blade.php — the delete icon
@@ -331,6 +363,7 @@ class LMController extends BaseController
 
         LMUsers::where(['content_id'=>$uid])->delete();
         LMContent::destroy($uid);
+        LMController::award_lessons_badge($lang_id);
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
     }
 
@@ -510,9 +543,12 @@ class LMController extends BaseController
     // self-evaluation or knowledge-test questions is refused
     // with a message instead: they have no foreign key to it,
     // and would outlive it where no page lists them — the
-    // knowledge test drawing them still. The route and the
-    // page that links to it share the "categores" spelling.
-    // Main admins only (auth.admin:man, perms).
+    // knowledge test drawing them still. Lessons without a
+    // category are on no member page, so a member who has
+    // done every other lesson of the language gets its badge
+    // (award_lessons_badge). The route and the page that
+    // links to it share the "categores" spelling. Main admins
+    // only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_categories.blade.php — the delete
@@ -529,8 +565,53 @@ class LMController extends BaseController
         }
 
         LMCategory::destroy($uid);
+        LMController::award_lessons_badge($lang_id);
 
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // award_lessons_badge
+    // -----------------------------------------------------------
+    //
+    // Awards badge_all_presentations of the language, without
+    // a message, to every member who has now completed every
+    // lesson its categories hold. The member side awards it
+    // only as a lesson is marked completed
+    // (LMController::mark_completed), and a completed lesson
+    // shows no form to mark it again: deleting the one lesson
+    // a member had left, or the category holding it, once left
+    // every lesson done and the badge — the knowledge test's
+    // key — out of reach for good. The check is the one
+    // check_if_all_presentations_finished makes for the
+    // signed-in member, made for every member in one
+    // statement; a member who completed none of the language's
+    // lessons gets nothing.
+    //
+    // Used by:
+    //   - delete, categories_delete (above)
+    // -----------------------------------------------------------
+
+    private static function award_lessons_badge($lang_id)
+    {
+        DB::insert("INSERT INTO bei_users_badges (lang_id, user_id, name)
+            SELECT ?, members.user_id, 'badge_all_presentations'
+            FROM (SELECT DISTINCT bei_lm_users.user_id FROM bei_lm_users
+                    JOIN bei_lm_content ON bei_lm_content.id = bei_lm_users.content_id
+                    JOIN bei_lm_category ON bei_lm_category.id = bei_lm_content.cat_id
+                    WHERE bei_lm_category.lang_id = ? AND bei_lm_users.user_id IS NOT NULL) AS members
+            WHERE NOT EXISTS (SELECT 1 FROM bei_users_badges
+                    WHERE bei_users_badges.user_id = members.user_id AND bei_users_badges.lang_id = ? AND bei_users_badges.name = 'badge_all_presentations')
+            AND NOT EXISTS (SELECT 1 FROM bei_lm_content
+                    JOIN bei_lm_category ON bei_lm_category.id = bei_lm_content.cat_id
+                    WHERE bei_lm_category.lang_id = ? AND NOT EXISTS (SELECT 1 FROM bei_lm_users
+                        WHERE bei_lm_users.user_id = members.user_id AND bei_lm_users.content_id = bei_lm_content.id))",
+            [$lang_id, $lang_id, $lang_id, $lang_id]);
     }
 
 
@@ -549,8 +630,10 @@ class LMController extends BaseController
     // lesson's title: every file row of the lesson is read
     // and the 25 of the page the query string names are
     // sliced out, anything empty or not numeric being page 1.
-    // With no files the view gets an empty array instead of
-    // a paginator. Main admins only (auth.admin:man, perms).
+    // With no files the view gets an empty array instead of a
+    // paginator. The page's Add file button hands uid to its
+    // script, so uid is taken as a number first. Main admins
+    // only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content.blade.php — the Additional
@@ -561,6 +644,11 @@ class LMController extends BaseController
 
     public function additional_files(Request $request, $uid)
     {
+        // The id as the number MySQL reads from it: the page
+        // prints it into its script, where the segment as written
+        // would run on the admin's next click
+        $uid = (int) $uid;
+
         $arr = LMFiles::where(['content_id'=>$uid])->get()->toArray();
 
         $name = LMContent::where(['id'=>$uid])->pluck('title')->first();
@@ -670,8 +758,11 @@ class LMController extends BaseController
     // 1. Back with "Created!". A request without a usable
     // file — none chosen, or one over PHP's
     // upload_max_filesize — goes back with an error and
-    // stores nothing. Main admins only (auth.admin:man,
-    // perms).
+    // stores nothing; so does one whose name is blank,
+    // or spaces only, which once reached the NOT NULL
+    // column after the file had moved in: a 500, and a
+    // file left on disk with no row. Main admins only
+    // (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/lm_files_form.blade.php — the
@@ -680,6 +771,12 @@ class LMController extends BaseController
 
     public function files_create(Request $request)
     {
+        // Spaces only arrive as NULL (TrimStrings, then
+        // ConvertEmptyStringsToNull)
+        if (!is_string($request->get('name'))) {
+            return back()->withErrors("The file needs a name!");
+        }
+
         if ($request->hasFile('doc')) {
 
             $extension = strtolower($request->file('doc')->getClientOriginalExtension());
@@ -726,8 +823,10 @@ class LMController extends BaseController
     //
     // Renames the file in the hidden uid and sets its Embed
     // flag — an unticked box posts nothing and stores 0, as
-    // in files_create — then goes back with "Updated!". Main
-    // admins only (auth.admin:man, perms).
+    // in files_create — then goes back with "Updated!". A
+    // blank name is refused as in files_create, where
+    // MySQL, strict mode being off, once stored it as an
+    // empty one. Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/lm_files_form.blade.php — the
@@ -736,6 +835,10 @@ class LMController extends BaseController
 
     public function files_update(Request $request)
     {
+        if (!is_string($request->get('name'))) {
+            return back()->withErrors("The file needs a name!");
+        }
+
         LMFiles::where(['id'=>$request->get('uid')])->update([
             'name'=>$request->get('name'),
             'embed'=>$request->get('embed') == 1 ? 1 : 0

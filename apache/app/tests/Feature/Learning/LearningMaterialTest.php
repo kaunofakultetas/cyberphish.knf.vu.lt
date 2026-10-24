@@ -12,7 +12,10 @@
 //  when a whole category is done, badge_all_presentations
 //  when every lesson of the language is — all that fall due
 //  with the same completion. A badge stored twice still
-//  reads as held.
+//  reads as held. Deleting the lesson, or the category,
+//  that a member had left hands out
+//  badge_all_presentations, which the knowledge test waits
+//  for.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -450,6 +453,98 @@ class LearningMaterialTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testDeletedLessonDoesNotLockTheTestAway
+    // -----------------------------------------------------------
+    //
+    // A member with one lesson done and one left, which a main
+    // admin then deletes, gets badge_all_presentations, and
+    // with it the knowledge test. The badge once came only
+    // with a lesson marked completed, and a completed lesson
+    // shows no form to mark again: every lesson was done, and
+    // the test locked away for good.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedLessonDoesNotLockTheTestAway(): void
+    {
+        $this->complete($this->firstLesson);
+        $this->assertNotContains('badge_all_presentations', $this->badges());
+
+        $this->signInManager($this->world->manager())->post("/admin-panel/lm/content_delete/{$this->secondLesson}");
+
+        $this->assertFalse(DB::table('bei_lm_content')->where('id', $this->secondLesson)->exists());
+        $this->assertContains('badge_all_presentations', $this->badges());
+        $this->signInMember($this->member)->get('/en/knowledge_test')->assertOk();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedCategoryDoesNotLockTheTestAway
+    // -----------------------------------------------------------
+    //
+    // The same through a category: a member who has done the
+    // first category, while the one lesson of a second waits,
+    // gets badge_all_presentations once a main admin deletes
+    // the second category — its lesson stays, without a
+    // category, on no member page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedCategoryDoesNotLockTheTestAway(): void
+    {
+        $other = $this->world->lmCategory($this->en);
+        $this->world->lmContent($other, $this->en);
+        $this->complete($this->firstLesson);
+        $this->complete($this->secondLesson);
+        $this->assertNotContains('badge_all_presentations', $this->badges());
+
+        $this->signInManager($this->world->manager())->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$other");
+
+        $this->assertFalse(DB::table('bei_lm_category')->where('id', $other)->exists());
+        $this->assertContains('badge_all_presentations', $this->badges());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLessonPostedAsAListIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // A completion whose lesson hash comes as a list records
+    // nothing and goes back to the lesson. The list once
+    // reached the query's binding as several values, which PDO
+    // refused: a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLessonPostedAsAListIsNoServerError(): void
+    {
+        $this->signInMember($this->member)->from("/en/learn/lesson/{$this->firstLesson}")
+            ->post('/cp/mark_completed', ['ued' => [$this->lessonHash($this->firstLesson), 'x']])
+            ->assertRedirect("/en/learn/lesson/{$this->firstLesson}");
+
+        $this->assertFalse(DB::table('bei_lm_users')->where('user_id', $this->member->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // complete
     // -----------------------------------------------------------
     //
@@ -479,7 +574,8 @@ class LearningMaterialTest extends FeatureTestCase
     // MD5 of APP_SALT followed by the id.
     //
     // Used by:
-    //   - complete, testMemberGetsTheCompletionForm (above)
+    //   - complete, testMemberGetsTheCompletionForm,
+    //     testLessonPostedAsAListIsNoServerError (above)
     // -----------------------------------------------------------
 
     private function lessonHash(int $lessonId): string

@@ -103,7 +103,9 @@ class SelfevalController extends BaseController
     // 25 of the page the query string names are sliced out,
     // anything empty or not numeric being page 1. With no
     // questions the view gets an empty array instead of a
-    // paginator. Main admins only (auth.admin:man, perms).
+    // paginator. The page's Import Questions link hands uid
+    // to its script, so uid is taken as a number first.
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_categories.blade.php — the Self
@@ -113,6 +115,11 @@ class SelfevalController extends BaseController
 
     public function index(Request $request, $uid)
     {
+        // The id as the number MySQL reads from it: the page
+        // prints it into its script, where the segment as written
+        // would run on the admin's next click
+        $uid = (int) $uid;
+
         $arr = SelfEval::where(['cat_id'=>$uid])->get()->toArray();
 
         $name = LMCategory::where(['id'=>$uid])->pluck('name')->first();
@@ -197,14 +204,16 @@ class SelfevalController extends BaseController
     // get 0. Back with "Questions imported!". Main admins
     // only (auth.admin:man, perms).
     //
-    // Nothing runs in a transaction, and broken input ends
-    // in a 500 with the blocks before it already stored: a
-    // question line without a backslash-colon is an
-    // undefined array key, and an option before any
-    // question was stored meets an undefined $addQ. A block
-    // whose question line is not recognised files its
-    // options and its type under the question of an earlier
-    // block.
+    // A post without a file goes back with "No file was
+    // uploaded!", as the simulation import does, where reading
+    // the missing file was a 500. Nothing runs in a
+    // transaction, and broken input ends in a 500 with the
+    // blocks before it already stored: a question line without
+    // a backslash-colon is an undefined array key, and an
+    // option before any question was stored meets an undefined
+    // $addQ. A block whose question line is not recognised
+    // files its options and its type under the question of an
+    // earlier block.
     //
     // Used by:
     //   - admin-panel/dialog/self_eval.blade.php — the import
@@ -216,6 +225,10 @@ class SelfevalController extends BaseController
         // STEP 1: the uploaded file, read whole and cut into
         // blocks at "::"
         // ==================================================
+        if (!$request->hasFile('doc')) {
+            return back()->withErrors("No file was uploaded!");
+        }
+
         $content = file_get_contents($request->file('doc'));
         $cat_id = $request->get('cat_id');
 

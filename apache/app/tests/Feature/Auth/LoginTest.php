@@ -12,11 +12,12 @@
 //  unknown address and an unverified account all get the
 //  same refusal, and ten of them for one email from one
 //  address lock that pair out for a while, the right
-//  password included. A refusal comes back to the form with
-//  its error, even when a member page sent the visitor
-//  there. The ten-days-in-a-row badge is earned, and
-//  announced, at sign-in. Signing out takes a POST, not a
-//  link.
+//  password included — the panel's failures count apart. A
+//  panel page parked before the sign-in is not followed. A
+//  refusal comes back to the form with its error, even when
+//  a member page sent the visitor there. The
+//  ten-days-in-a-row badge is earned, and announced, at
+//  sign-in. Signing out takes a POST, not a link.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -445,6 +446,61 @@ class LoginTest extends FeatureTestCase
         $this->get('/cp/badges')->assertRedirect('/login');
 
         $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/badges');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSignInIgnoresAPanelPagesParking
+    // -----------------------------------------------------------
+    //
+    // A panel page parked before the member login, by the
+    // panel's own sign-in redirect, is not followed: the
+    // member lands on the dashboard, where it once landed on
+    // the admin login.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSignInIgnoresAPanelPagesParking(): void
+    {
+        $member = $this->world->member();
+        $this->get('/admin-panel/dashboard')->assertRedirect('/admin-panel');
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFailedPanelLoginsDoNotLockTheLogin
+    // -----------------------------------------------------------
+    //
+    // Ten wrong panel passwords for a member's address leave
+    // the member login of that address open: each login counts
+    // its own failures, where both once counted under one key.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFailedPanelLoginsDoNotLockTheLogin(): void
+    {
+        $member = $this->world->member();
+        for ($guess = 1; $guess <= 10; $guess++) {
+            $this->from('/admin-panel')->post('/admin-panel', ['email' => $member->email, 'password' => 'Wrong-Guess-' . $guess]);
+        }
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+
+        $this->assertAuthenticated('mem');
     }
 
 

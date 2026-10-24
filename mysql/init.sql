@@ -365,7 +365,10 @@ DELIMITER ;;
 CREATE FUNCTION `bei_user_course_progress`(userid INT, langid INT) RETURNS int(11)
 BEGIN
 
-	SELECT SUM(hours) AS total_hours INTO @total_hours FROM bei_lm_content WHERE bei_lm_content.lang_id=langid;
+	-- The hours of the lessons the course offers: those of the
+	-- language filed under a category, the only ones a member page
+	-- lists; deleting a category keeps its lessons with no category
+	SELECT SUM(hours) AS total_hours INTO @total_hours FROM bei_lm_content WHERE bei_lm_content.lang_id=langid AND bei_lm_content.cat_id IS NOT NULL;
 
 	-- The self-evaluations the course offers: one per category of
 	-- the language that has questions
@@ -374,7 +377,9 @@ BEGIN
 	-- The member's finished ones, one per category however often taken
 	SELECT COUNT(DISTINCT bei_users_selfeval_test.cat_id) INTO @user_selfeval_tests FROM bei_users_selfeval_test WHERE bei_users_selfeval_test.lang_id = langid AND bei_users_selfeval_test.user_id=userid AND bei_users_selfeval_test.finished=1 AND bei_users_selfeval_test.cat_id IN (SELECT bei_selfeval_question.cat_id FROM bei_selfeval_question LEFT JOIN bei_lm_category ON bei_lm_category.id = bei_selfeval_question.cat_id WHERE bei_lm_category.lang_id=langid);
 
-	SELECT SUM(bei_lm_content.hours) AS users_hours INTO @users_hours FROM bei_users LEFT JOIN bei_lm_users ON bei_lm_users.user_id = bei_users.id LEFT JOIN bei_lm_content ON bei_lm_users.content_id = bei_lm_content.id WHERE bei_users.id = userid AND bei_lm_content.lang_id = langid;
+	-- The member's share of them, each lesson once however often its
+	-- completion was stored: bei_lm_users has no unique key
+	SELECT SUM(bei_lm_content.hours) AS users_hours INTO @users_hours FROM bei_lm_content WHERE bei_lm_content.lang_id = langid AND bei_lm_content.cat_id IS NOT NULL AND bei_lm_content.id IN (SELECT bei_lm_users.content_id FROM bei_lm_users WHERE bei_lm_users.user_id = userid);
 
 	SELECT IF(COUNT(*)>0, 30, 0) INTO @knowledge_test FROM bei_users_knowledge_test WHERE bei_users_knowledge_test.finished=1 AND bei_users_knowledge_test.results >=75 AND bei_users_knowledge_test.user_id = userid AND lang_id = langid;
 

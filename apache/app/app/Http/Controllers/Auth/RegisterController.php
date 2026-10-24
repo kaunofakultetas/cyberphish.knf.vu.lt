@@ -144,13 +144,16 @@ class RegisterController extends BaseController
     // gets a 50-character verify token from random_string,
     // mailed in a SendVerification mail before the row is
     // written; the row holds the password's hash, a generated
-    // user name, the token and the country, and stays
-    // inactive (status defaults to 0) until the link is
-    // opened. Mismatched passwords and an address already
-    // registered go back with their message — so unlike
-    // forgot-password, this form tells whether an address has
-    // an account. The email compares without case (the
-    // column's case-insensitive collation).
+    // user name, the token and the country, and stays inactive
+    // (status defaults to 0) until the link is opened. When
+    // the mail cannot be sent, the failure is logged, no row
+    // is written and the form says so (mail_failed), where it
+    // once answered with a 500; the address can sign up once
+    // mail goes out again. Mismatched passwords and an address
+    // already registered go back with their message — so
+    // unlike forgot-password, this form tells whether an
+    // address has an account. The email compares without case
+    // (the column's case-insensitive collation).
     //
     // Used by:
     //   - auth/register.blade.php — the sign-up form posts here
@@ -172,7 +175,13 @@ class RegisterController extends BaseController
 
                 $uid = SettingsController::random_string(50);
 
-                Mail::to($request->get('email'))->send(new SendVerification(['uid'=>$uid]));
+                try {
+                    Mail::to($request->get('email'))->send(new SendVerification(['uid'=>$uid]));
+                } catch (\Throwable $e) {
+                    report($e);
+
+                    return back()->withErrors(__('main.mail_failed'));
+                }
 
                 Members::create([
                     'username'=> RegisterController::getUsername(),
@@ -217,7 +226,13 @@ class RegisterController extends BaseController
     // strings, so it would match every emptied token — every
     // verified account, those an admin switched off included.
     // A token more than one member holds changes nothing
-    // either, the guard ValidateReset gives the reset link.
+    // either, the guard ValidateReset gives the reset link. An
+    // account an admin switched off (status 2) stays off: an
+    // admin who switches an unverified member on leaves the
+    // token in place, so the old mail would switch the account
+    // back on once it was switched off again. Its token is
+    // used up all the same, and the login form opens without
+    // the greeting.
     //
     // Used by:
     //   - SendVerification — the link in the verification mail
@@ -233,6 +248,14 @@ class RegisterController extends BaseController
                 // nothing to switch on, the redirect at the end
                 // answers it
             } else {
+
+                // Only an account waiting for its link (0), or one an
+                // admin switched on before it came (1), is on after it
+                if(!in_array(Members::where(['verify_token' => $verify_token])->value('status'), [0, 1])){
+                    Members::where(['verify_token' => $verify_token])->update(['verify_token'=>'']);
+
+                    return redirect(route('login'));
+                }
 
                 Members::where(['verify_token' => $verify_token])->update(['status'=>1,'verify_token'=>'']);
 

@@ -9,15 +9,15 @@
 //  visitor sees without an account. A language the about
 //  text has no entry for gets an empty about block, and the
 //  news list's page links lead to its pages. A ranking shows
-//  each member's badges once, in the order earned, and costs
-//  the same queries however many members it lists. No
-//  response carries a CORS header. The home page's
-//  latest-news section is switched off: welcome.blade.php
-//  keeps it inside a Blade comment, though HomeController
-//  still loads the three latest articles for it.
-//  The language of a page comes from the {lang} part of its
-//  URL when that is one of en, lt, ee, lv and gr, and from
-//  the session otherwise (BaseController).
+//  each member's badges once, in the order earned, costs the
+//  same queries however many members it lists, and ranks the
+//  page's language. No response carries a CORS header. The
+//  home page's latest-news section is switched off:
+//  welcome.blade.php keeps it inside a Blade comment, though
+//  HomeController still loads the three latest articles for
+//  it. The language of a page comes from the {lang} part of
+//  its URL when that is one of en, lt, ee, lv and gr, and
+//  from the session otherwise (BaseController).
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -506,6 +506,35 @@ class PublicPagesTest extends FeatureTestCase
         $this->rankMembers(3, $category, $scenario);
 
         $this->assertSame($few, $this->rankingQueries());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRankingFollowsThePagesLanguage
+    // -----------------------------------------------------------
+    //
+    // Under a language code no language has, the page keeps
+    // the session's language, as the routes promise, and so
+    // does its ranking: /xx/ranks/self-evaluation is an
+    // English page that ranks the English attempts. The
+    // ranking once looked the URL's code up itself, and held
+    // nobody.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRankingFollowsThePagesLanguage(): void
+    {
+        $member = $this->world->member(['username' => 'RankedInEnglish']);
+        $this->world->selfEvalAttempt($member->id, $this->world->lmCategory($this->en), $this->en, ['points' => 40]);
+        $this->get('/en/ranks/self-evaluation')->assertOk()->assertSee('RankedInEnglish');
+
+        $this->get('/xx/ranks/self-evaluation')->assertOk()->assertSee('RankedInEnglish');
     }
 
 

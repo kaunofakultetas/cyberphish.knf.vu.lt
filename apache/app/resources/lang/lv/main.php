@@ -80,6 +80,7 @@ return [
     'auth_failed'=>'Nepareizs e-pasts un/vai parole!',
     'forgot_pass_msg'=>'Ja mūsu datubāzē ir e-pasts, jūs saņemsit atiestatīšanas saiti. ',
     'new_pass_emailed'=>'Mēs tikko nosūtījām jums e-pastā jauno paroli',
+    'mail_failed'=>'Pašlaik e-pastu neizdevās nosūtīt. Lūdzu, mēģiniet vēlāk.',
     'user_verified'=>'Lietotājs pārbaudīts! Tagad jūs varat pieteikties.',
     'user_registered'=>'Lietotājs reģistrēts! Pārbaudiet verifikācijas saiti savā e-pastā.',
     'pass_dont_match'=>'Paroles nesakrīt!',

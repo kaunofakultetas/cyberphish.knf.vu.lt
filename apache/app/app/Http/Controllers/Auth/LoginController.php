@@ -162,8 +162,11 @@ class LoginController extends BaseController
     // (SettingsController::getUserIP), a bei_users_loginlog
     // row, badge_login_10 after ten days in a row — empties
     // reset_token, and sends the member to the page that
-    // asked for a sign-in, or to the dashboard. The form has
-    // no reCAPTCHA, so the guesses are limited the way the
+    // asked for a sign-in, or to the dashboard — never to a
+    // page of the panel, whose sign-in redirect parks its
+    // pages in the session under the same key
+    // (SettingsController::is_panel_url). The form has no
+    // reCAPTCHA, so the guesses are limited the way the
     // trait's login limits them: every refusal counts against
     // the email and the address it came from, and once the
     // pair has ten (the properties above), every post of it —
@@ -207,7 +210,9 @@ class LoginController extends BaseController
             LoginLog::save_login(Auth::guard('mem')->id());
             LoginLog::if_login_10(Auth::guard('mem')->id());
 
-            return redirect()->intended(route('dashboard'));
+            $intended = $request->session()->pull('url.intended');
+
+            return redirect($intended !== null && !SettingsController::is_panel_url($intended) ? $intended : route('dashboard'));
 
         }
 
@@ -295,7 +300,9 @@ class LoginController extends BaseController
     // non-empty one: a member still signed in elsewhere who
     // signs out there keeps the link. Every address gets the
     // same forgot_pass_msg answer, mail or no mail, so the
-    // form does not tell who has an account.
+    // form does not tell who has an account — also when the
+    // mail cannot be sent: the failure is logged and no token
+    // is stored, where the registered address once got a 500.
     //
     // Used by:
     //   - auth/forgot-password.blade.php — the form posts here
@@ -312,9 +319,13 @@ class LoginController extends BaseController
 
             $uid = SettingsController::random_string(50);
 
-            Mail::to($request->get('email'))->send(new SendRemindLink(['uid'=>$uid]));
+            try {
+                Mail::to($request->get('email'))->send(new SendRemindLink(['uid'=>$uid]));
 
-            Members::where(['email'=>$request->get('email')])->update(['reset_token'=>$uid]);
+                Members::where(['email'=>$request->get('email')])->update(['reset_token'=>$uid]);
+            } catch (\Throwable $e) {
+                report($e);
+            }
 
         }
 
@@ -362,16 +373,21 @@ class LoginController extends BaseController
     //
     // POST /reset/{reset_token}
     //
-    // The button of the reset page (reset_form).
-    // ValidateReset (validate.reset) lets it through only when
-    // exactly one member holds that non-empty token, and
-    // answers 404 otherwise. A new 12-character password from
+    // The button of the reset page (reset_form). ValidateReset
+    // (validate.reset) lets it through only when exactly one
+    // member holds that non-empty token, and answers 404
+    // otherwise. A new 12-character password from
     // random_string goes to the member in a SendNewPass mail
     // and replaces the password hash, the token is used up,
     // and the login form shows new_pass_emailed — the form
     // itself, even when a member page parked another
     // destination in the session. A signed-in member is sent
-    // home by guest:mem and the token stays.
+    // home by guest:mem and the token stays. When the mail
+    // cannot be sent, the failure is logged, the password and
+    // the token stay as they were — the new password would
+    // reach no one — and the login form says so (mail_failed),
+    // where it once answered with a 500; the link works again
+    // once mail goes out.
     //
     // Used by:
     //   - auth/reset-confirm.blade.php — its button
@@ -383,7 +399,13 @@ class LoginController extends BaseController
 
         $user_email = Members::select('email')->where('reset_token', '=', $reset_token)->get()->pluck('email')->first();
 
-        Mail::to($user_email)->send(new SendNewPass(['new_pass'=>$new_pass]));
+        try {
+            Mail::to($user_email)->send(new SendNewPass(['new_pass'=>$new_pass]));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect(route('login'))->withErrors(__('main.mail_failed'));
+        }
 
         Members::where('reset_token', '=', $reset_token)->update(['password'=>Hash::make($new_pass), 'reset_token'=>'']);
 

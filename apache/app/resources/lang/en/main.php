@@ -97,6 +97,7 @@ return [
     'auth_failed'=>'Wrong email and/or password!',
     'forgot_pass_msg'=>'If email exists in our database, you will receive reset link.',
     'new_pass_emailed'=>'We just emailed you new password',
+    'mail_failed'=>'The email could not be sent right now. Please try again later.',
     'user_verified'=>'User verified! Now you can login.',
     'user_registered'=>'User registered! Check your email for verification link.',
     'pass_dont_match'=>'Passwords do not match!',

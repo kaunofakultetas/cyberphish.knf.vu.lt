@@ -119,25 +119,29 @@ class ManagerMainController extends BaseController
     // The panel's home page, for the members the signed-in
     // manager reads: a main admin those of every country,
     // Other included, shown with a Country column; a country
-    // manager those of its own country, read from its row. A
-    // tab per language some of them have begun (begun),
-    // busiest first and counted in its label, lists those
-    // members, newest first, with that language's course
-    // progress, the simulations count (the language's
-    // simulations, then the distinct ones the member started,
-    // finished or not) and the knowledge results; a last tab,
-    // always there, lists the members who have begun no
-    // language yet. Every member stands in at least one tab,
-    // and no figure but a 0 or an empty one is left out, since
-    // each comes from a row the member began. The figures
-    // come from a few queries over all those members — the
-    // progress through LMUsers::country_progress, the rest
-    // grouped by member and language — so the page runs the
-    // same queries however many members there are; when it
-    // asked per member and language, the dashboard of the
-    // largest country took over a minute. Open to every
-    // signed-in manager (auth.admin:man, no perms). Answers
-    // with admin-panel/dashboard.blade.php.
+    // manager those of its own country, read from its row —
+    // only the main flag opens every country, so a country
+    // manager whose row holds no country reads the members who
+    // have none, as member_in_scope lets it, where a null
+    // country once stood for every country. A tab per language
+    // some of them have begun (begun), busiest first and
+    // counted in its label, lists those members, newest first,
+    // with that language's course progress, the simulations
+    // count (the language's simulations, then the distinct
+    // ones the member started, finished or not) and the
+    // knowledge results; a last tab, always there, lists the
+    // members who have begun no language yet. Every member
+    // stands in at least one tab, and no figure but a 0 or an
+    // empty one is left out, since each comes from a row the
+    // member began. The figures come from a few queries over
+    // all those members — the progress through
+    // LMUsers::country_progress, the rest grouped by member
+    // and language — so the page runs the same queries however
+    // many members there are; when it asked per member and
+    // language, the dashboard of the largest country took over
+    // a minute. Open to every signed-in manager
+    // (auth.admin:man, no perms). Answers with
+    // admin-panel/dashboard.blade.php.
     //
     // Used by:
     //   - AdminLoginController::login — the redirect after
@@ -154,18 +158,19 @@ class ManagerMainController extends BaseController
     {
         // STEP 1: the languages, and the members the manager
         // reads, newest first — of every country for a main
-        // admin (no country), of its own for a country manager
-        // ====================================================
+        // admin, of its own for a country manager
+        // ==================================================
         $langlist = Langs::all()->pluck('name', 'id')->toArray();
         $manager = Managers::where(['id'=>Auth::guard('man')->id()])->first();
-        $country = $manager->main == 1 ? null : $manager->country;
+        $every_country = $manager->main == 1;
+        $country = $manager->country;
         $scope = function($query) use ($country){
             return $query->where(['country'=>$country]);
         };
 
         // Plain rows: a model built per member cost a quarter
         // of a second for every country's members
-        $members = DB::table('bei_users')->select(['id', 'username', 'email', 'last_login', 'country'])->when($country !== null, $scope)->orderByDesc('id')->get()->map(function($row){
+        $members = DB::table('bei_users')->select(['id', 'username', 'email', 'last_login', 'country'])->when(!$every_country, $scope)->orderByDesc('id')->get()->map(function($row){
             return (array) $row;
         })->all();
 
@@ -174,9 +179,9 @@ class ManagerMainController extends BaseController
         // keyed by language id and then member id; a member
         // missing there has 0, or no results
         // =================================================
-        $in_scope = DB::table('bei_users')->select('id')->when($country !== null, $scope);
-        $begun = ManagerMainController::begun($country);
-        $progress = LMUsers::country_progress($country);
+        $in_scope = DB::table('bei_users')->select('id')->when(!$every_country, $scope);
+        $begun = ManagerMainController::begun($country, $every_country);
+        $progress = LMUsers::country_progress($country, $every_country);
         $simulations = Scenarios::selectRaw('lang_id, COUNT(*) AS total')->groupBy('lang_id')->pluck('total', 'lang_id')->toArray();
 
         $started = array();
@@ -229,7 +234,7 @@ class ManagerMainController extends BaseController
             'recordlist'=>$arr,
             'not_started'=>$not_started,
             'total_users'=>count($members),
-            'countries'=>$country === null ? Members::COUNTRIES : null
+            'countries'=>$every_country ? Members::COUNTRIES : null
         ]);
     }
 
@@ -560,21 +565,22 @@ class ManagerMainController extends BaseController
     // begun
     // -----------------------------------------------------------
     //
-    // The languages each member of the country — of every
-    // country when the country is null — has begun, keyed by
-    // language id and then member id: a lesson of the
-    // language completed, or a self-evaluation, knowledge test
-    // or simulation run in it started, finished or not. Every
-    // row the dashboard's figures come from is one of these,
-    // so a member and language missing here have nothing to
-    // show but 0.
+    // The languages each member of the country has begun —
+    // of every country when every_country is set, and the
+    // members without a country when the country is null —
+    // keyed by language id and then member id: a lesson of
+    // the language completed, or a self-evaluation,
+    // knowledge test or simulation run in it started,
+    // finished or not. Every row the dashboard's figures
+    // come from is one of these, so a member and language
+    // missing here have nothing to show but 0.
     //
     // Used by:
     //   - dashboard (above) — which language tabs there are,
     //     and who stands in each
     // -----------------------------------------------------------
 
-    private static function begun($country)
+    private static function begun($country, $every_country)
     {
         $rows = DB::select("SELECT pairs.user_id, pairs.lang_id
             FROM (
@@ -584,7 +590,7 @@ class ManagerMainController extends BaseController
                 UNION SELECT user_id, lang_id FROM bei_users_scenarios
             ) AS pairs
             JOIN bei_users ON bei_users.id = pairs.user_id
-            WHERE ? IS NULL OR bei_users.country = ?", [$country, $country]);
+            WHERE ? = 1 OR bei_users.country <=> ?", [$every_country ? 1 : 0, $country]);
 
         $begun = array();
         foreach($rows as $row){

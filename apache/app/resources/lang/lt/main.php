@@ -84,6 +84,7 @@ return [
     'auth_failed'=>'Klaidingas vartotojo vardas ir/ar slaptažodis!',
     'forgot_pass_msg'=>'Jei vartotojas su tokiu el. paštu egzistuoja, jam išsiųsime slaptažodžio atkūrimo nuorodą',
     'new_pass_emailed'=>'Kątik nusiuntėme jums naują slaptažodį',
+    'mail_failed'=>'Šiuo metu el. laiško išsiųsti nepavyko. Bandykite vėliau.',
     'user_verified'=>'Vartotojas patvirtintas. Dabar galite prisijungti',
     'user_registered'=>'Vartotojas užregistruotas. El. paštu nusiųsta paskyros patvirtinimo nuoroda',
     'pass_dont_match'=>'Slaptažodžiai nesutampa!',

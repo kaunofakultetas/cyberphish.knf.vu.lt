@@ -3,13 +3,14 @@
 // -----------------------------------------------------------
 //  [*] SettingsController — shared helpers, language switch
 //
-//  Despite the name it holds no settings: four static
+//  Despite the name it holds no settings: five static
 //  helpers the rest of the app calls by class name — the
 //  visitor's address, random strings for tokens and ids, a
-//  stored date in local time and the page a list's ?page
-//  asks for — and the action behind the language menu. It extends
-//  Controller, not BaseController, so lang_switch runs
-//  without BaseController's language middleware.
+//  stored date in local time, the page a list's ?page asks
+//  for and whether a URL is the panel's — and the action
+//  behind the language menu. It extends Controller, not
+//  BaseController, so lang_switch runs without
+//  BaseController's language middleware.
 //
 //  Used by:
 //    - BlockIpMiddleware, LoginController and
@@ -22,6 +23,8 @@
 //      local_time
 //    - NewsController and the panel's paginated lists —
 //      page_number
+//    - LoginController and Auth\AdminLoginController —
+//      is_panel_url
 //    - routes/web_user.php — the language switch route
 // -----------------------------------------------------------
 
@@ -44,14 +47,16 @@ use Carbon\Carbon;
 // SettingsController
 // -----------------------------------------------------------
 //
-// The four helpers are static, so any class or view calls
-// them by name, with no controller instance; getUserIP
-// reads the $_SERVER superglobal, not Laravel's request.
+// The five helpers are static, so any class or view
+// calls them by name, with no controller instance;
+// getUserIP reads the $_SERVER superglobal, not
+// Laravel's request.
 //
 //   getUserIP     — the address recorded for a visitor
 //   random_string — letters and digits for tokens and ids
 //   local_time    — a stored date as the pages show it
 //   page_number   — the page a list's ?page asks for
+//   is_panel_url  — whether a URL is a page of the panel
 //   lang_switch   — the language menu's action
 //
 // Used by:
@@ -63,6 +68,7 @@ use Carbon\Carbon;
 //     local_time
 //   - NewsController and the panel's paginated lists —
 //     page_number
+//   - the two login controllers — is_panel_url
 //   - routes/web_user.php — lang_switch
 // -----------------------------------------------------------
 
@@ -217,6 +223,35 @@ class SettingsController extends Controller
         $page = filter_var($page, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
         return $page === false ? 1 : min($page, $last + 1);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // is_panel_url
+    // -----------------------------------------------------------
+    //
+    // Whether a URL is a page of the admin panel: its path is
+    // /admin-panel or lies under it. Both sign-in redirects
+    // park the page that asked for a sign-in under Laravel's
+    // one url.intended, so each login follows a parked page
+    // only into its own side — a member page parked before an
+    // admin login once landed the manager on the member login,
+    // which auth:mem sends a manager to.
+    //
+    // Used by:
+    //   - LoginController::login, Auth\AdminLoginController::
+    //     login
+    // -----------------------------------------------------------
+
+    public static function is_panel_url($url)
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+
+        return $path == '/admin-panel' || strpos($path, '/admin-panel/') === 0;
     }
 
 

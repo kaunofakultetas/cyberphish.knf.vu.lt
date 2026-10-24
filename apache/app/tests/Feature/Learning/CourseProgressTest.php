@@ -6,14 +6,15 @@
 //  The course progress every member page shows comes from
 //  the stored function bei_user_course_progress of
 //  mysql/init.sql, through LMUsers::course_progress: a
-//  quarter for the hours of completed lessons, a fifth for
-//  the self-evaluations — one per category, counted once
-//  however often taken — 30 points for a passed knowledge
-//  test (75 or more) and a quarter for the simulations
-//  finished, per language. A share the language does not
-//  offer, or the member has not begun, counts 0 and leaves
-//  the others standing. These tests run the real function
-//  on MySQL 5.7.
+//  quarter for the hours of completed lessons — each
+//  counted once, and only the lessons filed under a
+//  category — a fifth for the self-evaluations — one per
+//  category, counted once however often taken — 30 points
+//  for a passed knowledge test (75 or more) and a quarter
+//  for the simulations finished, per language. A share the
+//  language does not offer, or the member has not begun,
+//  counts 0 and leaves the others standing. These tests
+//  run the real function on MySQL 5.7.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -23,6 +24,7 @@
 namespace Tests\Feature\Learning;
 
 use App\Models\LMUsers;
+use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
 use Tests\Support\Flows;
 
@@ -337,6 +339,67 @@ class CourseProgressTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLessonStoredTwiceCountsOnce
+    // -----------------------------------------------------------
+    //
+    // mark_completed reads, then inserts, and bei_lm_users has
+    // no unique key, so a double-clicked button can store a
+    // lesson twice; it still counts once. One of the two
+    // lessons is half the hours, 12 — MySQL rounds the 12.5 to
+    // the even 12 — where the lesson stored twice once counted
+    // its hours twice, 25.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLessonStoredTwiceCountsOnce(): void
+    {
+        $this->world->lessonDone($this->member->id, $this->lessons[0]);
+        $this->world->lessonDone($this->member->id, $this->lessons[0]);
+
+        $this->assertEquals(12, $this->progress());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLessonsMembersCannotReachDoNotCount
+    // -----------------------------------------------------------
+    //
+    // Deleting a lesson category keeps its lessons, with no
+    // category, where no member page lists them; they no
+    // longer count, so a member who finished every lesson
+    // still on offer has the full quarter. The progress once
+    // divided by their hours too, and held such a member short
+    // of it for good.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLessonsMembersCannotReachDoNotCount(): void
+    {
+        $doomed = $this->world->lmCategory($this->en);
+        $this->world->lmContent($doomed, $this->en);
+        $this->completeLessons();
+        $this->assertLessThan(25, $this->progress());
+
+        $this->signInManager($this->world->manager())->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$doomed");
+
+        $this->assertFalse(DB::table('bei_lm_category')->where('id', $doomed)->exists());
+        $this->assertEquals(25, $this->progress());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // completeLessons
     // -----------------------------------------------------------
     //
@@ -347,7 +410,8 @@ class CourseProgressTest extends FeatureTestCase
     //     testFinishedSimulationsMakeAQuarter,
     //     testEverythingDoneIsAHundred,
     //     testFinishedSelfEvaluationsCountTheirFullShare,
-    //     testProgressIsPerLanguage (above)
+    //     testProgressIsPerLanguage,
+    //     testLessonsMembersCannotReachDoNotCount (above)
     // -----------------------------------------------------------
 
     private function completeLessons(): void

@@ -108,11 +108,14 @@ class RanksController extends BaseController
     //
     // GET /{lang}/ranks/self-evaluation
     //
-    // The self-evaluation ranking of the language, open to
-    // everyone: per member the sum of their best points in
+    // The self-evaluation ranking of the page's language, open
+    // to everyone: per member the sum of their best points in
     // each self-evaluation category, highest first, shown by
     // rank_self_eval.blade.php with user names and badges
-    // (with_badges).
+    // (with_badges). The page's language is the session's,
+    // which BaseController moves only for a site code; under
+    // any other code the page keeps it, and so does the
+    // ranking.
     //
     // Used by:
     //   - layouts/main.blade.php — the ranks menu of the top
@@ -122,7 +125,7 @@ class RanksController extends BaseController
     public function self_evaluation(Request $request, $lang)
     {
         $ranks = ViewMaxPointsSelfEvalCat::selectraw("id, username, SUM(max_points) as points")
-        ->where(['lang_id'=>Langs::getLangId($lang)])
+        ->where(['lang_id'=>Langs::getLangId(Session::get('lang'))])
         ->groupby('id')
         ->orderbydesc('points')
         ->get()
@@ -142,11 +145,12 @@ class RanksController extends BaseController
     //
     // GET /{lang}/ranks/simulations
     //
-    // The simulation ranking of the language, open to
-    // everyone: per member the sum of their best points in
-    // each simulation, highest first, shown by
+    // The simulation ranking of the page's language, open
+    // to everyone: per member the sum of their best points
+    // in each simulation, highest first, shown by
     // rank_simulations.blade.php with user names and badges
-    // (with_badges).
+    // (with_badges) — the session's language, as for the
+    // self-evaluation ranking.
     //
     // Used by:
     //   - layouts/main.blade.php — the ranks menu of the top
@@ -156,7 +160,7 @@ class RanksController extends BaseController
     public function simulations(Request $request, $lang)
     {
         $ranks = ViewMaxPointsScenario::selectraw("id, username, SUM(max_points) as points")
-        ->where(['lang_id'=>Langs::getLangId($lang)])
+        ->where(['lang_id'=>Langs::getLangId(Session::get('lang'))])
         ->groupby('id')
         ->orderbydesc('points')
         ->get()

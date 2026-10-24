@@ -15,8 +15,10 @@
 //  shows at the next step, in summary mode (type 2) all of
 //  it at the end. A run is its member's alone, and a
 //  simulation of another language a 404; one filed under no
-//  category still opens. The badge is announced once, by
-//  the visit that earns it.
+//  category still opens, and one without steps ends at
+//  once. The badge is announced once, by the visit that
+//  earns it, and goes to the run's language, whatever code
+//  the URL of its end page carries.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -701,5 +703,101 @@ class SimulationsTest extends FeatureTestCase
         $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")->assertOk();
 
         $this->assertEquals(1, DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('finished'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSimulationWithoutStepsEnds
+    // -----------------------------------------------------------
+    //
+    // A simulation without steps — the import lets one
+    // through — offers no choice, so its run is over at once,
+    // closed by its first visit. The run of one once stayed
+    // open for good behind a Next button that posts nothing: a
+    // run closed only after a choice.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationWithoutStepsEnds(): void
+    {
+        $empty = $this->world->scenario($this->en, [], [$this->category]);
+        $publicId = $this->startSimulation($this->member, $empty);
+        $this->signInMember($this->member)->post("/en/simulation/progress/$publicId", []);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")->assertOk();
+
+        $this->assertEquals(1, DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('finished'), 'the run of a simulation without steps is still open');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEndPageAwardsTheRunsLanguage
+    // -----------------------------------------------------------
+    //
+    // A run keeps the language it was started in, and so does
+    // its badge: an English run's end page opened under /lt/
+    // earns the English badge_all_simulations and no
+    // Lithuanian one. The URL's language once took it —
+    // Lithuanian, without simulations, counting as all done.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEndPageAwardsTheRunsLanguage(): void
+    {
+        $this->world->language('lt');
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $this->signInMember($this->member)->get("/lt/simulation/progress/$publicId")->assertOk();
+
+        $this->assertEquals([$this->en], DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'name' => 'badge_all_simulations'])
+            ->pluck('lang_id')->map(function ($id) {
+                return (int) $id;
+            })->all());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testUnknownLanguageEndPageIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // Under a language code no language has, the end page
+    // closes the run and awards the badge of the run's own
+    // language. It once stored the badge with no language,
+    // which the NOT NULL column refused: a 500, after the run
+    // had closed, and the badge lost.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testUnknownLanguageEndPageIsNoServerError(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $this->signInMember($this->member)->get("/xx/simulation/progress/$publicId")->assertOk();
+
+        $this->assertTrue(DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'lang_id' => $this->en, 'name' => 'badge_all_simulations'])->exists());
     }
 }

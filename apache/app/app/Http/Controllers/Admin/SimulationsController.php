@@ -192,12 +192,12 @@ class SimulationsController extends BaseController
     // POST /admin-panel/admin_simulations/import
     //
     // Turns one filled-in copy of the project's simulation
-    // spreadsheet into a simulation of the posted language.
-    // A post without a file goes back with "No file was
+    // spreadsheet into a simulation of the posted language. A
+    // post without a file goes back with "No file was
     // uploaded!", as the lesson-file form does, and only a
     // file whose name ends in .xlsx passes; it is kept in
-    // public/upload/simulations under a random name.
-    // From the active sheet it reads the texts in column C —
+    // public/upload/simulations under a random name. From the
+    // active sheet it reads the texts in column C —
     // description C19, goal C20, actors C21, source C22,
     // choose type C26, attack type C27, main image C30 — the
     // categories marked Yes in B34:B40 (named in C), the
@@ -211,7 +211,13 @@ class SimulationsController extends BaseController
     // whose first step is deeper than level 1, goes back with
     // an error before anything is saved, and the saves run in
     // one transaction, so no import leaves half a simulation
-    // behind.
+    // behind. So does a sheet without a description, which
+    // its NOT NULL column refuses, and one with a step whose
+    // level is no whole number from 1, lies more than a level
+    // below the step before it, or whose answer type is none
+    // of the four: each once stopped the saves with a 500, a
+    // blank level when the step's parent was looked up, and
+    // the message now names the step's row.
     //
     // Used by:
     //   - admin-panel/dialog/simulation_import.blade.php — the
@@ -290,6 +296,31 @@ class SimulationsController extends BaseController
 
         if(count($questions) > 0 && reset($questions)['level'] != 1){
             return back()->withErrors("The first step must be on level 1!");
+        }
+
+        if(trim((string) $descr) === ''){
+            return back()->withErrors("The description in C19 is empty!");
+        }
+
+        // Each step is saved under the last step one level up, so
+        // a level must be whole and at most one below the step
+        // before it
+        $previous_level = 0;
+        foreach($questions as $step){
+
+            if(!is_numeric($step['level']) || floor($step['level']) != $step['level'] || $step['level'] < 1){
+                return back()->withErrors("Row ".$step['row'].": the step needs a level of 1 or more in column A!");
+            }
+
+            if($step['level'] > $previous_level + 1){
+                return back()->withErrors("Row ".$step['row'].": the step is more than one level below the step before it!");
+            }
+
+            if($step['answer'] === null){
+                return back()->withErrors("Row ".$step['row'].": the answer type in column D must be Correct, Semi-correct, Semi-incorrect or Incorrect!");
+            }
+
+            $previous_level = $step['level'];
         }
 
         DB::beginTransaction();
@@ -834,9 +865,10 @@ class SimulationsController extends BaseController
     //
     // The step rows of a sheet as step records, in sheet
     // order. A row with an empty situation (column C) is
-    // skipped; the others give the level (A), the situation,
-    // the answer type (D, as get_answer_type_id's code), the
-    // points that type is worth (0, 50, 100 or 200), the
+    // skipped; the others give their sheet row, the level
+    // (A), the situation, the answer type (D, as
+    // get_answer_type_id's code, null for an unknown name),
+    // the points that type is worth (0, 50, 100 or 200), the
     // feedback (E), the link (F) and the image (H). Columns B
     // and G go unused.
     //
@@ -851,6 +883,7 @@ class SimulationsController extends BaseController
         foreach($questions as $k => $v){
 
             if(!empty($v['C'])){
+                $q[$i]['row'] = $k;
                 $q[$i]['level'] = $v['A'];
                 $q[$i]['situation'] = $v['C'];
                 $q[$i]['answer'] = SimulationsController::get_answer_type_id($v['D']);
@@ -889,9 +922,9 @@ class SimulationsController extends BaseController
     // The option type of an answer-type name, as
     // bei_scenarios_options.option_type keeps it: Incorrect 0,
     // Semi-incorrect 1, Semi-correct 2, Correct 3. Any other
-    // name — a typo, an empty cell beside a situation — is an
-    // undefined array key, and the import stops with a 500
-    // before any row is written.
+    // name — a typo, an empty cell beside a situation — has
+    // none: null, which simulations_import refuses with the
+    // step's row before anything is saved.
     //
     // Used by:
     //   - xlsx_process_questions (above)
@@ -901,7 +934,7 @@ class SimulationsController extends BaseController
     {
         $arr = ['Incorrect'=>0,'Semi-correct'=>2,'Correct'=>3,'Semi-incorrect'=>1];
 
-        return $arr[$name];
+        return $arr[$name] ?? null;
     }
 
 

@@ -130,7 +130,10 @@ class ManagerMainController extends BaseController
     // it must be 12 to 50 characters long — the login's rule,
     // so no member can pick a password the login then
     // refuses; each refusal comes back with its own message,
-    // and success stores the new hash.
+    // and success stores the new hash. A field posted as a
+    // list is refused at the check it would have failed —
+    // password_verify and strcmp take one string, and a list
+    // reaching them was a TypeError, a 500.
     //
     // Used by:
     //   - parts/change_password.blade.php — the password form
@@ -139,9 +142,14 @@ class ManagerMainController extends BaseController
 
     public function change_pass(Request $request)
     {
-        if (!(Hash::check($request->get('password'), Auth::guard('mem')->user()->password))) {
+        if (!is_string($request->get('password')) || !(Hash::check($request->get('password'), Auth::guard('mem')->user()->password))) {
 
             return redirect()->back()->withErrors(__('main.curr_pass_wrong'));
+        }
+
+        if(is_array($request->get('newpass')) || is_array($request->get('renewpass'))){
+
+            return redirect()->back()->withErrors(__('main.new_pass_not_match'));
         }
 
         if(strcmp($request->get('password'), $request->get('newpass')) == 0){
@@ -187,15 +195,16 @@ class ManagerMainController extends BaseController
     //
     // POST /cp/change-username
     //
-    // Renames the member, behind auth:mem: 6 to 45
+    // Renames the member, behind auth:mem: a string of 6 to 45
     // characters, the column's size and what the form asks
-    // for, and no other member may hold the name already —
-    // submitting one's own name again is fine. A name of the
-    // wrong length comes back with username_length, which
-    // gives both limits in the member's language; success and
-    // a taken name answer with the translation keys
-    // pass_updated and pass_unavailable, which hold the
-    // user-name texts despite their names.
+    // for — a list of six to 45 values once passed the counts
+    // and was stored as its JSON text — and no other member
+    // may hold the name already — submitting one's own name
+    // again is fine. A name of the wrong length comes back
+    // with username_length, which gives both limits in the
+    // member's language; success and a taken name answer with
+    // the translation keys pass_updated and pass_unavailable,
+    // which hold the user-name texts despite their names.
     //
     // Used by:
     //   - parts/change_username.blade.php — the user-name form
@@ -205,7 +214,7 @@ class ManagerMainController extends BaseController
     public function change_username(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|min:6|max:45'
+            'username' => 'required|string|min:6|max:45'
         ]);
 
         if($validator->fails()){
@@ -239,7 +248,8 @@ class ManagerMainController extends BaseController
     // POST /cp/change-fullname
     //
     // Stores the full name the certificate prints, behind
-    // auth:mem: 6 to 100 characters, as the form asks — the
+    // auth:mem: a string of 6 to 100 characters, as the form
+    // asks, never a list stored as its JSON text — the
     // certificate shrinks a name too wide for its line
     // (CertController::name_style) — or else fullname_length,
     // which gives both limits in the member's language.
@@ -254,7 +264,7 @@ class ManagerMainController extends BaseController
     public function change_fullname(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'fullname' => 'required|min:6|max:100'
+            'fullname' => 'required|string|min:6|max:100'
         ]);
 
         if($validator->fails()){

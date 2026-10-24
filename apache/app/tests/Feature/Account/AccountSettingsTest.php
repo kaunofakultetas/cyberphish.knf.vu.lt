@@ -15,7 +15,8 @@
 //  typed. Visitors are sent to the login form. The
 //  dashboard opens for a member of any country, one the
 //  questionnaire links do not know included. The Estonian
-//  strings of the user-name form speak of the user name.
+//  strings of the user-name form speak of the user name. A
+//  field posted as a list is refused by every form.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -594,6 +595,41 @@ class AccountSettingsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testFieldsPostedAsListsAreRefused
+    // -----------------------------------------------------------
+    //
+    // A field posted as a list is refused, and the account
+    // stays as it was. The password form once handed a list to
+    // password_verify or strcmp — a TypeError, a 500 — and the
+    // two name forms counted a list's elements against their
+    // lengths, so six words passed and MySQL stored the list's
+    // JSON text as the name.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFieldsPostedAsListsAreRefused(): void
+    {
+        $this->changePasswordFields([World::PASSWORD], 'A-new-password-1', 'A-new-password-1')
+            ->assertRedirect('/cp/dashboard')->assertSessionHasErrors();
+        $this->changePasswordFields(World::PASSWORD, ['A-new-password-1'], 'A-new-password-1')
+            ->assertRedirect('/cp/dashboard')->assertSessionHasErrors();
+        $this->submit('/cp/change-username', ['username' => array_fill(0, 6, 'abcdef')])->assertSessionHasErrors();
+        $this->submit('/cp/change-fullname', ['fullname' => array_fill(0, 6, 'abcdef')])->assertSessionHasErrors();
+
+        $row = Members::find($this->member->id);
+        $this->assertTrue(Hash::check(World::PASSWORD, $row->password), 'the password changed');
+        $this->assertSame($this->member->username, $row->username, 'the user name became the list');
+        $this->assertSame($this->member->fullname, $row->fullname, 'the full name became the list');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // changePassword
     // -----------------------------------------------------------
     //
@@ -604,6 +640,28 @@ class AccountSettingsTest extends FeatureTestCase
     // -----------------------------------------------------------
 
     private function changePassword(string $current, string $new, string $repeated): TestResponse
+    {
+        return $this->changePasswordFields($current, $new, $repeated);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // changePasswordFields
+    // -----------------------------------------------------------
+    //
+    // Posts the password form as the member with any value in
+    // each field, a list included.
+    //
+    // Used by:
+    //   - changePassword,
+    //     testFieldsPostedAsListsAreRefused (above)
+    // -----------------------------------------------------------
+
+    private function changePasswordFields($current, $new, $repeated): TestResponse
     {
         return $this->submit('/cp/change-pass', ['password' => $current, 'newpass' => $new, 'renewpass' => $repeated]);
     }
@@ -624,7 +682,7 @@ class AccountSettingsTest extends FeatureTestCase
     //
     // Used by:
     //   - the user-name and full-name tests of this class
-    //   - changePassword (above)
+    //   - changePasswordFields (above)
     // -----------------------------------------------------------
 
     private function submit(string $form, array $fields): TestResponse

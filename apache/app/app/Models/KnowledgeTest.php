@@ -106,12 +106,12 @@ class KnowledgeTest extends Model
     // getDecryptedId
     // -----------------------------------------------------------
     //
-    // The id of the question a hash stands for, or null. The
-    // question page posts the MD5 of the MD5 of the id
-    // (knowledge_progress.blade.php builds it) and MySQL
-    // hashes every row of the table to find the match. With
-    // no salt, the hash hides the id from no one who cares
-    // to compute it.
+    // The id of the question a hash stands for, or null — for
+    // a hash posted as a list too. The question page posts the
+    // MD5 of the MD5 of the id (knowledge_progress.blade.php
+    // builds it) and MySQL hashes every row of the table to
+    // find the match. With no salt, the hash hides the id from
+    // no one who cares to compute it.
     //
     // Used by:
     //   - KnowledgeTestController::save_answer — the
@@ -120,6 +120,12 @@ class KnowledgeTest extends Model
 
     public static function getDecryptedId($hashed_id)
     {
+        // A list would reach the binding as several values, which
+        // PDO refuses with a 500
+        if(!is_string($hashed_id)){
+            return null;
+        }
+
         return KnowledgeTest::whereraw("MD5(MD5(id))=?", [$hashed_id])->get()->pluck('id')->first();
     }
 

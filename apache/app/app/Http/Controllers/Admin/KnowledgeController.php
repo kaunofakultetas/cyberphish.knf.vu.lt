@@ -106,7 +106,9 @@ class KnowledgeController extends BaseController
     // 25 of the page the query string names are sliced out,
     // anything empty or not numeric being page 1. With no
     // questions the view gets an empty array instead of a
-    // paginator. Main admins only (auth.admin:man, perms).
+    // paginator. The page's Import Questions link hands uid
+    // to its script, so uid is taken as a number first.
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_categories.blade.php — the Knowledge
@@ -116,6 +118,11 @@ class KnowledgeController extends BaseController
 
     public function index(Request $request, $uid)
     {
+        // The id as the number MySQL reads from it: the page
+        // prints it into its script, where the segment as written
+        // would run on the admin's next click
+        $uid = (int) $uid;
+
         $arr = KnowledgeTest::where(['cat_id'=>$uid])->get()->toArray();
 
         $name = LMCategory::where(['id'=>$uid])->pluck('name')->first();
@@ -196,13 +203,16 @@ class KnowledgeController extends BaseController
     // options carry no points. Back with "Questions
     // imported!". Main admins only (auth.admin:man, perms).
     //
-    // Each block starts with no question, so a block without
-    // a question line stores none of its options, where they
-    // once went under an earlier block's question or, in the
-    // first block, ended in a 500. Nothing runs in a
-    // transaction, and a question line without a
-    // backslash-colon still ends in a 500 — an undefined
-    // array key — with the blocks before it already stored.
+    // A post without a file goes back with "No file was
+    // uploaded!", as the simulation import does, where reading
+    // the missing file was a 500. Each block starts with no
+    // question, so a block without a question line stores none
+    // of its options, where they once went under an earlier
+    // block's question or, in the first block, ended in a 500.
+    // Nothing runs in a transaction, and a question line
+    // without a backslash-colon still ends in a 500 — an
+    // undefined array key — with the blocks before it already
+    // stored.
     //
     // Used by:
     //   - admin-panel/dialog/knowledge.blade.php — the import
@@ -214,6 +224,10 @@ class KnowledgeController extends BaseController
         // STEP 1: the uploaded file, read whole and cut into
         // blocks at "::"
         // ==================================================
+        if (!$request->hasFile('doc')) {
+            return back()->withErrors("No file was uploaded!");
+        }
+
         $content = file_get_contents($request->file('doc'));
         $cat_id = $request->get('cat_id');
 

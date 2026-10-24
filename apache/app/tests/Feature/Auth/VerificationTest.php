@@ -7,7 +7,8 @@
 //  the token of an unverified member activates the account
 //  (status 1) and is used up; an unknown token changes
 //  nothing, and neither does a token of blanks, which MySQL
-//  would match against every emptied token. Every answer
+//  would match against every emptied token, nor the token
+//  of an account an admin has switched off. Every answer
 //  sends the visitor to the login form — the form itself,
 //  even when a member page parked another destination.
 //
@@ -180,5 +181,67 @@ class VerificationTest extends FeatureTestCase
         $this->get('/verify/' . self::TOKEN)
             ->assertRedirect('/login')
             ->assertSessionHas('success', __('main.user_verified'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLinkLeavesASwitchedOffAccountOff
+    // -----------------------------------------------------------
+    //
+    // An admin who switches an unverified member on leaves the
+    // token in place; once that member is switched off again,
+    // the old mail's link leaves the account off. The link is
+    // used up, and the login form opens without the greeting.
+    // It once switched any account holding the token back on.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLinkLeavesASwitchedOffAccountOff(): void
+    {
+        $member = $this->world->member(['status' => 2, 'verify_token' => self::TOKEN]);
+
+        $this->get('/verify/' . self::TOKEN)
+            ->assertRedirect('/login')
+            ->assertSessionMissing('success');
+
+        $member = Members::find($member->id);
+        $this->assertSame(2, $member->status, 'the link switched the account back on');
+        $this->assertSame('', $member->verify_token);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLinkOfAnAccountSwitchedOnAlreadyGreets
+    // -----------------------------------------------------------
+    //
+    // An account an admin switched on before its link was
+    // opened stays on, and the link greets it as verified and
+    // is used up.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLinkOfAnAccountSwitchedOnAlreadyGreets(): void
+    {
+        $member = $this->world->member(['status' => 1, 'verify_token' => self::TOKEN]);
+
+        $this->get('/verify/' . self::TOKEN)
+            ->assertRedirect('/login')
+            ->assertSessionHas('success', __('main.user_verified'));
+
+        $member = Members::find($member->id);
+        $this->assertSame(1, $member->status);
+        $this->assertSame('', $member->verify_token);
     }
 }

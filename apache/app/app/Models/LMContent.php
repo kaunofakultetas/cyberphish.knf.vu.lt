@@ -94,9 +94,10 @@ class LMContent extends Model
     // APP_SALT followed by the id (lm-content.blade.php
     // builds it), so the form never shows the id; MySQL
     // hashes every row of the table to find the match.
-    // Answers false when no lesson matches — and for every
-    // lesson while APP_SALT is unset, since CONCAT with NULL
-    // gives NULL.
+    // Answers false when no lesson matches, for a hash
+    // posted as a list, and for every lesson while
+    // APP_SALT is unset, since CONCAT with NULL gives
+    // NULL.
     //
     // Used by:
     //   - LMController::mark_completed — a lesson marked
@@ -105,6 +106,12 @@ class LMContent extends Model
 
     public static function get_id($hash)
     {
+        // A list would reach the binding as several values, which
+        // PDO refuses with a 500
+        if(!is_string($hash)){
+            return false;
+        }
+
         $data = LMContent::select('id')->whereRaw("MD5(MD5(CONCAT(?, id))) = ?", [env('APP_SALT'), $hash])->get()->pluck('id')->first();
 
         if(is_numeric($data) && $data > 0){

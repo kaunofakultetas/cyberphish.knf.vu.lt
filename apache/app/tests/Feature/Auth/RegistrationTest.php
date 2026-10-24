@@ -4,19 +4,20 @@
 //  [*] RegistrationTest — signing up for an account
 //
 //  POST /register (RegisterController::register): a valid
-//  form creates an unverified member — status 0, a
-//  generated User<number> name, a 50-character verify token
-//  — and mails the verification link; a mismatched
-//  password, an email already in use, an incomplete form —
-//  a country outside the form's 0 to 5 among them — or an
-//  unsolved reCAPTCHA creates nothing and mails nothing.
-//  Both password fields keep the blanks at their ends, and a
-//  form sent back keeps neither in the session. The
-//  verification link is built from APP_URL, so a forged
-//  Host or X-Forwarded-Host header cannot point it anywhere
-//  else. The form is for visitors only: a signed-in member
-//  is sent to the home page. Both reCAPTCHA errors read in
-//  words, and the generated name costs one random draw.
+//  form creates an unverified member — status 0, a generated
+//  User<number> name, a 50-character verify token — and
+//  mails the verification link; a mismatched password, an
+//  email already in use, an incomplete form — a country
+//  outside the form's 0 to 5 among them — or an unsolved
+//  reCAPTCHA creates nothing and mails nothing. Both
+//  password fields keep the blanks at their ends, and a form
+//  sent back keeps neither in the session. The verification
+//  link is built from APP_URL, so a forged Host or
+//  X-Forwarded-Host header cannot point it anywhere else.
+//  The form is for visitors only: a signed-in member is sent
+//  to the home page. Both reCAPTCHA errors read in words,
+//  and the generated name costs one random draw. A mail
+//  outage creates nothing and says so.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -31,6 +32,7 @@ use App\Models\Members;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\FeatureTestCase;
 
 
@@ -554,6 +556,37 @@ class RegistrationTest extends FeatureTestCase
 
         $this->assertMatchesRegularExpression('/^User\d+$/', $name);
         $this->assertLessThan(1048576, $used, "a draw took $used bytes");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMailOutageCreatesNoAccount
+    // -----------------------------------------------------------
+    //
+    // While the mail relay cannot be reached, a sign-up goes
+    // back to the form saying the mail could not be sent, and
+    // creates no account, so the address can sign up once mail
+    // goes out again. It once answered with a 500.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMailOutageCreatesNoAccount(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new TransportException('Connection to the mail relay refused'));
+        $this->solveCaptcha();
+
+        $this->from('/register')->post('/register', $this->form())
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors();
+
+        $this->assertSame(__('main.mail_failed'), session('errors')->first());
+        $this->assertFalse(Members::where('email', self::EMAIL)->exists());
     }
 
 

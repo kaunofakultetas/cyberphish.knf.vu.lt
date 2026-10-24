@@ -18,7 +18,9 @@
 //  (VerificationTest). The tokens and the new password come
 //  from a cryptographic generator, and the message after
 //  the link reaches the login form even when a member page
-//  parked another destination.
+//  parked another destination. A mail outage changes
+//  nothing and is no server error: the button says so,
+//  forgot-password answers as ever.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -34,6 +36,7 @@ use App\Models\Members;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
 
@@ -434,6 +437,46 @@ class PasswordResetTest extends FeatureTestCase
 
         $this->assertNotSame($first, $second);
         $this->assertMatchesRegularExpression('/^[0-9a-zA-Z]{50}$/', $first);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMailOutageIsNoServerErrorAndTellsNothing
+    // -----------------------------------------------------------
+    //
+    // While the mail relay cannot be reached, the reset button
+    // leaves the password and the token as they were and says
+    // the mail could not be sent, and forgot-password answers
+    // a registered address as it answers an unknown one,
+    // storing no token. Both once answered with a 500 — on
+    // forgot-password only for a registered address, which
+    // told who has an account.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMailOutageIsNoServerErrorAndTellsNothing(): void
+    {
+        $member = $this->world->member(['reset_token' => self::TOKEN]);
+        $other = $this->world->member();
+        Mail::shouldReceive('to')->andThrow(new TransportException('Connection to the mail relay refused'));
+        $this->solveCaptcha();
+
+        $this->post('/reset/' . self::TOKEN)
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors();
+        $this->assertSame(__('main.mail_failed'), session('errors')->first());
+        $this->assertTrue(Hash::check(World::PASSWORD, Members::find($member->id)->password));
+        $this->assertSame(self::TOKEN, Members::find($member->id)->reset_token);
+
+        $this->requestReset($other->email)->assertRedirect('/forgot-password')->assertSessionHas('success', __('main.forgot_pass_msg'));
+        $this->requestReset('nobody.here@example.test')->assertRedirect('/forgot-password')->assertSessionHas('success', __('main.forgot_pass_msg'));
+        $this->assertSame('', Members::find($other->id)->reset_token);
     }
 
 

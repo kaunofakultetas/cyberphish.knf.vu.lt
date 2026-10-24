@@ -14,9 +14,10 @@
 //  to the member's own figures, worked out one member and
 //  language at a time as the page once did, check who
 //  stands in which tab, that a main admin reads every
-//  country and that each row carries the text the page's
-//  quick search matches, and check that more members cost
-//  the page no more queries.
+//  country — and only a main admin, not a country manager
+//  without a country — and that each row carries the text
+//  the page's quick search matches, and check that more
+//  members cost the page no more queries.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -266,6 +267,40 @@ class AdminDashboardTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testCountryManagerWithoutACountrySeesNoOtherCountry
+    // -----------------------------------------------------------
+    //
+    // Only the main flag opens every country: a country
+    // manager whose row holds no country — the manager forms
+    // check none — sees no other country's members, and no
+    // Country column. The dashboard once took the null country
+    // for the main admin's every country, while
+    // member_in_scope refused that manager their reports.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCountryManagerWithoutACountrySeesNoOtherCountry(): void
+    {
+        $lesson = $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
+        $lithuanian = $this->world->member(['country' => 1]);
+        $this->world->lessonDone($lithuanian->id, $lesson);
+        $estonian = $this->world->member(['country' => 2]);
+        $manager = $this->world->manager(['main' => 0, 'country' => null]);
+
+        $page = $this->signInManager($manager)->get('/admin-panel/dashboard')->assertOk();
+
+        $this->assertNull($page->viewData('countries'), 'the page shows the Country column');
+        $page->assertDontSee($lithuanian->email)->assertDontSee($estonian->email);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testEveryMemberRowCarriesItsSearchText
     // -----------------------------------------------------------
     //
@@ -317,7 +352,9 @@ class AdminDashboardTest extends FeatureTestCase
     // passed test, and their sums — every member and language
     // comes out exactly as bei_user_course_progress has it,
     // rounding included: half the lessons alone is 12, where
-    // the double 12.5 rounds to the even 12.
+    // the double 12.5 rounds to the even 12. So do a lesson
+    // stored twice, which counts once, and a lesson without a
+    // category, which counts not at all.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -327,6 +364,7 @@ class AdminDashboardTest extends FeatureTestCase
     {
         $lesson = $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
         $this->world->lmContent($this->world->lmCategory($this->en), $this->en);
+        $uncategorised = $this->world->lmContent($this->world->lmCategory($this->en), $this->en, ['cat_id' => null]);
         $categories = [];
         for ($i = 0; $i < 3; $i++) {
             $categories[] = $category = $this->world->lmCategory($this->en);
@@ -354,15 +392,23 @@ class AdminDashboardTest extends FeatureTestCase
         $this->world->lessonDone($twoThirds->id, $lesson);
         $this->world->scenarioAttempt($twoThirds->id, $scenario, $this->en);
         $idle = $this->world->member(['country' => 2]);
+        $twice = $this->world->member(['country' => 2]);
+        $this->world->lessonDone($twice->id, $lesson);
+        $this->world->lessonDone($twice->id, $lesson);
+        $unreachable = $this->world->member(['country' => 2]);
+        $this->world->lessonDone($unreachable->id, $lesson);
+        $this->world->lessonDone($unreachable->id, $uncategorised);
 
-        $progress = LMUsers::country_progress(2);
+        $progress = LMUsers::country_progress(2, false);
 
-        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle] as $member) {
+        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle, $twice, $unreachable] as $member) {
             foreach ([$this->en, $this->lt] as $langId) {
                 $this->assertEquals(LMUsers::course_progress($member->id, $langId), $progress[$langId][$member->id] ?? 0, "member {$member->id} in language $langId");
             }
         }
         $this->assertEquals(12, $progress[$this->en][$halfLessons->id]);
+        $this->assertEquals(12, $progress[$this->en][$twice->id]);
+        $this->assertEquals(12, $progress[$this->en][$unreachable->id]);
     }
 
 

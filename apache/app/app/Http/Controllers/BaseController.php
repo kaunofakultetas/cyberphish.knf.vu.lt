@@ -135,9 +135,9 @@ class BaseController extends Controller
                 // questionnaire link that badge_finished_course
                 // unlocks (parts/notif.blade.php) shows from the
                 // next page on
-                $badge_all_presentations = Badges::get_badge('badge_all_presentations');
-                $badge_all_simulations = Badges::get_badge('badge_all_simulations');
-                $badge_finished_course = Badges::get_badge('badge_finished_course');
+                $badge_all_presentations = Badges::get_badge(Langs::getLangId(Session::get('lang')), 'badge_all_presentations');
+                $badge_all_simulations = Badges::get_badge(Langs::getLangId(Session::get('lang')), 'badge_all_simulations');
+                $badge_finished_course = Badges::get_badge(Langs::getLangId(Session::get('lang')), 'badge_finished_course');
 
                 if($badge_all_presentations == true && $badge_all_simulations == true){
 

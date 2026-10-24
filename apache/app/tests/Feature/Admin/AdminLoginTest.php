@@ -13,8 +13,10 @@
 //  the form with the message, even when a panel page sent
 //  the visitor there — and ten wrong passwords for one
 //  email from one address lock that pair out for a while,
-//  the right password included. The panel's password
-//  dialog answers in words.
+//  the right password included; the member login's
+//  failures count apart. A member page parked before the
+//  sign-in is not followed. The panel's password dialog
+//  answers in words.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -389,6 +391,64 @@ class AdminLoginTest extends FeatureTestCase
         ])->assertSessionHasErrors();
 
         $this->assertSame(__('main.curr_pass_wrong'), session('errors')->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAdminLoginIgnoresAMemberPagesParking
+    // -----------------------------------------------------------
+    //
+    // Both sign-in redirects park the page asked for under one
+    // key; a member page parked before the admin login is not
+    // followed, and the manager lands on the dashboard. It
+    // once was — onto the member login, since auth:mem refuses
+    // a manager.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAdminLoginIgnoresAMemberPagesParking(): void
+    {
+        $manager = $this->world->manager();
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+
+        $this->signIn($manager->email, World::PASSWORD)->assertRedirect('/admin-panel/dashboard');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFailedMemberLoginsDoNotLockThePanel
+    // -----------------------------------------------------------
+    //
+    // Each login counts its own failures: ten wrong member
+    // passwords for an organiser's address leave the panel's
+    // sign-in of that address open. Both once counted under
+    // the address and the IP alone, in one cache, and locked
+    // each other.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFailedMemberLoginsDoNotLockThePanel(): void
+    {
+        $manager = $this->world->manager();
+        for ($guess = 1; $guess <= 10; $guess++) {
+            $this->from('/login')->post('/login', ['email' => $manager->email, 'password' => 'Wrong-Guess-' . $guess]);
+        }
+
+        $this->signIn($manager->email, World::PASSWORD)->assertRedirect('/admin-panel/dashboard');
+
+        $this->assertAuthenticated('man');
     }
 
 
