@@ -101,23 +101,11 @@ Four files outside `tests/` belong to the suite:
 
 ## Pinned defects
 
-A second review of the whole app, on 24 October 2026, found 31 defects,
-each pinned by a test that reproduces it. The 25 whose fixes no member or
-admin would notice in normal use were fixed the same day (see Fixed
-defects). The six below remain, because each fix changes something people
-see: a badge Latvian members could not earn so far, scores that move, a
-new message, a dialog that opens differently, a login that starts to
-work, a form that keeps what was typed. In the table, the medium ones
-come first in each file; the rest are low.
-
-| Id | Pinned in | What breaks |
-|---|---|---|
-| `simulation-badge-unreachable` | `SimulationDefectsTest` | badge_all_simulations counts simulations that no category offers. In production, 6 of Latvian's 55 can't be reached, so no Latvian member can earn the badge |
-| `selfeval-partial-points` | `LearningDefectsTest` | A fully right answer with three right options scores 99. Production has 153 such fractional options |
-| `finished-course-message` | `LearningDefectsTest` | The finished-course badge is announced on a page that shows no messages |
-| `manager-edit-country` | `AdminDefectsTest` | The manager edit dialog doesn't show the stored country, so each save overwrites it |
-| `reset-unverified` | `AuthDefectsTest` | A reset mails an unverified member a password that never signs in |
-| `register-input-lost` | `AuthDefectsTest` | A refused sign-up comes back empty |
+No defect is pinned at the moment. A second review of the whole app, on
+24 October 2026, found 31 defects, each pinned by a test that reproduced
+it. The 25 whose fixes no member or admin would notice in normal use were
+fixed that day, and the six whose fixes people see followed the same
+evening (see Fixed defects).
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -440,8 +428,43 @@ What changed:
 | `throttle-shared` | `AdminLoginTest::testFailedMemberLoginsDoNotLockThePanel`, `LoginTest::testFailedPanelLoginsDoNotLockTheLogin` |
 | `upload-limit` | `PhpRuntimeTest::testUploadsTakeTheCoursesLessonFiles` |
 
-The six pins left live in four `*DefectsTest.php` files, one per folder
-they touch.
+The six visible ones followed the same evening, each a change people
+see. Each test was again seen failing on the code before its fix.
+
+- badge_all_simulations counts only the simulations that a category of
+  the language offers. Finishing every simulation members can reach now
+  earns it. Production's Latvian had six simulations, ids 159–164, linked
+  to no Latvian category: four to English categories, two to none. They
+  were imported on 14 December 2022 with the 18 around them, which were
+  re-filed by hand later, and these six were missed. That evening they
+  were filed under Latvian categories. Four took the categories their
+  import sheets had marked. The sheets of 162 and 164 marked none, so
+  those two took the categories of their English originals. The links as
+  they were are saved in `_ORG/scenario_categories_before_latvian_fix.sql`.
+- Self-evaluation points count to the hundredth, and the total is rounded
+  once. Three right options of 33.33 make 100, not 99. Production's
+  finished attempts were rescored the same way that evening: 1,319 rose by
+  1–4 points and 6 fell by 1. The 17 whose questions changed after they
+  closed kept their scores. The table as it was is saved in
+  `_ORG/selfeval_scores_before_rescore.sql`.
+- badge_finished_course can fall due on any member page. It is announced
+  on the first page that shows messages, and only once.
+- The manager edit dialog opens on the stored country.
+- A password reset switches on an account still waiting for its
+  verification. An account an admin switched off stays off.
+- A refused sign-up comes back with its email, country and terms box.
+
+| Id | Home test |
+|---|---|
+| `simulation-badge-unreachable` | `SimulationsTest::testBadgeCountsTheSimulationsMembersAreOffered` |
+| `selfeval-partial-points` | `SelfEvaluationTest::testPartlyWorthyOptionsAddUpExactly` |
+| `finished-course-message` | `LearningMaterialTest::testFinishedCourseBadgeIsAnnouncedOnTheNextPageWithMessages`, with `testFinishedCourseBadgeIsAnnouncedOnceWithTheLastLesson` holding the lesson page that earns two badges to one message |
+| `manager-edit-country` | `AdminManagersTest::testManagerEditDialogShowsTheStoredCountry` |
+| `reset-unverified` | `PasswordResetTest::testResetGivesAnUnverifiedMemberAWorkingLogin`, with `testResetLeavesASwitchedOffAccountOff` |
+| `register-input-lost` | `RegistrationTest::testRefusedSignUpKeepsTheForm` |
+
+No `*DefectsTest.php` file is left. The next defect found starts one in
+its folder again.
 
 ## Found but not pinned
 

@@ -6,8 +6,9 @@
 //  The managers page of the panel (ManagersController):
 //  it lists the country managers, creates new ones switched
 //  off (status 0) until a main admin switches them on,
-//  updates a manager's address, password and country, and
-//  deletes managers. A main admin can be neither deleted,
+//  updates a manager's address, password and country — the
+//  edit dialog opening on the stored country — and deletes
+//  managers. A main admin can be neither deleted,
 //  switched off nor rewritten from here.
 //
 //  Used by:
@@ -389,6 +390,38 @@ class AdminManagersTest extends FeatureTestCase
         $row = Managers::find($other->id);
         $this->assertSame($other->email, $row->email);
         $this->assertTrue(Hash::check(World::PASSWORD, $row->password));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testManagerEditDialogShowsTheStoredCountry
+    // -----------------------------------------------------------
+    //
+    // The edit dialog opens on the manager's stored country,
+    // "Other" included. Its required select once opened on
+    // the placeholder: the main admin had to pick some
+    // country to save a new password, and the pick replaced
+    // the stored one — a Greek manager reset that way read
+    // Lithuania's members.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testManagerEditDialogShowsTheStoredCountry(): void
+    {
+        foreach ([3, 0] as $country) {
+            $manager = $this->world->manager(['main' => 0, 'country' => $country]);
+
+            $html = $this->signInManager($this->admin)->get("/admin-panel/dialog/manager/edit/{$manager->id}")->assertOk()->getContent();
+
+            $this->assertMatchesRegularExpression("#<option value=\"$country\" selected=\"selected\">#", $html, "country $country");
+            $this->assertSame(1, substr_count($html, 'selected="selected"'), "country $country");
+        }
     }
 
 

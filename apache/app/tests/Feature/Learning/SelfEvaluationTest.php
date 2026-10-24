@@ -10,8 +10,9 @@
 //  many questions are answered as settings row 2 asks for,
 //  or every question of a category that has fewer: every
 //  answer worth the question's best option is added for a
-//  correct choice and taken away for a wrong one, never
-//  below zero. A question takes one answer, from its own
+//  correct choice and taken away for a wrong one — to the
+//  hundredth, the total rounded once — never below zero. A
+//  question takes one answer, from its own
 //  options, each counted once, so a forged form scores no
 //  more than an honest one; a closed attempt keeps its end
 //  date. Visiting the start page again resumes the open
@@ -902,5 +903,49 @@ class SelfEvaluationTest extends FeatureTestCase
         ])->assertRedirect("/cp/se/$publicId/{$this->category}");
 
         $this->assertFalse(DB::table('bei_users_selfeval')->where('public_id', $publicId)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPartlyWorthyOptionsAddUpExactly
+    // -----------------------------------------------------------
+    //
+    // A question's right options share 100 points — 33.33
+    // each when three are right — and the score counts them
+    // as stored, rounded to a whole number once, at the end:
+    // all three right is 100, two of them 67, two and the
+    // wrong one 33. The points were once cut to whole numbers
+    // first, so all three right scored 99 and two 66;
+    // production holds 153 right options of 33.33.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPartlyWorthyOptionsAddUpExactly(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $question = $this->world->selfEvalQuestion($category, [
+            ['First', true, 33.33], ['Second', true, 33.33], ['Third', true, 33.33], ['Wrong', false, 0],
+        ]);
+        list($first, $second, $third, $wrong) = $question['options'];
+        $answers = [
+            'all three right'         => [[$first, $second, $third], 100],
+            'two of them'             => [[$first, $second], 67],
+            'two and the wrong one'   => [[$first, $second, $wrong], 33],
+        ];
+
+        foreach ($answers as $case => list($options, $points)) {
+            $member = $this->world->member();
+            $publicId = $this->startSelfEvaluation($member, $category);
+            $this->answerSelfEvaluation($member, $publicId, $category, $question['question'], $options);
+            $this->signInMember($member)->get("/cp/se/$publicId/$category")->assertRedirect("/cp/se_r/$publicId");
+
+            $this->assertEquals($points, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('points'), $case);
+        }
     }
 }

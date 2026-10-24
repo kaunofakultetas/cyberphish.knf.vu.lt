@@ -168,7 +168,12 @@ class FinishedSe
     // points: every option chosen for the question adds that
     // much when it is correct and takes it away when it is
     // not, each option once even should its row have been
-    // stored twice. A negative total counts as 0.
+    // stored twice. The points count as stored, to the
+    // hundredth — three right options share 100 at 33.33
+    // each — and the total is rounded to a whole number once,
+    // at the end, so a fully right answer scores 100. They
+    // were once cut to whole numbers first: 33 three times,
+    // 99. A negative total counts as 0.
     //
     // Used by:
     //   - handle (above) — when it closes an attempt
@@ -181,7 +186,7 @@ class FinishedSe
         $points = 0;
         foreach($answered as $k => $v){
 
-            $max_points = (int)SelfEvalOption::select('points')->where(['question_id'=>$v])->orderByDesc('points')->get()->pluck('points')->first();
+            $max_points = (float)SelfEvalOption::select('points')->where(['question_id'=>$v])->orderByDesc('points')->get()->pluck('points')->first();
 
             $answers = SelfEvalUser::select('option_id', 'correct')->where(['question_id'=>$v, 'public_id'=>$public_id])->distinct()->get()->toArray();
 
@@ -195,6 +200,8 @@ class FinishedSe
 
             }
         }
+
+        $points = (int) round($points);
 
         if($points < 0){
             return 0;

@@ -12,7 +12,7 @@
     {{ Form::password('repass', ['class' => 'form-control', 'required' => 'required', 'minlength' => '6', 'maxlength' => '50']) }}<br>
 
 	{{ Form::label('country', __('Country')) }}<br>
-    {{ Form::select('country', [1 => 'Lithuania', 2 => 'Estonia', 3 => 'Greece', 4 => 'Latvia', 5 => 'Malta', 0 => 'Other'], '', ['class' => 'form-control', 'required'=>'required', 'placeholder'=>'Country']) }}
+    {{ Form::select('country', [1 => 'Lithuania', 2 => 'Estonia', 3 => 'Greece', 4 => 'Latvia', 5 => 'Malta', 0 => 'Other'], $country ?? '', ['class' => 'form-control', 'required'=>'required', 'placeholder'=>'Country']) }}
     <br>
 
     {{ Form::hidden('uid', $uid ?? '') }}

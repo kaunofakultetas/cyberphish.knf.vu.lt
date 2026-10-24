@@ -15,7 +15,8 @@
 //  reads as held. Deleting the lesson, or the category,
 //  that a member had left hands out
 //  badge_all_presentations, which the knowledge test waits
-//  for.
+//  for. badge_finished_course, earned on any member page, is
+//  announced once, on the first page that shows messages.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -537,6 +538,71 @@ class LearningMaterialTest extends FeatureTestCase
             ->assertRedirect("/en/learn/lesson/{$this->firstLesson}");
 
         $this->assertFalse(DB::table('bei_lm_users')->where('user_id', $this->member->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFinishedCourseBadgeIsAnnouncedOnTheNextPageWithMessages
+    // -----------------------------------------------------------
+    //
+    // badge_finished_course falls due on whatever member page
+    // first finds both of its badges held — the simulations
+    // list, which shows no messages, most often — and its
+    // announcement waits for the first page that does show
+    // them, then comes no more. It was once announced with
+    // the page that earned it, and lost there.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedCourseBadgeIsAnnouncedOnTheNextPageWithMessages(): void
+    {
+        $this->world->badge($this->member->id, $this->en, 'badge_all_presentations');
+        $this->world->badge($this->member->id, $this->en, 'badge_all_simulations');
+        $this->signInMember($this->member)->get('/en/simulations')->assertOk();
+        $this->assertContains('badge_finished_course', $this->badges());
+
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk()->assertSee(__('main.new_badge'), false);
+
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk()->assertDontSee(__('main.new_badge'), false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFinishedCourseBadgeIsAnnouncedOnceWithTheLastLesson
+    // -----------------------------------------------------------
+    //
+    // A member who holds badge_all_simulations and completes
+    // the last lesson earns badge_all_presentations and, on
+    // the lesson page the completion returns to,
+    // badge_finished_course: the page announces the two with
+    // one message, and the next page with messages says
+    // nothing more.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFinishedCourseBadgeIsAnnouncedOnceWithTheLastLesson(): void
+    {
+        $this->world->badge($this->member->id, $this->en, 'badge_all_simulations');
+        $this->complete($this->firstLesson);
+        $this->complete($this->secondLesson)->assertRedirect("/en/learn/lesson/{$this->secondLesson}");
+
+        $html = $this->signInMember($this->member)->get("/en/learn/lesson/{$this->secondLesson}")->assertOk()->getContent();
+
+        $this->assertContains('badge_finished_course', $this->badges());
+        $this->assertSame(1, substr_count($html, __('main.new_badge')));
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk()->assertDontSee(__('main.new_badge'), false);
     }
 
 

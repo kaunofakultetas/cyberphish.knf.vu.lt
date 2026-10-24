@@ -371,26 +371,26 @@ class SimulationsController extends BaseController
     // One step of a run, behind auth:mem and
     // r_exists:sim_public_id (a 404 unless the run is the
     // member's). The member's latest choice decides the step:
-    // before the first one the level 1 choices, afterwards
-    // the choices under the latest one, a level deeper
-    // (step_options). When there are none the run is over —
-    // at once for a simulation without steps: a run still
-    // open is closed with its points and the
-    // SimulationsResults mail takes them to the member — once
-    // per run, however often the end page is shown; a mail
-    // relay that cannot be reached is logged, and the page
-    // still shows the result — badge_all_simulations follows
-    // once every simulation of the run's language is
-    // finished, and in mode 2 the page lists the feedback of
-    // every choice. The run's language is the one it was
-    // started in, whatever code the URL carries now: another
-    // language's, or one no language has, which once stored
-    // the badge with no language, a 500. Answers
-    // simulation_do_stuff.blade.php with the choices, the
-    // run's ids, whether it is finished and the points so
-    // far; the mode 1 feedback of the last choice reaches the
-    // page through the session. The new-badge message comes
-    // only with the visit that saved the badge.
+    // before the first one the level 1 choices, afterwards the
+    // choices under the latest one, a level deeper
+    // (step_options). When there are none the run is over — at
+    // once for a simulation without steps: a run still open is
+    // closed with its points and the SimulationsResults mail
+    // takes them to the member — once per run, however often
+    // the end page is shown; a mail relay that cannot be
+    // reached is logged, and the page still shows the result —
+    // badge_all_simulations follows once every simulation the
+    // run's language offers is finished
+    // (check_if_all_simulations_finished), and in mode 2 the
+    // page lists the feedback of every choice. The run's
+    // language is the one it was started in, whatever code the
+    // URL carries now: another language's, or one no language
+    // has, which once stored the badge with no language, a
+    // 500. Answers simulation_do_stuff.blade.php with the
+    // choices, the run's ids, whether it is finished and the
+    // points so far; the mode 1 feedback of the last choice
+    // reaches the page through the session. The new-badge
+    // message comes only with the visit that saved the badge.
     //
     // Used by:
     //   - simulation_progress (above), simulation_do_stuff_save
@@ -425,8 +425,8 @@ class SimulationsController extends BaseController
             // for a simulation without steps: close it with its
             // points while it is still open, mail the result
             // when this visit closed it, and award
-            // badge_all_simulations once every simulation of
-            // the run's language is finished
+            // badge_all_simulations once every simulation the
+            // run's language offers is finished
             // =================================================
             $finished=1;
 
@@ -707,11 +707,16 @@ class SimulationsController extends BaseController
     // check_if_all_simulations_finished
     // -----------------------------------------------------------
     //
-    // One entry per simulation of the language: 1 when the
-    // member has finished a run of it, else 0 — so every
-    // simulation is done when no 0 is left. A language
-    // without simulations gives an empty list, which reads as
-    // done.
+    // One entry per simulation the language offers: 1 when
+    // the member has finished a run of it, else 0 — so every
+    // simulation is done when no 0 is left. A simulation is
+    // offered when a category of its language lists it, as
+    // the category pages do (simulations_list); one filed
+    // under no category of its language is out of every
+    // member's reach, and once kept the badge, and with it
+    // badge_finished_course, out of reach too — six of
+    // Latvian's 55 did. A language without simulations gives
+    // an empty list, which reads as done.
     //
     // Used by:
     //   - simulation_do_stuff (above)
@@ -719,7 +724,10 @@ class SimulationsController extends BaseController
 
     public static function check_if_all_simulations_finished($lang_id)
     {
-        $get_scenarios = Scenarios::where(['lang_id'=>$lang_id])->get()->toArray();
+        $offered = ScenariosInCategory::select('scenario_id')->where(['lang_id'=>$lang_id])
+            ->whereIn('cat_id', ScenariosCategory::select('id')->where(['lang_id'=>$lang_id]));
+
+        $get_scenarios = Scenarios::where(['lang_id'=>$lang_id])->whereIn('id', $offered)->get()->toArray();
 
         $return = [];
 

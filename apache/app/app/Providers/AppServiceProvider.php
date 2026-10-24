@@ -6,8 +6,10 @@
 //  Laravel's place for the app's own container bindings
 //  and boot-time wiring. The app binds nothing; at boot it
 //  keeps the paginator on the Bootstrap 4 template the
-//  pages were built with, and makes the reCAPTCHA rule
-//  survive an outage of Google.
+//  pages were built with, makes the reCAPTCHA rule survive
+//  an outage of Google, and hands a badge announcement that
+//  waits in the session to the first page that shows
+//  messages.
 //
 //  Used by:
 //    - config/app.php — the providers list
@@ -18,7 +20,9 @@ namespace App\Providers;
 
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 
@@ -32,8 +36,8 @@ use Illuminate\Support\ServiceProvider;
 // AppServiceProvider
 // -----------------------------------------------------------
 //
-// Registers nothing; boots the paginator's template and
-// the reCAPTCHA rule.
+// Registers nothing; boots the paginator's template, the
+// reCAPTCHA rule and the waiting badge announcement.
 //
 // Used by:
 //   - config/app.php — the providers list
@@ -89,6 +93,14 @@ class AppServiceProvider extends ServiceProvider
     // The service is looked up at every check, so the tests'
     // double (solveCaptcha) still takes its place.
     //
+    // Last, parts/notif.blade.php — the messages of the member
+    // pages that show any — gets badge_waiting: whether a
+    // badge awarded on an earlier page that shows no messages
+    // still waits to be announced (BaseController sets
+    // new_badge_waiting). The note is taken from the session
+    // as the partial renders, so the announcement comes once,
+    // on the first page that can show it.
+    //
     // Used by:
     //   - Laravel, once every provider is registered
     // -----------------------------------------------------------
@@ -104,6 +116,10 @@ class AppServiceProvider extends ServiceProvider
                 report($exception);
                 return false;
             }
+        });
+
+        View::composer('parts.notif', function ($view) {
+            $view->with('badge_waiting', Session::pull('new_badge_waiting', false));
         });
     }
 }

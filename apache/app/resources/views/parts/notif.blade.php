@@ -35,6 +35,16 @@
                       </div>
                		 @endif
 
+               		 @if(!empty($badge_waiting) && session()->get('success') !== __('main.new_badge'))
+                      <div class="alert alert-success alert-dismissible col-lg-12" role="alert">
+                        <button class="close" type="button" data-dismiss="alert" aria-label="Close"><span class="mdi mdi-close" aria-hidden="true"></span></button>
+                        <div class="icon"> <span class="mdi mdi-close-circle-o"></span></div>
+                        <div class="message">
+                          	{!! __('main.new_badge') !!}
+                        </div>
+                      </div>
+               		 @endif
+
                 </div>
                 
                 @if(Auth::guard('mem')->check())

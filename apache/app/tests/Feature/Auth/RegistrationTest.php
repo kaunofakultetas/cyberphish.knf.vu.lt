@@ -17,7 +17,8 @@
 //  The form is for visitors only: a signed-in member is sent
 //  to the home page. Both reCAPTCHA errors read in words,
 //  and the generated name costs one random draw. A mail
-//  outage creates nothing and says so.
+//  outage creates nothing and says so. A refused form comes
+//  back with its email, country and terms box.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -26,6 +27,7 @@
 
 namespace Tests\Feature\Auth;
 
+use Anhskohbo\NoCaptcha\Facades\NoCaptcha;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Mail\SendVerification;
 use App\Models\Members;
@@ -587,6 +589,53 @@ class RegistrationTest extends FeatureTestCase
 
         $this->assertSame(__('main.mail_failed'), session('errors')->first());
         $this->assertFalse(Members::where('email', self::EMAIL)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRefusedSignUpKeepsTheForm
+    // -----------------------------------------------------------
+    //
+    // A sign-up refused for passwords that differ, or for an
+    // address already in use, comes back with the email, the
+    // country and the terms box as they were sent — as a
+    // refused validation does — and without the passwords. It
+    // once came back empty, the address and the country to be
+    // typed again.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRefusedSignUpKeepsTheForm(): void
+    {
+        $this->world->member(['email' => 'taken.student@example.test']);
+        $this->solveCaptcha();
+        $refusals = [
+            'passwords that differ'  => ['email' => 'kept.student@example.test', 'password2' => 'Another-Long-Password-2'],
+            'an address in use'      => ['email' => 'taken.student@example.test'],
+        ];
+
+        foreach ($refusals as $case => $fields) {
+            $this->from('/register')->post('/register', $this->form($fields + ['country' => 3, 'terms' => 1]))
+                ->assertRedirect('/register')
+                ->assertSessionHasErrors();
+
+            $old = session()->getOldInput();
+            $this->assertSame([$fields['email'], '3', '1'], [$old['email'] ?? null, (string) ($old['country'] ?? ''), (string) ($old['terms'] ?? '')], $case);
+            $this->assertArrayNotHasKey('password', $old, $case);
+            $this->assertArrayNotHasKey('password2', $old, $case);
+        }
+
+        // The double solveCaptcha put in place draws no widget
+        NoCaptcha::shouldReceive('display', 'renderJs')->andReturn('');
+        $html = $this->get('/register')->assertOk()->getContent();
+        $this->assertStringContainsString('value="taken.student@example.test"', $html);
+        $this->assertMatchesRegularExpression('#<option value="3" selected="selected">#', $html);
     }
 
 

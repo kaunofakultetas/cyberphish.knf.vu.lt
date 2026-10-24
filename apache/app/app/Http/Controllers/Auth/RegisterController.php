@@ -152,8 +152,12 @@ class RegisterController extends BaseController
     // mail goes out again. Mismatched passwords and an address
     // already registered go back with their message — so
     // unlike forgot-password, this form tells whether an
-    // address has an account. The email compares without case
-    // (the column's case-insensitive collation).
+    // address has an account. Every refusal brings the form
+    // back with the email, the country and the terms box as
+    // they were sent, as a refused validation does, and never
+    // the passwords; these three once came back empty. The
+    // email compares without case (the column's
+    // case-insensitive collation).
     //
     // Used by:
     //   - auth/register.blade.php — the sign-up form posts here
@@ -180,7 +184,7 @@ class RegisterController extends BaseController
                 } catch (\Throwable $e) {
                     report($e);
 
-                    return back()->withErrors(__('main.mail_failed'));
+                    return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.mail_failed'));
                 }
 
                 Members::create([
@@ -195,12 +199,12 @@ class RegisterController extends BaseController
 
             } else {
 
-                return back()->withErrors(__('main.pass_dont_match'));
+                return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.pass_dont_match'));
             }
 
         } else {
 
-            return back()->withErrors(__('main.email_already_exists'));
+            return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.email_already_exists'));
         }
     }
 

@@ -10,7 +10,8 @@
 //  previous choice — only those count — and the run ends
 //  when a choice has nothing under it: its points are added
 //  up, the result is mailed once, and finishing every
-//  simulation of the language earns badge_all_simulations.
+//  simulation a category of the language offers earns
+//  badge_all_simulations.
 //  In step-by-step mode (type 1) each choice's feedback
 //  shows at the next step, in summary mode (type 2) all of
 //  it at the end. A run is its member's alone, and a
@@ -799,5 +800,45 @@ class SimulationsTest extends FeatureTestCase
 
         $this->assertTrue(DB::table('bei_users_badges')
             ->where(['user_id' => $this->member->id, 'lang_id' => $this->en, 'name' => 'badge_all_simulations'])->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBadgeCountsTheSimulationsMembersAreOffered
+    // -----------------------------------------------------------
+    //
+    // badge_all_simulations waits only for the simulations a
+    // category of the language lists, as the category pages
+    // do: one filed under no category, and one filed under
+    // another language's category — the two ways production's
+    // Latvian lost six of its 55 — are on no member's page,
+    // and finishing every simulation on offer earns the badge.
+    // Those two once held it, and badge_finished_course with
+    // it, out of every member's reach.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBadgeCountsTheSimulationsMembersAreOffered(): void
+    {
+        $lithuanianCategory = $this->world->scenarioCategory($this->world->language('lt'));
+        $this->world->scenario($this->en, ['descr' => 'Filed under no category']);
+        $this->world->scenario($this->en, ['descr' => 'Filed under a Lithuanian category'], [$lithuanianCategory]);
+        $this->signInMember($this->member)->get("/en/simulations/category/{$this->category}")->assertOk()
+            ->assertDontSee('Filed under no category')
+            ->assertDontSee('Filed under a Lithuanian category');
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")->assertOk();
+
+        $this->assertTrue(DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'lang_id' => $this->en, 'name' => 'badge_all_simulations'])->exists(), 'finishing every simulation on offer earned no badge_all_simulations');
     }
 }

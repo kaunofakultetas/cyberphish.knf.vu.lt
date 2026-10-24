@@ -382,7 +382,14 @@ class LoginController extends BaseController
     // and the login form shows new_pass_emailed — the form
     // itself, even when a member page parked another
     // destination in the session. A signed-in member is sent
-    // home by guest:mem and the token stays. When the mail
+    // home by guest:mem and the token stays. An account still
+    // waiting for its verification (status 0) is switched on
+    // with the reset, its verification token used up: the
+    // link reached the address as the verification mail
+    // would have, and the login takes only active accounts,
+    // so the mailed password once never signed in, while
+    // nothing sent the lost verification mail again. An
+    // account an admin switched off stays off. When the mail
     // cannot be sent, the failure is logged, the password and
     // the token stay as they were — the new password would
     // reach no one — and the login form says so (mail_failed),
@@ -407,6 +414,7 @@ class LoginController extends BaseController
             return redirect(route('login'))->withErrors(__('main.mail_failed'));
         }
 
+        Members::where('reset_token', '=', $reset_token)->where('status', 0)->update(['status'=>1, 'verify_token'=>'']);
         Members::where('reset_token', '=', $reset_token)->update(['password'=>Hash::make($new_pass), 'reset_token'=>'']);
 
         return redirect(route('login'))->withSuccess(__('main.new_pass_emailed'));

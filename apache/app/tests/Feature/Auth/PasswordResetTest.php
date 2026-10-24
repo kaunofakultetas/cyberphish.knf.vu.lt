@@ -20,7 +20,9 @@
 //  the link reaches the login form even when a member page
 //  parked another destination. A mail outage changes
 //  nothing and is no server error: the button says so,
-//  forgot-password answers as ever.
+//  forgot-password answers as ever. A reset switches on an
+//  account still waiting for its verification, never one an
+//  admin switched off.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -477,6 +479,78 @@ class PasswordResetTest extends FeatureTestCase
         $this->requestReset($other->email)->assertRedirect('/forgot-password')->assertSessionHas('success', __('main.forgot_pass_msg'));
         $this->requestReset('nobody.here@example.test')->assertRedirect('/forgot-password')->assertSessionHas('success', __('main.forgot_pass_msg'));
         $this->assertSame('', Members::find($other->id)->reset_token);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResetGivesAnUnverifiedMemberAWorkingLogin
+    // -----------------------------------------------------------
+    //
+    // A member who never opened the verification link — the
+    // mail lost, and nothing sends it again — gets an account
+    // that signs in from the reset: the reset link reached
+    // the address as the verification mail would have, so the
+    // reset switches the account on and uses the verification
+    // token up. The login takes only active accounts, and the
+    // mailed password once never signed in.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResetGivesAnUnverifiedMemberAWorkingLogin(): void
+    {
+        $member = $this->world->member(['status' => 0, 'verify_token' => 'Unused-' . self::TOKEN, 'reset_token' => self::TOKEN]);
+        $this->post('/reset/' . self::TOKEN)->assertRedirect('/login');
+        $newPassword = null;
+        Mail::assertSent(SendNewPass::class, function (SendNewPass $mail) use (&$newPassword) {
+            $newPassword = $mail->data['new_pass'];
+            return true;
+        });
+
+        $this->from('/login')->post('/login', ['email' => $member->email, 'password' => $newPassword])->assertRedirect('/cp/dashboard');
+
+        $this->assertAuthenticated('mem');
+        $member = Members::find($member->id);
+        $this->assertSame(1, $member->status);
+        $this->assertSame('', $member->verify_token);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResetLeavesASwitchedOffAccountOff
+    // -----------------------------------------------------------
+    //
+    // An account an admin switched off stays off through a
+    // reset: the new password is mailed and stored, and the
+    // login still refuses it.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResetLeavesASwitchedOffAccountOff(): void
+    {
+        $member = $this->world->member(['status' => 2, 'reset_token' => self::TOKEN]);
+        $this->post('/reset/' . self::TOKEN)->assertRedirect('/login');
+        $newPassword = null;
+        Mail::assertSent(SendNewPass::class, function (SendNewPass $mail) use (&$newPassword) {
+            $newPassword = $mail->data['new_pass'];
+            return true;
+        });
+
+        $this->from('/login')->post('/login', ['email' => $member->email, 'password' => $newPassword]);
+
+        $this->assertGuest('mem');
+        $this->assertSame(2, Members::find($member->id)->status);
     }
 
 

@@ -74,10 +74,10 @@ class BaseController extends Controller
     // __construct
     // -----------------------------------------------------------
     //
-    // Registers the middleware, a closure, for every action
-    // of the controller. First the locale: the route's {lang}
-    // when it is one of the five site languages, remembered
-    // in the session; otherwise the session's language, or
+    // Registers the middleware, a closure, for every action of
+    // the controller. First the locale: the route's {lang}
+    // when it is one of the five site languages, remembered in
+    // the session; otherwise the session's language, or
     // English when there is none — an unknown {lang} still
     // reaches the action as it is. Then, for a signed-in
     // member, the e-mail, the finished lessons, the course
@@ -85,9 +85,15 @@ class BaseController extends Controller
     // country and three badges of the session language, and
     // the award of badge_finished_course once
     // badge_all_presentations and badge_all_simulations are
-    // both held. All of it, with the learning-material menu
-    // and the questionnaire link of the member's country, is
-    // shared with every view.
+    // both held. The award can fall on any member page — the
+    // simulations list, after the last run, most often — and
+    // most pages show no messages, so its announcement waits
+    // in the session, new_badge_waiting, for the first page
+    // that does (parts/notif.blade.php, through
+    // AppServiceProvider::boot); announced with the page that
+    // earned it, it was lost on all of those. All of it, with
+    // the learning-material menu and the questionnaire link of
+    // the member's country, is shared with every view.
     //
     // Used by:
     //   - the constructors of the controllers named in the
@@ -144,7 +150,7 @@ class BaseController extends Controller
                     $bx = Badges::save_badge(Langs::getLangId(Session::get('lang')), 'badge_finished_course');
 
                     if($bx == true){
-                        $request->session()->now('success', __('main.new_badge'));
+                        $request->session()->put('new_badge_waiting', true);
                     } else {
                         // Already held — nothing to announce
                     }

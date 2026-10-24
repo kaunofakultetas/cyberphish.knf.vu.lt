@@ -123,7 +123,11 @@ class ManagersController extends BaseController
     // loaded into the managers page's modal: empty and
     // posting to manager/create without an id; with one,
     // posting to manager/update and filled with the manager's
-    // address — never a main admin's.
+    // address and country — never a main admin's. The
+    // country select is required, and it once opened on its
+    // placeholder: the main admin had to pick a country to
+    // save a new password, and the pick replaced the stored
+    // one.
     //
     // Used by:
     //   - public/js/window.js — managers_form, called by the
@@ -143,7 +147,8 @@ class ManagersController extends BaseController
                 [
                     'url'=>env('APP_URL').'/admin-panel/manager/update',
                     'uid'=>$uid,
-                    'email'=>Managers::where(['id'=>$uid])->where('main','!=', 1)->get()->pluck('email')->first()
+                    'email'=>Managers::where(['id'=>$uid])->where('main','!=', 1)->get()->pluck('email')->first(),
+                    'country'=>Managers::where(['id'=>$uid])->where('main','!=', 1)->get()->pluck('country')->first()
                 ]);
 
         }
