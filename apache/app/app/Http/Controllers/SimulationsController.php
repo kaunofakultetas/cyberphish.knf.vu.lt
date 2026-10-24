@@ -185,10 +185,12 @@ class SimulationsController extends BaseController
     // The simulations filed under category uid in the
     // session's language, behind auth:mem and r_exists:sim_cat
     // (a 404 for an unknown category). Each comes with the
-    // member's latest finished run of it in that language
-    // under history, empty when there is none. The name in
-    // the URL is never read. Answers
-    // simulations_list.blade.php with the category's name.
+    // member's last finished run of it in that language under
+    // history — the one that ended last, where it was the one
+    // started last, which a run resumed from the history can
+    // outlast — empty when there is none. The name in the URL
+    // is never read. Answers simulations_list.blade.php with
+    // the category's name.
     //
     // Used by:
     //   - simulations_categories.blade.php — the category
@@ -204,7 +206,7 @@ class SimulationsController extends BaseController
 
         foreach($cat_simulations as $k => $v){
 
-            $cc = ScenariosUsers::where(['scenario_id'=>$v['id'], 'lang_id'=>Langs::getLangId(Session::get('lang')), 'finished'=>1, 'user_id'=>Auth::guard('mem')->id()])->orderByDesc('id');
+            $cc = ScenariosUsers::where(['scenario_id'=>$v['id'], 'lang_id'=>Langs::getLangId(Session::get('lang')), 'finished'=>1, 'user_id'=>Auth::guard('mem')->id()])->orderByDesc('ended');
 
             if($cc->count()>0){
 
@@ -394,6 +396,9 @@ class SimulationsController extends BaseController
     // points so far; the mode 1 feedback of the last choice
     // reaches the page through the session. The new-badge
     // message comes only with the visit that saved the badge.
+    // The course progress the end page shows counts the run it
+    // closes (BaseController::share_course), where it once
+    // showed the figure from before.
     //
     // Used by:
     //   - simulation_progress (above), simulation_do_stuff_save
@@ -444,6 +449,9 @@ class SimulationsController extends BaseController
             // the failure is logged and the end page still comes, the
             // run being closed already
             if($closed > 0){
+                // The progress the end page shows counts the run
+                BaseController::share_course();
+
                 try {
                     Mail::to(Members::where(['id'=>Auth::guard('mem')->id()])->pluck('email')->first())
                     ->send(new SimulationsResults(['points'=>SimulationsController::simulation_total_points($public_id)]));
@@ -541,9 +549,11 @@ class SimulationsController extends BaseController
     // transaction and with the run's row locked: the step
     // check reads the run's latest choice only once a choice
     // posted at the same moment has been recorded, so the
-    // second of them no longer belongs to the current step
-    // and records nothing — where each once passed the check
-    // and scored.
+    // second of them no longer belongs to the current step and
+    // records nothing — where each once passed the check and
+    // scored. The choice is a whole number, matched strictly
+    // against the step's ids: a choice posted as JSON true
+    // once equalled every id and recorded option 1.
     //
     // Used by:
     //   - simulation_do_stuff_save (above)
@@ -564,8 +574,10 @@ class SimulationsController extends BaseController
         $feedback = ScenariosOptions::where(['id'=>$option_id])->get()->pluck('feedback')->first();
 
         // A choice the current step does not offer records
-        // nothing
-        if(!in_array($option_id, array_column(SimulationsController::step_options($public_id, $scenario_id), 'id'))){
+        // nothing: only a whole number counts, compared
+        // strictly, where JSON's true once equalled every id
+        $offered = array_map('intval', array_column(SimulationsController::step_options($public_id, $scenario_id), 'id'));
+        if(!(is_int($option_id) || (is_string($option_id) && ctype_digit($option_id))) || !in_array((int) $option_id, $offered, true)){
             return redirect('/'.$lang.'/simulation/progress/'.$public_id);
         }
 

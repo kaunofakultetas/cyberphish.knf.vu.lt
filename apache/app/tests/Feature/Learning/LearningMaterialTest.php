@@ -653,6 +653,108 @@ class LearningMaterialTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testCategoryThatIsGoneIsNeverFinished
+    // -----------------------------------------------------------
+    //
+    // A category that is gone is never finished. A lesson a
+    // category delete left without one still opens by its
+    // address — a bookmark, the browser's history — and its
+    // completion counts, but earns no badge_category, and its
+    // page offers no self-evaluation button; both addresses
+    // such a button could lead to are a 404, and the attempts
+    // of the deleted category go with it, so no results page
+    // offers to repeat one. LMController::category_done once
+    // read a category that no longer exists as finished, none
+    // of its lessons left undone, so such a lesson earned the
+    // badge and offered a self-evaluation that was a 404
+    // (category-done-without-category).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCategoryThatIsGoneIsNeverFinished(): void
+    {
+        $doomed = $this->world->lmCategory($this->en);
+        $orphan = $this->world->lmContent($doomed, $this->en, ['title' => 'Orphan lesson']);
+        $gone = $this->world->lmCategory($this->en);
+        $attempt = $this->world->selfEvalAttempt($this->member->id, $gone, $this->en, ['points' => 100]);
+        $publicId = DB::table('bei_users_selfeval_test')->where('id', $attempt)->value('public_id');
+        $admin = $this->world->manager();
+        $this->signInManager($admin)->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$doomed");
+        $this->signInManager($admin)->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$gone");
+        $this->assertNull(DB::table('bei_lm_content')->where('id', $orphan)->value('cat_id'));
+        $this->assertFalse(DB::table('bei_lm_category')->where('id', $gone)->exists());
+
+        $this->complete($orphan)->assertRedirect("/en/learn/lesson/$orphan");
+        $lessonPage = $this->signInMember($this->member)->get("/en/learn/orphan-lesson/$orphan")->assertOk()->getContent();
+        $this->assertTrue(DB::table('bei_lm_users')->where(['user_id' => $this->member->id, 'content_id' => $orphan])->exists(), 'the completion of the lesson was not recorded');
+
+        // The attempt went with its category, so its results
+        // offer nothing to repeat (category-delete-ranking)
+        $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertNotFound();
+
+        // Where the two buttons would lead
+        $this->signInMember($this->member)->get('/en/self-evaluation-test/')->assertNotFound();
+        $this->signInMember($this->member)->get("/en/self-evaluation-test/$gone")->assertNotFound();
+
+        $this->assertNotContains('badge_category', $this->badges(), 'a lesson without a category earned the category badge');
+        $this->assertStringNotContainsString('self-evaluation-test/"', $lessonPage, 'the lesson page offers a self-evaluation of no category');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testBadgePicturesShipWithTheApp
+    // -----------------------------------------------------------
+    //
+    // Every picture the badges page links — eight, greyed
+    // until their badge is earned and in colour once it is —
+    // is a file of the app's own public folder, served on
+    // every install. They once came from /upload/badges, the
+    // upload data mount, which a fresh install starts empty
+    // and nothing fills, so each member's badges page showed
+    // eight broken images (badge-images-not-shipped).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBadgePicturesShipWithTheApp(): void
+    {
+        $holder = $this->world->member();
+        foreach ([
+            'badge_topic', 'badge_self_evaluation_test', 'badge_category', 'badge_all_presentations',
+            'badge_all_simulations', 'badge_finished_course', 'badge_final_test', 'badge_login_10',
+        ] as $badge) {
+            $this->world->badge($holder->id, $this->en, $badge);
+        }
+
+        $links = [];
+        foreach ([$this->member, $holder] as $member) {
+            $html = $this->signInMember($member)->get('/cp/badges')->assertOk()->getContent();
+            preg_match_all('#src="' . preg_quote(config('app.url'), '#') . '(/[^"]*badge_[a-z0-9_]+\.png)"#', $html, $found);
+            $this->assertCount(8, $found[1], 'the badges page no longer links eight pictures');
+            $links = array_merge($links, $found[1]);
+        }
+        $links = array_values(array_unique($links));
+        $this->assertCount(16, $links, 'the greyed and the earned pictures are no longer apart');
+
+        $missing = array_values(array_filter($links, function (string $path) {
+            return !is_file(public_path(ltrim($path, '/')));
+        }));
+        $this->assertSame([], $missing, 'badge pictures the page links but the app does not serve');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // complete
     // -----------------------------------------------------------
     //

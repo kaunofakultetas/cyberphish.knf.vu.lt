@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ \App\Models\Langs::iso_code(Session::get('lang', 'en')) }}">
 
 <head>
 
@@ -38,7 +38,7 @@
 
     <!-- Custom scripts for all pages-->
     <script src="{{ env('APP_URL') }}/m_assets/js/sb-admin-2.min.js"></script>
-    {!! NoCaptcha::renderJs() !!}
+    {!! NoCaptcha::renderJs(\App\Models\Langs::iso_code(Session::get('lang'))) !!}
 
 </body>
 

@@ -436,6 +436,54 @@ class CourseProgressTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testSelfEvaluationShareCountsOnlyWhatMembersCanFinish
+    // -----------------------------------------------------------
+    //
+    // The self-evaluations' fifth counts only the categories
+    // whose self-evaluation a member can take and finish — a
+    // lesson to offer it and a question to answer — on both
+    // sides of the division. Beside the setUp's category, one
+    // with a question but no lesson is offered on no member
+    // page, and one whose only question has no options asks
+    // nothing; a member who has done every lesson and finished
+    // the one self-evaluation on offer has the lessons' 25 and
+    // the whole 20. The stored function and
+    // LMUsers::country_progress once counted every category
+    // that holds a question, and held such a member at 32 for
+    // good (selfeval-share-counts-unreachable).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSelfEvaluationShareCountsOnlyWhatMembersCanFinish(): void
+    {
+        $withoutLessons = $this->world->lmCategory($this->en);
+        $this->world->selfEvalQuestion($withoutLessons, [['Right', true, 100], ['Wrong', false, 0]]);
+        $withoutOptions = $this->world->lmCategory($this->en);
+        $otherLesson = $this->world->lmContent($withoutOptions, $this->en);
+        DB::table('bei_selfeval_question')->insert(['cat_id' => $withoutOptions, 'question' => 'A question without options', 'q_type' => 1]);
+        $this->completeLessons();
+        $this->world->lessonDone($this->member->id, $otherLesson);
+
+        $this->finishSelfEvaluation([$this->question]);
+
+        // No page links the self-evaluation of the category
+        // without lessons, and the other one has nothing to ask
+        $this->signInMember($this->member)->get('/en/cp/learning-material')->assertOk()->assertDontSee("self-evaluation-test/$withoutLessons", false);
+        $this->signInMember($this->member)->get("/en/learn/lesson/{$this->lessons[0]}")->assertOk()->assertDontSee("self-evaluation-test/$withoutLessons", false);
+        $empty = $this->startSelfEvaluation($this->member, $withoutOptions);
+        $this->signInMember($this->member)->get("/cp/se/$empty/$withoutOptions")->assertOk()->assertSee(__('main.no_selfeval_questions'));
+
+        $this->assertEquals(45, $this->progress(), 'every lesson and every self-evaluation a member can finish is not the 25 and the whole 20');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // completeLessons
     // -----------------------------------------------------------
     //
@@ -447,7 +495,9 @@ class CourseProgressTest extends FeatureTestCase
     //     testEverythingDoneIsAHundred,
     //     testFinishedSelfEvaluationsCountTheirFullShare,
     //     testProgressIsPerLanguage,
-    //     testLessonsMembersCannotReachDoNotCount (above)
+    //     testLessonsMembersCannotReachDoNotCount,
+    //     testSelfEvaluationShareCountsOnlyWhatMembersCanFinish
+    //     (above)
     // -----------------------------------------------------------
 
     private function completeLessons(): void
@@ -473,7 +523,8 @@ class CourseProgressTest extends FeatureTestCase
     //
     // Used by:
     //   - testEverythingDoneIsAHundred,
-    //     testFinishedSelfEvaluationsCountTheirFullShare
+    //     testFinishedSelfEvaluationsCountTheirFullShare,
+    //     testSelfEvaluationShareCountsOnlyWhatMembersCanFinish
     //     (above)
     // -----------------------------------------------------------
 

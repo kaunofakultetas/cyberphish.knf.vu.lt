@@ -40,9 +40,11 @@ use Tests\FeatureTestCase;
 // PublicPagesTest
 // -----------------------------------------------------------
 //
-// Every test is a visitor with no session; English is the
-// seeded language (id 3), and setUp adds Lithuanian for
-// every test, as the second language some tests need.
+// Every test is a visitor with no session, but for
+// testApiPathsInviteNoOrigin, which signs a member in for a
+// member page; English is the seeded language (id 3), and
+// setUp adds Lithuanian for every test, as the second
+// language some tests need.
 //
 // Used by:
 //   - PHPUnit — the Feature suite (runTests.sh)
@@ -688,6 +690,198 @@ class PublicPagesTest extends FeatureTestCase
         }
         foreach (['article with a picture', 'news list'] as $page) {
             $this->assertStringContainsString('/upload/news-picture.jpg"', $pages[$page], "the $page lost the picture");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testApiPathsInviteNoOrigin
+    // -----------------------------------------------------------
+    //
+    // No response under /api/ names an allowed origin either,
+    // a member's no more than a visitor's: HandleCors handles
+    // no path at all. It once allowed every origin on api/*,
+    // where {lang} took api for a language, so /api/news and a
+    // member's /api/cp/learning-material were the site's own
+    // pages inviting every origin (cors-api-paths).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testApiPathsInviteNoOrigin(): void
+    {
+        $member = $this->world->member();
+
+        $news = $this->withHeaders(['Origin' => 'https://elsewhere.example'])->get('/api/news');
+        $outline = $this->signInMember($member)->withHeaders(['Origin' => 'https://elsewhere.example'])->get('/api/cp/learning-material');
+
+        $news->assertHeaderMissing('Access-Control-Allow-Origin');
+        $outline->assertHeaderMissing('Access-Control-Allow-Origin');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTiedMembersShareTheirPlace
+    // -----------------------------------------------------------
+    //
+    // Both public rankings give members with equal totals the
+    // same place, listed by user name, and a lower total a
+    // place after theirs: here three members score in both,
+    // two of them tied for the best total. The rankings once
+    // numbered their rows with the loop's counter, so equal
+    // totals got different places, in an order MySQL picked,
+    // and the member who reached the score first could end up
+    // behind (ranks-tied-positions).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTiedMembersShareTheirPlace(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $scenario = $this->world->scenario($this->en);
+        $names = [];
+        foreach (['first' => 80, 'second' => 80, 'behind' => 30] as $key => $points) {
+            $member = $this->world->member();
+            $names[$key] = $member->username;
+            $this->world->selfEvalAttempt($member->id, $category, $this->en, ['points' => $points]);
+            $this->world->scenarioAttempt($member->id, $scenario, $this->en, ['points' => $points * 5]);
+        }
+
+        // Each ranking's places by user name, read from its rows
+        $places = [];
+        foreach (['self-evaluation', 'simulations'] as $ranking) {
+            preg_match_all('#<td>(\d+)</td>\s*<td>([^<]*)</td>#', $this->get("/en/ranks/$ranking")->assertOk()->getContent(), $rows, PREG_SET_ORDER);
+            $places[$ranking] = [];
+            foreach ($rows as $row) {
+                $places[$ranking][trim($row[2])] = (int) $row[1];
+            }
+            $this->assertEqualsCanonicalizing(array_values($names), array_keys($places[$ranking]), "the $ranking ranking does not list the three members");
+        }
+
+        foreach ($places as $ranking => $place) {
+            $this->assertSame($place[$names['first']], $place[$names['second']], "the $ranking ranking gives two members of equal points different places");
+            $this->assertGreaterThan($place[$names['first']], $place[$names['behind']], "the $ranking ranking puts the lower total ahead");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLoginFormKeepsTheLanguageOfTheLinkFollowed
+    // -----------------------------------------------------------
+    //
+    // A visitor who follows a Lithuanian link to a member page
+    // — a bookmark whose session has run out, a link a teacher
+    // shared — gets the login form in Lithuanian: Authenticate
+    // makes the link's site code the session's language before
+    // it sends the visitor there. BaseController, the one to
+    // read {lang} on every other page, runs only after
+    // auth:mem, so such a visitor once got the form in
+    // English, the language of a fresh session
+    // (login-redirect-language).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLoginFormKeepsTheLanguageOfTheLinkFollowed(): void
+    {
+        $login = $this->followingRedirects()->get('/lt/cp/learning-material')->assertOk()->getContent();
+        $this->assertStringContainsString('name="password"', $login, 'the member page did not lead to the login form');
+
+        $this->assertStringContainsString(e(trans('main.welcome_back', [], 'lt')), $login, 'the login form a Lithuanian link led to is not in Lithuanian');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCookieNoticeSpeaksThePagesLanguage
+    // -----------------------------------------------------------
+    //
+    // The cookie notice on every page of the main layout
+    // speaks the page's language: its message and its policy
+    // link's label come from the translation files, so the
+    // Lithuanian, Latvian, Estonian and Greek news lists each
+    // show their own, and the English one still reads in
+    // English. The layout's script once held the notice in
+    // English for every language, the one text of the member
+    // side that skipped the translation files
+    // (cookie-notice-english).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCookieNoticeSpeaksThePagesLanguage(): void
+    {
+        $notices = [];
+        foreach (['en', 'lt', 'lv', 'ee', 'gr'] as $locale) {
+            $html = $this->get("/$locale/news")->assertOk()->getContent();
+            $found = preg_match('#["\']?message["\']?\s*:\s*"([^"]*)".*?["\']?link["\']?\s*:\s*"([^"]*)"#s', $html, $notice);
+            $this->assertSame(1, $found, "the $locale news list has no cookie notice");
+            $notices[$locale] = [$notice[1], $notice[2]];
+        }
+
+        foreach (['lt', 'lv', 'ee', 'gr'] as $locale) {
+            $this->assertNotSame($notices['en'], $notices[$locale], "the $locale pages show the English cookie notice");
+        }
+        $this->assertStringStartsWith('This website uses cookies.', $notices['en'][0], 'the English cookie notice no longer reads in English');
+        $this->assertSame('Cookie Policy', $notices['en'][1], 'the English cookie notice no longer links the Cookie Policy');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPagesDeclareTheirLanguage
+    // -----------------------------------------------------------
+    //
+    // The html tag of all three layouts — the main one, the
+    // login form's and the sign-up form's — declares the
+    // session's language by its ISO code, el for Greek and et
+    // for Estonian, so screen readers pronounce a page in its
+    // own language and browsers offer no translation from
+    // English; an English session's pages declare English. The
+    // tag once named English whatever the session's language
+    // (html-lang-english).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPagesDeclareTheirLanguage(): void
+    {
+        $tags = [];
+        foreach (['en', 'lt', 'lv', 'ee', 'gr'] as $locale) {
+            foreach (["/$locale/news" => 'news list', '/login' => 'login form', '/register' => 'sign-up form'] as $url => $page) {
+                $this->assertSame(1, preg_match('#<html[^>]*>#', $this->get($url)->assertOk()->getContent(), $tag), "the $page of a $locale session has no html tag");
+                $tags[$locale][$page] = $tag[0];
+            }
+        }
+
+        foreach (['en' => 'en', 'lt' => 'lt', 'lv' => 'lv', 'ee' => 'et', 'gr' => 'el'] as $locale => $iso) {
+            foreach ($tags[$locale] as $page => $tag) {
+                $this->assertMatchesRegularExpression('#\blang="' . $iso . '"#', $tag, "the $page of a $locale session declares another language");
+            }
         }
     }
 

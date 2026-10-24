@@ -220,6 +220,39 @@ class RegistrationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testSignUpRejectsPasswordsThatOnlyLookEqual
+    // -----------------------------------------------------------
+    //
+    // Two password fields that are not the same string are
+    // refused with the mismatch message, and nothing is
+    // created or mailed, even when PHP reads both as the same
+    // number — two zeros written in exponent form here. The
+    // fields were once compared loosely, so such a pair passed
+    // as a match and the account took the first field's
+    // password (register-password-loose-compare).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSignUpRejectsPasswordsThatOnlyLookEqual(): void
+    {
+        $this->solveCaptcha();
+        $this->from('/register')->post('/register', $this->form(['password' => '0e11111111111', 'password2' => '0e22222222222']))
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors();
+
+        $this->assertSame(__('main.pass_dont_match'), session('errors')->first());
+        $this->assertFalse(Members::where('email', self::EMAIL)->exists(), 'an account was created from two different password fields');
+        Mail::assertNothingSent();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testAddressInUseIsAnsweredAsANewOne
     // -----------------------------------------------------------
     //

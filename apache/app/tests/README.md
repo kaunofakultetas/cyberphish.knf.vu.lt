@@ -115,56 +115,10 @@ codebase: eight on areas of the app and four on cross-cutting concerns
 (output escaping, authorization, data and SQL, the platform). Each hunter
 proved its findings with a test. A skeptic per hunter re-ran every test
 and tried to refute it, which turned down one finding. Seven others were
-the same defect found twice. That left 42 defects. The 40 below are
-pinned; the other two are in the infrastructure (see Found but not
-pinned). The medium ones come first in the table; the rest are low.
-
-| Id | Pinned in | What breaks |
-|---|---|---|
-| `reset-link-typed-address` | `AuthDefectsTest` | The reset link goes to the address as typed. The collation ignores accents, so a look-alike domain's owner gets the link of a real account, can reset its password, and can switch on a pending one |
-| `rich-text-body-over-packet` | `AdminDefectsTest` | A news, information or lesson body with a pasted photo over MySQL's 4 MB packet is a 500, and nothing is saved |
-| `rich-text-edit-unescapes` | `AdminDefectsTest` | The editors load the stored HTML with one level of escaping undone, so editing and saving a lesson, article or page corrupts it |
-| `knowledge-question-without-correct` | `KnowledgeDefectsTest` | A knowledge question with no correct option is imported and drawn into members' tests, where it can only count as wrong |
-| `login-throttle-collation-bypass` | `AuthDefectsTest` | A locked login opens under a spelling of the address (ß for s) that the collation folds and the lockout key does not |
-| `register-password-loose-compare` | `AuthDefectsTest` | The sign-up takes two different numeric passwords for the same |
-| `reset-captcha-language` | `AuthDefectsTest` | The reset request page's reCAPTCHA ignores the site language |
-| `news-delete-keeps-picture` | `AdminDefectsTest` | Deleting a news article leaves its picture on disk, still public |
-| `update-of-a-deleted-item` | `AdminDefectsTest` | Saving an article or page deleted meanwhile says "Updated!" and keeps the new picture |
-| `language-delete-orphans` | `AdminDefectsTest` | Deleting a language leaves its members' badges, tests, self-evaluations and runs behind |
-| `language-locale-taken` | `AdminDefectsTest` | The language dialog takes a locale another language has, and the site then shows only one of them |
-| `selfeval-history-deleted-question` | `AdminDefectsTest` | Deleting a question turns members' right answers to it wrong in the panel's history |
-| `selfeval-history-duplicate-answer` | `AdminDefectsTest` | The panel's history counts an answer stored twice as wrong |
-| `question-import-encoding` | `AdminDefectsTest` | A question file not in UTF-8 is stored cut short, or not at all, under "Questions imported!" |
-| `question-import-bom` | `AdminDefectsTest` | A question file with a UTF-8 byte order mark loses its first question |
-| `simulation-import-level-text` | `AdminDefectsTest` | A level written as text with a space passes the check, then the save is a 500 |
-| `simulation-import-unreadable` | `AdminDefectsTest` | A file named .xlsx that is no spreadsheet makes the import a 500 |
-| `simulation-categories-gone` | `AdminDefectsTest` | The categories dialog of a deleted simulation files it under categories, and members see an empty button |
-| `simulation-delete-badge` | `AdminDefectsTest` | Taking a member's last simulation off the offer awards no badge_all_simulations, as deleting lessons does |
-| `admin-knowledge-empty-label` | `AdminDefectsTest` | The empty knowledge-question list speaks of self-evaluation questions |
-| `panel-login-bounces-members` | `AdminDefectsTest` | A member signed in on the course can neither open nor use the panel login |
-| `admin-form-list-500` | `AdminDefectsTest` | Panel forms answer a field sent as a list with a 500 |
-| `admin-report-unknown-ids` | `AdminDefectsTest` | A main admin's reports of an unknown run or member open as blank pages instead of a 404 |
-| `category-delete-ranking` | `AdminDefectsTest` | A deleted category's attempts still count in the ranking, which the histories no longer list |
-| `admin-login-email-list-500` | `AdminDefectsTest` | The panel login page is a 500 after an email posted as a list |
-| `selfeval-share-counts-unreachable` | `LearningDefectsTest` | The progress counts self-evaluations no member can take (no lesson) or finish (no answerable question) |
-| `category-done-without-category` | `LearningDefectsTest` | A category that is gone counts as finished: a wrong badge_category and self-evaluation buttons leading to a 404 |
-| `selfeval-deleted-question-scores-nothing` | `LearningDefectsTest` | A right answer to a question deleted during the attempt scores nothing |
-| `selfeval-results-blank-question` | `LearningDefectsTest` | The results show a deleted question as an empty entry |
-| `badge-images-not-shipped` | `LearningDefectsTest` | The badges page and the rankings link 16 pictures that neither the repository nor the image ships. Production has them in its data folder; a fresh install shows broken images |
-| `progress-shown-before-the-close` | `KnowledgeDefectsTest`, `SimulationDefectsTest` | The page that closes a knowledge test or a simulation run shows the course progress from before it counted |
-| `knowledge-page-bold` | `KnowledgeDefectsTest` | The question page never closes its header's bold tag, so the whole page is bold |
-| `simulation-choice-json-true` | `SimulationDefectsTest` | A choice posted as JSON true passes the step check and records option 1 |
-| `simulations-list-last-ended` | `SimulationDefectsTest` | "Last ended" shows the end of the run started last, not the latest end |
-| `cors-api-paths` | `SiteDefectsTest` | Every page served under /api/ sends Access-Control-Allow-Origin: * |
-| `ranks-tied-positions` | `SiteDefectsTest` | Equal totals get different places in the rankings, in an order MySQL picks |
-| `login-redirect-language` | `SiteDefectsTest` | A member page's link under a language opens the login form in English |
-| `cookie-notice-english` | `SiteDefectsTest` | The cookie notice is English in every language |
-| `html-lang-english` | `SiteDefectsTest` | Every page declares itself English with `<html lang="en">` |
-| `lang-segment-line-break` | `ApacheDefectsTest` | A line break in a member page's {lang} segment is a 500 over HTTP |
-
-The pins live in one `*DefectsTest.php` per folder: `Feature/Auth`,
-`Feature/Admin`, `Feature/Learning`, `Feature/Knowledge`,
-`Feature/Simulations` and `Feature/Site`, plus `Apache/ApacheDefectsTest.php`.
+the same defect found twice. That left 42 defects: 40 pinned by 41 tests,
+and two in the infrastructure. All 42 were fixed on 25 October (see Fixed
+defects), so no defect is pinned now. The next one found is pinned in its
+folder's `*DefectsTest.php`, as the rules above describe.
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -683,27 +637,172 @@ Two follow-ups to the sign-up came next, also at the user's request:
 | `signup-pending-friction` | `RegistrationTest::testMailsToAnAddressInUseSayWhatToDo`, which renders both mails in all five languages, and `testAddressInUseIsAnsweredAsANewOne`, `testPendingAccountSignedUpAgainOpensOnlyToItsMailbox` |
 | `signup-switched-off-timing` | `RegistrationTest::testAddressInUseIsAnsweredAsANewOne`, where every address in use gets one mail, and `testMailOutageAnswersAlikeForEveryAddress` |
 
+The fourth review's 42 defects were fixed on 25 October, at the user's
+request. Every pin had reproduced its defect on the code before the fix.
+What changed, beyond each defect's own repair:
+
+- The reset link goes to the account's address as stored, whatever
+  spelling of it was typed. Both logins key their lockout on the email as
+  its column compares it, folded by the collation and hashed, so a locked
+  address stays locked under every spelling of it, whether an account has
+  it or not.
+- The panel login opens for a member signed in on the course. A manager
+  signed in is still sent on to the dashboard.
+- MySQL takes packets of up to 64 MB: the mysql service's `command` in
+  docker-compose sets it, and `container/my.cnf` does here. PHP's 12 MB
+  post limit now comes first.
+- The rich-text editors load the stored HTML as stored.
+- A news article's picture file goes with the article, and with the
+  picture a new upload replaces.
+- Saving an article or an information page deleted meanwhile is refused
+  with a message, and nothing is stored.
+- Deleting a language deletes its members' badges, knowledge tests,
+  self-evaluations and simulation runs, with their answers, in one
+  transaction. Only badge_login_10 stays, being the member's in every
+  language. Deleting a self-evaluation category deletes its attempts and
+  their answers, which the ranking counted and the histories no longer
+  listed.
+- A question file in UTF-16 with a byte order mark is converted, a UTF-8
+  byte order mark is dropped, and any other file not in UTF-8 is refused
+  with a message asking for UTF-8. This holds for both imports.
+- A file named .xlsx that is no spreadsheet is refused with a message.
+- When the panel takes a member's last unfinished simulation off the
+  offer, the member gets badge_all_simulations, as deleting lessons
+  awards badge_all_presentations. Deleting a category, the categories
+  dialog and deleting a simulation can each do it. A change that leaves
+  no simulation on offer awards nothing.
+- The panel's self-evaluation history leaves a deleted question out of
+  both its counts, as the member's results page leaves it out.
+- The self-evaluation share of the course progress counts only the
+  categories a member can finish: those with a lesson and a question
+  that has options. The stored function and `LMUsers::country_progress`
+  agree. A read-only check of production found no member whose figure
+  moves. A category without lessons opens no attempt, and its results
+  page offers none; such a category once counted as done at once.
+- The knowledge test page offers a start only when the language has a
+  question with a correct option.
+- A right answer to a question deleted during the attempt keeps its
+  points, and the results skip the question.
+- The badge pictures ship with the app, in `public/assets/img/badges`.
+  The pages used to link `upload/badges`, which only production's data
+  folder had.
+- A simulation choice must be a whole number the step offers.
+- Equal totals share a place in the rankings, 1, 1, 3, and are listed by
+  user name.
+- The cookie notice is translated. Its strings, `main.cookie_message`,
+  `main.cookie_link` and `main.cookie_dismiss`, are new in all five
+  languages.
+- Every page declares the ISO code of its language: el for gr, et for
+  ee.
+- A route's `{lang}` is two letters, in either case. Any other segment is
+  not found, where `api` once took the site's pages under /api/, and a
+  line break reached a redirect's `Location`. An unknown two-letter code
+  still falls back to the session's language.
+- No path gets CORS headers.
+
+| Id | Home test |
+|---|---|
+| `reset-link-typed-address` | `PasswordResetTest::testResetLinkGoesOnlyToTheAccountsOwnAddress` |
+| `rich-text-body-over-packet` | `AdminContentTest::testBodyWithAPastedPhotoIsNoServerError` |
+| `rich-text-edit-unescapes` | `AdminContentTest::testRichTextEditorsLoadTheStoredHtml` |
+| `knowledge-question-without-correct` | `KnowledgeExamTest::testQuestionWithoutACorrectOptionIsNeverDrawn`, with `testLanguageWithNothingToDrawOffersNoStart` |
+| `login-throttle-collation-bypass` | `LoginTest::testLockedAccountCannotBeReachedByAnEquivalentSpelling`, `AdminLoginTest::testLockoutHoldsUnderEverySpellingOfTheAddress`, with `LoginTest::testAddressNoAccountHasLocksAsAnAccountsDoes` |
+| `register-password-loose-compare` | `RegistrationTest::testSignUpRejectsPasswordsThatOnlyLookEqual` |
+| `reset-captcha-language` | `PasswordResetTest::testResetRequestCaptchaSpeaksTheSitesLanguage` |
+| `news-delete-keeps-picture` | `AdminContentTest::testDeletedArticleTakesItsPictureAlong`, `testReplacingAPictureRemovesTheOldFile` |
+| `update-of-a-deleted-item` | `AdminContentTest::testEditOfADeletedItemIsRefused` |
+| `language-delete-orphans` | `AdminContentTest::testDeletedLanguageLeavesNothingOfItsMembers`, with `testDeletedLanguageLeavesTheLoginBadge` |
+| `language-locale-taken` | `AdminContentTest::testLocaleOfAnotherLanguageIsRefused` |
+| `selfeval-history-deleted-question` | `AdminUsersTest::testSelfEvaluationHistoryLeavesADeletedQuestionOut`, with `testDeletedQuestionTurnsNoPartAnswerRight` |
+| `selfeval-history-duplicate-answer` | `AdminUsersTest::testSelfEvaluationHistoryCountsAnAnswerStoredTwiceOnce` |
+| `question-import-encoding` | `AdminLearningTest::testFileInAnotherEncodingIsReadOrRefused` |
+| `question-import-bom` | `AdminLearningTest::testFileWithAByteOrderMarkKeepsItsFirstQuestion` |
+| `simulation-import-level-text` | `AdminSimulationsTest::testLevelWrittenAsTextIsImported` |
+| `simulation-import-unreadable` | `AdminSimulationsTest::testFileThatIsNoSpreadsheetIsRefusedWithAMessage` |
+| `simulation-categories-gone` | `AdminSimulationsTest::testCategoriesDialogOfADeletedSimulationStoresNothing` |
+| `simulation-delete-badge` | `AdminSimulationsTest::testTakingTheLastSimulationLeftOffTheOfferAwardsTheBadge`, with `testOfferLeftEmptyAwardsNothing` |
+| `admin-knowledge-empty-label` | `AdminLearningTest::testEmptyKnowledgeQuestionListSpeaksOfKnowledgeQuestions` |
+| `panel-login-bounces-members` | `AdminLoginTest::testPanelLoginOpensForASignedInMember` |
+| `admin-form-list-500` | `AdminContentTest::testPanelFormsRefuseFieldsOfTheWrongShape` |
+| `admin-report-unknown-ids` | `AdminAccessTest::testReportsOfUnknownIdsAreNotFound` |
+| `category-delete-ranking` | `AdminLearningTest::testRankingAgreesWithTheHistoryAfterACategoryIsDeleted` |
+| `admin-login-email-list-500` | `AdminLoginTest::testPanelLoginFormSurvivesAnEmailPostedAsAList` |
+| `selfeval-share-counts-unreachable` | `CourseProgressTest::testSelfEvaluationShareCountsOnlyWhatMembersCanFinish`, with `SelfEvaluationTest::testCategoryWithoutLessonsOffersNoSelfEvaluation` |
+| `category-done-without-category` | `LearningMaterialTest::testCategoryThatIsGoneIsNeverFinished` |
+| `selfeval-deleted-question-scores-nothing` | `SelfEvaluationTest::testAnswerToADeletedQuestionKeepsItsScore` |
+| `selfeval-results-blank-question` | `SelfEvaluationTest::testResultsListNoQuestionThatIsGone` |
+| `badge-images-not-shipped` | `LearningMaterialTest::testBadgePicturesShipWithTheApp` |
+| `progress-shown-before-the-close` | `KnowledgeExamTest::testClosingPageCountsThePassInTheCourseProgress`, `SimulationsTest::testEndPageShowsTheProgressItsRunCompletes` |
+| `knowledge-page-bold` | `KnowledgeExamTest::testKnowledgeQuestionPageClosesItsBoldHeader` |
+| `simulation-choice-json-true` | `SimulationsTest::testChoicePostedAsTrueIsNotRecorded` |
+| `simulations-list-last-ended` | `SimulationsTest::testSimulationsListShowsTheLatestEnd` |
+| `cors-api-paths` | `PublicPagesTest::testApiPathsInviteNoOrigin` |
+| `ranks-tied-positions` | `PublicPagesTest::testTiedMembersShareTheirPlace` |
+| `login-redirect-language` | `PublicPagesTest::testLoginFormKeepsTheLanguageOfTheLinkFollowed` |
+| `cookie-notice-english` | `PublicPagesTest::testCookieNoticeSpeaksThePagesLanguage` |
+| `html-lang-english` | `PublicPagesTest::testPagesDeclareTheirLanguage` |
+| `lang-segment-line-break` | `FrontControllerTest::testLineBreakInTheLanguageIsNoServerError`, which also opens an unknown code and an upper-case one |
+
+The suite and an independent review of the whole diff found nine
+regressions in these fixes before they were reported. Each is fixed, with
+a test that failed without its fix:
+
+- The `{lang}` pattern took only lower-case letters at first, so a link
+  under /EN/ was not found (`KnowledgeExamTest::testLessonsGateFollowsTheTestsLanguage`,
+  and `FrontControllerTest::testLineBreakInTheLanguageIsNoServerError`
+  now opens one).
+- A change that left no simulation on offer gave badge_all_simulations to
+  every member with a finished run
+  (`AdminSimulationsTest::testOfferLeftEmptyAwardsNothing`).
+- Deleting a language took badge_login_10 along
+  (`AdminContentTest::testDeletedLanguageLeavesTheLoginBadge`).
+- The history read part of an answer to a deleted question as the whole
+  answer (`AdminUsersTest::testDeletedQuestionTurnsNoPartAnswerRight`).
+- A category without lessons still opened attempts the progress no
+  longer counted (`SelfEvaluationTest::testCategoryWithoutLessonsOffersNoSelfEvaluation`).
+- The knowledge test page offered a start that drew nothing when no
+  question had a correct option
+  (`KnowledgeExamTest::testLanguageWithNothingToDrawOffersNoStart`).
+- The lockout keyed a known address on its account and an unknown one on
+  the typed address, so ten failures and one more under another spelling
+  told which addresses had accounts
+  (`LoginTest::testAddressNoAccountHasLocksAsAnAccountsDoes`,
+  `AdminLoginTest::testLockoutHoldsUnderEverySpellingOfTheAddress`).
+- `--routines` stopped every dump at the function, the views lost with
+  it, wherever the backup user could not read the function's body.
+  `init.sql` now grants that on a fresh install
+  (`SchemaTest::testAppUserCanReadTheProgressFunction`).
+- The dashboard's progress query checked every finished self-evaluation's
+  category again, three times as slow. It now reads the counted
+  categories once.
+
+A second review, of those nine fixes, found one test that had lost its
+meaning: `AdminDashboardTest::testProgressMatchesTheFunctionAtHalfwayPoints`
+built its self-evaluation categories without lessons, so it no longer
+compared the self-evaluation share at all. Its categories now hold a
+lesson of no hours, a fourth without lessons stays out, and the test
+catches a share computed in the wrong order.
+
+The two infrastructure defects are fixed in docker-compose:
+
+- **Backups.** Both backup services set MYSQLDUMP_OPTIONS to
+  `--single-transaction --no-tablespaces --default-character-set=utf8mb4
+  --routines`. The dumps now keep 4-byte characters and include
+  `bei_user_course_progress`. `--routines` needs the dump user, the app's,
+  to read `mysql.proc`. `init.sql` grants that to the database's user on a
+  fresh install; production, set up before, grants it once by hand.
+  `--no-tablespaces` keeps mysqldump from warning that the user lacks the
+  PROCESS privilege. A restore of such a dump into an empty database,
+  tried on MySQL 5.7.42, brought back the emoji and a working function.
+- **Uploads.** The mount of `_DATA/apache/upload` is gone from both
+  compose files, and `runUpdateThisStack.sh` no longer creates the
+  folder. The uploads live in `_DATA/apache/public`, mounted at
+  `storage/app/public`, where the image's `public/upload` link points.
+
 ## Found but not pinned
 
 These were found during review but not pinned. Some have no impact in
 production; others can't be tested deterministically.
-
-- **Backups lose characters and the progress function.** The fourth review
-  found this. Both backup services run dkruger/mysql-backup, whose
-  mysqldump (MariaDB 10.1.22) defaults to the 3-byte `utf8` and leaves out
-  stored routines. docker-compose sets no MYSQLDUMP_OPTIONS. Every nightly
-  dump turns emoji and other 4-byte characters into `?`, and lacks
-  `bei_user_course_progress`; a restore from it breaks every progress
-  figure. The fix is outside the app: set MYSQLDUMP_OPTIONS to
-  `--single-transaction --default-character-set=utf8mb4 --routines` on both
-  backup services. `--routines` needs a dump user allowed to read the
-  function, whose definer is root.
-- **The upload mount that never shows.** Also from the fourth review.
-  docker-compose mounts `_DATA/apache/upload` at `public/upload`, but the
-  image makes `public/upload` a symlink to `storage/app/public`, where
-  `_DATA/apache/public` is mounted on top. Docker follows the symlink, so
-  the `upload` folder never shows. The live uploads, badge pictures
-  included, sit in `_DATA/apache/public`. Keep one of the two mounts.
 
 - **Signing up someone else's address.** Anyone can sign up an address
   that is not theirs, with a password of their own. The verification

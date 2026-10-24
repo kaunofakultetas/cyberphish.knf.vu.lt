@@ -41,6 +41,7 @@ use App\Models\Scenarios;
 use App\Models\ScenariosUsers;
 use App\Models\ScenariosUsersOptions;
 use App\Models\ScenariosOptions;
+use App\Models\SelfEval;
 use App\Models\SelfEvalOption;
 use App\Models\SelfEvalUser;
 use App\Models\SelfEvalUserTest;
@@ -335,7 +336,12 @@ class ManagerMainController extends BaseController
     // right (question_correct) into correct, the column the
     // query fills with a placeholder 0, and the questions it
     // answered at all into questions, so the page shows the
-    // right ones out of those rather than out of a fixed 5. Answers with
+    // right ones out of those rather than out of a fixed 5. A
+    // question deleted since is left out of both counts, as
+    // the member's results page leaves it out: its options are
+    // gone, and the answers stored for it cannot tell a whole
+    // answer from part of one. It once counted as wrong, a
+    // right answer included. Answers with
     // admin-panel/user_self_eval_history.blade.php, headed by
     // the member's address and the language's name. Open to
     // every signed-in manager (auth.admin:man, no perms), for
@@ -383,7 +389,8 @@ class ManagerMainController extends BaseController
 
         foreach($currentItems as $k => $v){
 
-            $a = SelfEvalUser::where(['test_id'=>$v['id']])->groupBy('question_id')->get()->toArray();
+            // The questions answered, but for any deleted since
+            $a = SelfEvalUser::where(['test_id'=>$v['id']])->whereIn('question_id', SelfEval::select('id'))->groupBy('question_id')->get()->toArray();
 
             $c=0;
             foreach($a as $kk => $vv){
@@ -498,6 +505,10 @@ class ManagerMainController extends BaseController
     // of one self-evaluation attempt are exactly the
     // question's correct options — as many, every chosen one
     // correct and every correct one chosen; false otherwise.
+    // Each chosen option counts once, however often a race
+    // stored it, as the attempt's points count it: twice once
+    // made a right answer wrong. A question deleted since
+    // never comes here: self_evaluation_history leaves it out.
     //
     // Used by:
     //   - self_evaluation_history (above)
@@ -506,8 +517,9 @@ class ManagerMainController extends BaseController
     public static function question_correct($question_id, $test_id, $user_id)
     {
         // $pasirinkimai is Lithuanian for the choices: the
-        // options the member picked for the question
-        $pasirinkimai = SelfEvalUser::select('option_id')->where(['question_id'=>$question_id, 'test_id'=>$test_id, 'user_id'=>$user_id])->get()->pluck('option_id')->toArray();
+        // options the member picked for the question, each once
+        // however often a race stored it
+        $pasirinkimai = array_values(array_unique(SelfEvalUser::select('option_id')->where(['question_id'=>$question_id, 'test_id'=>$test_id, 'user_id'=>$user_id])->get()->pluck('option_id')->toArray()));
         $question_options = SelfEvalOption::select('id')->where(['question_id'=>$question_id, 'correct'=>1])->get()->pluck('id')->toArray();
 
         if(count($pasirinkimai) == count($question_options)){
@@ -742,9 +754,12 @@ class ManagerMainController extends BaseController
     // -----------------------------------------------------------
     //
     // Whether the signed-in manager may read the member's
-    // reports: a main admin anyone's, a country manager only
-    // those of its country's members — the ones its dashboard
-    // lists. Both come from the manager's row, where the
+    // reports: a main admin any member's, a country manager
+    // only those of its country's members — the ones its
+    // dashboard lists. A member who does not exist, or a run
+    // nobody holds, is nobody's: a main admin once opened such
+    // a report as a blank page, where a country manager got
+    // the 404. Both come from the manager's row, where the
     // dashboard reads the country too, not from the session
     // the login filled.
     //
@@ -757,6 +772,11 @@ class ManagerMainController extends BaseController
     {
         $manager = Managers::where(['id'=>Auth::guard('man')->id()])->first();
 
-        return $manager->main == 1 || Members::where(['id'=>$user_id, 'country'=>$manager->country])->count() > 0;
+        $members = Members::where(['id'=>$user_id]);
+        if($manager->main != 1){
+            $members->where(['country'=>$manager->country]);
+        }
+
+        return $members->count() > 0;
     }
 }

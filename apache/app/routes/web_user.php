@@ -10,11 +10,12 @@
 //  behind auth:mem, which sends a visitor to the login
 //  form. A {lang} segment that names one of the five site
 //  languages switches the site to it (BaseController); any
-//  other value keeps the session's language, so {lang}
-//  matches every segment. Five routes hand over an action
-//  array with a before csrf entry, a Laravel 4 filter that
-//  Laravel 13 ignores, as Laravel 7 did: the web group's
-//  VerifyCsrfToken checks every POST anyway.
+//  other pair of letters keeps the session's language, and
+//  {lang} matches nothing but two letters, of either case
+//  (RouteServiceProvider::boot). Five routes hand over an
+//  action array with a before csrf entry, a Laravel 4
+//  filter that Laravel 13 ignores, as Laravel 7 did: the
+//  web group's VerifyCsrfToken checks every POST anyway.
 //
 //  Open to visitors — the home page, signing up and in, the
 //  links the mails carry, the language switch:
@@ -126,9 +127,9 @@ Route::post('cp/change-fullname', array('before' => 'csrf', 'uses' => 'ManagerMa
 // without a language when {lang} came in; the news list's
 // page links follow, on {lang}/news.
 //
-// {lang} takes any value; the panel's own news routes of
-// web_admin.php are loaded first, so admin-panel/news is
-// never taken for a language here.
+// {lang} takes two letters only; the panel's own news
+// routes of web_admin.php are loaded first all the same, so
+// admin-panel/news is never taken for a language here.
 // The public list has no route name: news names the
 // panel's list (web_admin.php), as it did under Laravel 7,
 // where a name's later route won — Laravel 13 keeps the
@@ -172,8 +173,9 @@ Route::get('cp/simulations-history', 'SimulationsController@history')->middlewar
 // The self-evaluation rank table, open to visitors
 Route::get('{lang}/ranks/self-evaluation', 'RanksController@self_evaluation');
 
-// The language switch of the menu; anything but the five
-// site languages is a 400
+// The language switch of the menu; another pair of letters
+// than the five site languages is a 400, and any other
+// segment matches no route, a 404
 Route::get('lang/{lang}', 'SettingsController@lang_switch');
 
 // The simulations: the categories, a category's

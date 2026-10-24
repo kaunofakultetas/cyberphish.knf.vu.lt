@@ -22,6 +22,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use App\Http\Controllers\SettingsController;
@@ -174,7 +175,10 @@ class LanguagesController extends BaseController
     //
     // Adds a language under the rules bei_lang keeps: a name
     // of at most the column's 45 characters that no other
-    // language has, and a locale. A form that breaks one goes
+    // language has, and a locale no other language has — the
+    // site finds a language by its locale (Langs::getLangId),
+    // and of two sharing one it once showed only the first. A
+    // form that breaks one, or sends a field as a list, goes
     // back with its error. Answers a redirect back to the
     // languages page.
     //
@@ -186,8 +190,8 @@ class LanguagesController extends BaseController
     public function create(Request $request)
     {
         $validatedData = $request->validate([
-            'name' => [ 'required', 'min:1', 'max:45', 'unique:bei_lang,name' ],
-            'locale' => [ 'required' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:45', 'unique:bei_lang,name' ],
+            'locale' => [ 'required', 'string', 'max:45', 'unique:bei_lang,locale' ],
         ]);
 
         $addLangs = new Langs;
@@ -210,8 +214,9 @@ class LanguagesController extends BaseController
     // POST /admin-panel/dialog/lang/update
     //
     // Renames the language named by uid and sets its locale,
-    // under create's rules — the language's own name may stay.
-    // Answers a redirect back to the languages page.
+    // under create's rules — the language's own name and
+    // locale may stay. Answers a redirect back to the
+    // languages page.
     //
     // Used by:
     //   - admin-panel/dialog/lang_form.blade.php — the dialog,
@@ -220,10 +225,14 @@ class LanguagesController extends BaseController
 
     public function update(Request $request)
     {
+        // The id goes into the unique rules' text, so only as a
+        // single value: a list once made that text a 500
+        $uid = is_scalar($request->get('uid')) ? $request->get('uid') : 0;
+
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'name' => [ 'required', 'min:1', 'max:45', 'unique:bei_lang,name,'.$request->get('uid') ],
-            'locale' => [ 'required' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:45', 'unique:bei_lang,name,'.$uid ],
+            'locale' => [ 'required', 'string', 'max:45', 'unique:bei_lang,locale,'.$uid ],
         ]);
 
         Langs::where(['id' => $validatedData['uid']])->update(['name'=>$validatedData['name'], 'locale'=>$request->get('locale')]);
@@ -250,10 +259,17 @@ class LanguagesController extends BaseController
     // or their categories or attributes: no foreign key holds
     // those, and the delete would leave them under a language
     // that no longer exists. So does one that still has
-    // lessons, which outlive a deleted category: their
-    // foreign key lets the delete through and empties their
-    // language, and a lesson with neither is listed on no
-    // panel page, to be edited or deleted.
+    // lessons, which outlive a deleted category: their foreign
+    // key lets the delete through and empties their language,
+    // and a lesson with neither is listed on no panel page, to
+    // be edited or deleted. A language that goes takes its
+    // members' rows along — badges, knowledge tests,
+    // self-evaluations and simulation runs with their answers
+    // — in one transaction: they once stayed under its id,
+    // which MySQL may hand to the next language added. The
+    // one row that stays is badge_login_10, the member's in
+    // every language (LoginLog::if_login_10), whichever
+    // language it was filed under when it was earned.
     //
     // Used by:
     //   - admin-panel/langs.blade.php — each row's delete
@@ -274,7 +290,29 @@ class LanguagesController extends BaseController
             return back()->withErrors("The language still has lessons!");
         }
 
-        Langs::destroy($uid);
+        // The members' rows filed under the language go with it:
+        // MySQL 5.7 hands the highest id out again after a
+        // restart, and a language added under it would inherit
+        // them — tests that open a certificate among them
+        DB::transaction(function () use ($uid) {
+            $attempts = DB::table('bei_users_selfeval_test')->where('lang_id', $uid)->pluck('id');
+            DB::table('bei_users_selfeval')->whereIn('test_id', $attempts)->delete();
+            DB::table('bei_users_selfeval_test')->where('lang_id', $uid)->delete();
+
+            $tests = DB::table('bei_users_knowledge_test')->where('lang_id', $uid)->pluck('id');
+            DB::table('bei_users_knowledge_options')->whereIn('test_id', $tests)->delete();
+            DB::table('bei_users_knowledge_test')->where('lang_id', $uid)->delete();
+
+            $runs = DB::table('bei_users_scenarios')->where('lang_id', $uid)->pluck('id');
+            DB::table('bei_users_scenarios_options')->whereIn('user_scenario_id', $runs)->delete();
+            DB::table('bei_users_scenarios')->where('lang_id', $uid)->delete();
+
+            // The login badge is the member's whatever the language,
+            // and the badges page shows it in every one
+            DB::table('bei_users_badges')->where('lang_id', $uid)->where('name', '<>', 'badge_login_10')->delete();
+
+            Langs::destroy($uid);
+        });
 
         return back()->withSuccess("Removed!");
     }

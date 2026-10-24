@@ -75,8 +75,10 @@ class SelfEvaluationTest extends FeatureTestCase
     // setUp
     // -----------------------------------------------------------
     //
-    // The category and its questions: each has one correct
-    // option worth 100 points (the first) and a wrong one.
+    // The category, its questions and its one lesson, which
+    // the member has done, as a new attempt needs: each
+    // question has one correct option worth 100 points (the
+    // first) and a wrong one.
     //
     // Used by:
     //   - PHPUnit, before every test
@@ -91,6 +93,7 @@ class SelfEvaluationTest extends FeatureTestCase
         $this->first = $this->world->selfEvalQuestion($this->category, [['Use a manager', true, 100], ['Reuse it', false, 0]]);
         $this->second = $this->world->selfEvalQuestion($this->category, [['Turn on 2FA', true, 100], ['Write it down', false, 0]]);
         $this->member = $this->world->member();
+        $this->world->lessonDone($this->member->id, $this->world->lmContent($this->category, $this->en));
     }
 
 
@@ -487,6 +490,7 @@ class SelfEvaluationTest extends FeatureTestCase
     {
         $this->world->setting(2, 'self_eval_pertime', null, null, 1);
         $otherCategory = $this->world->lmCategory($this->en);
+        $this->world->lessonDone($this->member->id, $this->world->lmContent($otherCategory, $this->en));
         $this->world->selfEvalQuestion($otherCategory, [['Right', true, 100], ['Wrong', false, 0]]);
         $this->startSelfEvaluation($this->member, $otherCategory);
 
@@ -521,6 +525,7 @@ class SelfEvaluationTest extends FeatureTestCase
         $lt = $this->world->language('lt');
         $this->world->setting(2, 'self_eval_pertime', null, null, 1);
         $category = $this->world->lmCategory($lt);
+        $this->world->lessonDone($this->member->id, $this->world->lmContent($category, $lt));
         $question = $this->world->selfEvalQuestion($category, [['Taip', true, 100], ['Ne', false, 0]]);
         $configured = $this->app->getLocale();
         $this->signInMember($this->member)->get("/lt/self-evaluation-test/$category")->assertRedirect();
@@ -671,6 +676,7 @@ class SelfEvaluationTest extends FeatureTestCase
     public function testCategoryWithoutQuestionsSaysSo(): void
     {
         $empty = $this->world->lmCategory($this->en);
+        $this->world->lessonDone($this->member->id, $this->world->lmContent($empty, $this->en));
         $publicId = $this->startSelfEvaluation($this->member, $empty);
 
         $this->signInMember($this->member)->get("/cp/se/$publicId/$empty")->assertOk()->assertSee(__('main.no_selfeval_questions'));
@@ -860,6 +866,7 @@ class SelfEvaluationTest extends FeatureTestCase
     {
         $lt = $this->world->language('lt');
         $category = $this->world->lmCategory($lt);
+        $this->world->lessonDone($this->member->id, $this->world->lmContent($category, $lt));
         $question = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
         $location = $this->signInMember($this->member)->get("/lt/self-evaluation-test/$category")->assertRedirect()->headers->get('Location');
         $publicId = explode('/', parse_url($location, PHP_URL_PATH))[3];
@@ -933,6 +940,7 @@ class SelfEvaluationTest extends FeatureTestCase
             ['First', true, 33.33], ['Second', true, 33.33], ['Third', true, 33.33], ['Wrong', false, 0],
         ]);
         list($first, $second, $third, $wrong) = $question['options'];
+        $lesson = $this->world->lmContent($category, $this->en);
         $answers = [
             'all three right'         => [[$first, $second, $third], 100],
             'two of them'             => [[$first, $second], 67],
@@ -941,6 +949,7 @@ class SelfEvaluationTest extends FeatureTestCase
 
         foreach ($answers as $case => list($options, $points)) {
             $member = $this->world->member();
+            $this->world->lessonDone($member->id, $lesson);
             $publicId = $this->startSelfEvaluation($member, $category);
             $this->answerSelfEvaluation($member, $publicId, $category, $question['question'], $options);
             $this->signInMember($member)->get("/cp/se/$publicId/$category")->assertRedirect("/cp/se_r/$publicId");
@@ -1122,5 +1131,136 @@ class SelfEvaluationTest extends FeatureTestCase
         $this->world->selfEvalAttempt($this->member->id, $this->category, $this->en, ['finished' => 0, 'ended' => null]);
 
         $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertOk()->assertSee($button, false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCategoryWithoutLessonsOffersNoSelfEvaluation
+    // -----------------------------------------------------------
+    //
+    // A category left without lessons — its last one moved to
+    // another category — offers no self-evaluation: the start
+    // address opens no attempt and the results page shows no
+    // do-it-again button. The course progress counts no
+    // self-evaluation of such a category, so an attempt there
+    // would earn the badge and ranking points while counting
+    // nowhere in the progress.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCategoryWithoutLessonsOffersNoSelfEvaluation(): void
+    {
+        $attempt = $this->world->selfEvalAttempt($this->member->id, $this->category, $this->en);
+        $publicId = DB::table('bei_users_selfeval_test')->where('id', $attempt)->value('public_id');
+        DB::table('bei_lm_content')->where('cat_id', $this->category)->update(['cat_id' => $this->world->lmCategory($this->en)]);
+
+        $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertOk()->assertDontSee("/self-evaluation-test/{$this->category}\"", false);
+        $this->signInMember($this->member)->get("/en/self-evaluation-test/{$this->category}")->assertRedirect('/en/cp/learning-material');
+
+        $this->assertSame(1, DB::table('bei_users_selfeval_test')->where(['user_id' => $this->member->id, 'cat_id' => $this->category])->count(), 'the category without lessons opened an attempt');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerToADeletedQuestionKeepsItsScore
+    // -----------------------------------------------------------
+    //
+    // The right answer to a question a main admin deletes
+    // while the attempt is open keeps the points it was stored
+    // with, and still counts towards the attempt's length: an
+    // attempt three questions long, whose first two answers
+    // are right and the first of them then deleted, asks one
+    // question more and closes with the full 300. FinishedSe
+    // once read each question's worth from its options as they
+    // are at the close, so the deleted question's right answer
+    // scored nothing, 200 out of 300
+    // (selfeval-deleted-question-scores-nothing).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerToADeletedQuestionKeepsItsScore(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 3);
+        $questions = [];
+        foreach ([
+            $this->first,
+            $this->second,
+            $this->world->selfEvalQuestion($this->category, [['Lock the screen', true, 100], ['Leave it open', false, 0]]),
+            $this->world->selfEvalQuestion($this->category, [['Hover first', true, 100], ['Click it', false, 0]]),
+        ] as $question) {
+            $questions[md5(md5($question['question']))] = $question;
+        }
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+
+        $this->signInManager($this->world->manager())->from("/admin-panel/lm/self_eval/{$this->category}")
+            ->post("/admin-panel/lm/self_eval/delete/{$this->first['question']}");
+        $this->assertFalse(DB::table('bei_selfeval_question')->where('id', $this->first['question'])->exists());
+
+        // Every question the page asks from now on, answered
+        // right, until the attempt closes
+        for ($asked = 0; $asked < 10; $asked++) {
+            $page = $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}");
+            if ($page->isRedirect()) {
+                break;
+            }
+            $this->assertSame(1, preg_match('/name="pbid"[^>]*value="([0-9a-f]{32})"/', $page->getContent(), $match));
+            $question = $questions[$match[1]];
+            $this->answerSelfEvaluation($this->member, $publicId, $this->category, $question['question'], [$question['options'][0]]);
+        }
+
+        $attempt = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->first();
+        $this->assertEquals(1, $attempt->finished);
+        $this->assertEquals(300, $attempt->points, 'three questions answered right do not score 300');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResultsListNoQuestionThatIsGone
+    // -----------------------------------------------------------
+    //
+    // The results page lists the questions the attempt
+    // answered as they are now, and leaves out one a main
+    // admin has deleted since, its options gone with it, while
+    // the other keeps its entry. Such a question once came out
+    // as an underlined heading with no text and no options
+    // under it, beside the points it had scored
+    // (selfeval-results-blank-question).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResultsListNoQuestionThatIsGone(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+
+        $this->signInManager($this->world->manager())->from("/admin-panel/lm/self_eval/{$this->category}")
+            ->post("/admin-panel/lm/self_eval/delete/{$this->first['question']}");
+        $this->assertFalse(DB::table('bei_selfeval_question')->where('id', $this->first['question'])->exists());
+
+        $html = $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertOk()->assertSee('Turn on 2FA')->getContent();
+
+        $this->assertDoesNotMatchRegularExpression('#<b><u>\s*</u></b>#', $html, 'the results list a question with no text and no options');
     }
 }

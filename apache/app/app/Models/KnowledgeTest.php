@@ -161,13 +161,18 @@ class KnowledgeTest extends Model
     // -----------------------------------------------------------
     //
     // Narrows a query to the questions a member can answer:
-    // those with at least one option. A question saved
-    // without options — an import block with no option lines
-    // — offers nothing to choose and would hold an attempt
-    // open for good, so new attempts draw only these and an
-    // open attempt passes over any other.
+    // those with at least one correct option. A question saved
+    // without options — an import block with no option lines —
+    // offers nothing to choose and would hold an attempt open
+    // for good, so new attempts draw only these and an open
+    // attempt passes over any other. One whose options are all
+    // wrong — a block whose "=" line was indented or missing,
+    // or an edit that marked every option wrong — can only
+    // count as wrong, and was once drawn all the same.
     //
     // Used by:
+    //   - KnowledgeTestController::index — whether the page
+    //     offers a start
     //   - KnowledgeTestController::draw_or_resume — the draw
     //   - KnowledgeTestController::progress — whether the next
     //     question can be asked
@@ -176,7 +181,7 @@ class KnowledgeTest extends Model
     public function scopeAnswerable($query)
     {
         return $query->whereExists(function ($options) {
-            $options->select(DB::raw(1))->from('bei_knowledge_option')->whereColumn('bei_knowledge_option.question_id', 'bei_knowledge_test.id');
+            $options->select(DB::raw(1))->from('bei_knowledge_option')->whereColumn('bei_knowledge_option.question_id', 'bei_knowledge_test.id')->where('bei_knowledge_option.correct', 1);
         });
     }
 }

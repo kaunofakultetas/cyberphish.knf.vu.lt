@@ -56,6 +56,7 @@ use View;
 // visitors too, who get empty values.
 //
 //   __construct — registers the middleware
+//   share_course — shares the course progress again
 //
 // Used by:
 //   - the controllers named in the header — their
@@ -189,5 +190,33 @@ class BaseController extends Controller
 
             return $next($request);
         });
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // share_course
+    // -----------------------------------------------------------
+    //
+    // Shares the signed-in member's course progress in the
+    // session's language again, as course — the figure the
+    // layout, the lesson sidebar and parts/notif show. The
+    // middleware works it out before the action runs, so a
+    // page that closes a knowledge test or a simulation run
+    // and is answered in the same request once showed the
+    // progress from before the close, beside the result that
+    // completed it.
+    //
+    // Used by:
+    //   - KnowledgeTestController::progress
+    //   - SimulationsController::simulation_do_stuff
+    // -----------------------------------------------------------
+
+    public static function share_course()
+    {
+        View::share('course', LMUsers::course_progress(Auth::guard('mem')->id(), Langs::getLangId(Session::get('lang'))));
     }
 }

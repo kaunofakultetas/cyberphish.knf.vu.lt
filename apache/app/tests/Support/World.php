@@ -143,6 +143,8 @@ class World
     // put back.
     //
     // Used by:
+    //   - SchemaTest (Platform/)
+    //   - AdminUsersTest (Feature/Admin/)
     //   - CourseProgressTest, SelfEvaluationTest
     //     (Feature/Learning/)
     //   - PublicPagesTest (Feature/Site/)
@@ -217,6 +219,9 @@ class World
     //
     // Used by:
     //   - the admin tests (Feature/Admin/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
+    //   - CourseProgressTest, LearningMaterialTest,
+    //     SelfEvaluationTest (Feature/Learning/)
     // -----------------------------------------------------------
 
     public function manager(array $columns = []): Managers
@@ -275,6 +280,7 @@ class World
     // An information page in the language; returns its id.
     //
     // Used by:
+    //   - AdminContentTest (Feature/Admin/)
     //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
@@ -327,9 +333,10 @@ class World
     // returns its id.
     //
     // Used by:
-    //   - AdminLearningTest, AdminUsersTest (Feature/Admin/)
-    //   - CourseProgressTest, LearningMaterialTest
-    //     (Feature/Learning/)
+    //   - AdminContentTest, AdminDashboardTest,
+    //     AdminLearningTest, AdminUsersTest (Feature/Admin/)
+    //   - CourseProgressTest, LearningMaterialTest,
+    //     SelfEvaluationTest (Feature/Learning/)
     // -----------------------------------------------------------
 
     public function lmContent(int $categoryId, int $langId, array $columns = []): int
@@ -392,7 +399,8 @@ class World
     // "options".
     //
     // Used by:
-    //   - AdminLearningTest (Feature/Admin/)
+    //   - AdminContentTest, AdminDashboardTest,
+    //     AdminLearningTest, AdminUsersTest (Feature/Admin/)
     //   - CourseProgressTest, SelfEvaluationTest
     //     (Feature/Learning/)
     // -----------------------------------------------------------
@@ -434,7 +442,7 @@ class World
     // the option ids, in order, under "options".
     //
     // Used by:
-    //   - AdminLearningTest (Feature/Admin/)
+    //   - AdminContentTest, AdminLearningTest (Feature/Admin/)
     //   - KnowledgeExamTest (Feature/Knowledge/)
     // -----------------------------------------------------------
 
@@ -489,8 +497,9 @@ class World
     // A simulation category in the language; returns its id.
     //
     // Used by:
-    //   - AdminContentTest, AdminSimulationsTest
-    //     (Feature/Admin/)
+    //   - AdminContentTest, AdminDashboardTest,
+    //     AdminSimulationsTest (Feature/Admin/)
+    //   - CourseProgressTest (Feature/Learning/)
     //   - SimulationsTest (Feature/Simulations/)
     // -----------------------------------------------------------
 
@@ -542,7 +551,8 @@ class World
     //
     // Used by:
     //   - AdminAccessTest, AdminContentTest,
-    //     AdminSimulationsTest (Feature/Admin/)
+    //     AdminDashboardTest, AdminSimulationsTest,
+    //     AdminUsersTest (Feature/Admin/)
     //   - CourseProgressTest (Feature/Learning/)
     //   - SimulationsTest (Feature/Simulations/)
     //   - PublicPagesTest (Feature/Site/)
@@ -632,6 +642,7 @@ class World
     // log keeps it; returns its id.
     //
     // Used by:
+    //   - AdminUsersTest (Feature/Admin/)
     //   - LoginTest (Feature/Auth/)
     // -----------------------------------------------------------
 
@@ -653,8 +664,10 @@ class World
     // the row id.
     //
     // Used by:
-    //   - AdminLearningTest, AdminUsersTest (Feature/Admin/)
-    //   - CourseProgressTest (Feature/Learning/)
+    //   - AdminDashboardTest, AdminLearningTest,
+    //     AdminUsersTest (Feature/Admin/)
+    //   - CourseProgressTest, SelfEvaluationTest
+    //     (Feature/Learning/)
     // -----------------------------------------------------------
 
     public function lessonDone(int $userId, int $contentId): int
@@ -676,7 +689,11 @@ class World
     // badge_all_presentations; returns the row id.
     //
     // Used by:
+    //   - AdminContentTest, AdminSimulationsTest,
+    //     AdminUsersTest (Feature/Admin/)
+    //   - LoginTest (Feature/Auth/)
     //   - KnowledgeExamTest (Feature/Knowledge/)
+    //   - LearningMaterialTest (Feature/Learning/)
     //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
@@ -699,6 +716,10 @@ class World
     // returns its id.
     //
     // Used by:
+    //   - AdminContentTest, AdminDashboardTest,
+    //     AdminLearningTest, AdminUsersTest (Feature/Admin/)
+    //   - LearningMaterialTest, SelfEvaluationTest
+    //     (Feature/Learning/)
     //   - PublicPagesTest (Feature/Site/)
     // -----------------------------------------------------------
 
@@ -730,7 +751,8 @@ class World
     // 74) and the like; returns its id.
     //
     // Used by:
-    //   - AdminAccessTest (Feature/Admin/)
+    //   - AdminAccessTest, AdminContentTest,
+    //     AdminDashboardTest, AdminUsersTest (Feature/Admin/)
     //   - CertificateTest, KnowledgeExamTest
     //     (Feature/Knowledge/)
     //   - CourseProgressTest (Feature/Learning/)
@@ -763,8 +785,9 @@ class World
     // columns set its points and the like; returns its id.
     //
     // Used by:
-    //   - AdminAccessTest, AdminSimulationsTest
-    //     (Feature/Admin/)
+    //   - AdminAccessTest, AdminContentTest,
+    //     AdminDashboardTest, AdminSimulationsTest,
+    //     AdminUsersTest (Feature/Admin/)
     //   - CourseProgressTest (Feature/Learning/)
     //   - SimulationsTest (Feature/Simulations/)
     //   - PublicPagesTest (Feature/Site/)
@@ -798,7 +821,7 @@ class World
     // included, since they use ids up too.
     //
     // Used by:
-    //   - AdminLearningTest (Feature/Admin/)
+    //   - AdminAccessTest, AdminLearningTest (Feature/Admin/)
     //   - KnowledgeExamTest (Feature/Knowledge/)
     // -----------------------------------------------------------
 

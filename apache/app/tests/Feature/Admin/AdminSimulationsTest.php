@@ -18,11 +18,16 @@
 //  or attribute the language lacks is refused before
 //  anything is saved, as is one with a blank description,
 //  or a step without a level or an answer type, or more
-//  than a level below the step before it. Editing changes
+//  than a level below the step before it; a level written
+//  as text counts as its number, and a file that is no
+//  spreadsheet is refused with a message. Editing changes
 //  the texts — the description of a simulation without
 //  steps too; deleting removes the simulation with
 //  everything that hangs off it, and the delete icons of
-//  categories and attributes reach their routes.
+//  categories and attributes reach their routes. The
+//  categories dialog of a deleted simulation stores
+//  nothing, and taking the last simulation a member had
+//  left off the offer awards badge_all_simulations.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -31,7 +36,10 @@
 
 namespace Tests\Feature\Admin;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\FeatureTestCase;
 use Tests\Support\Sheets;
 
@@ -587,6 +595,237 @@ class AdminSimulationsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLevelWrittenAsTextIsImported
+    // -----------------------------------------------------------
+    //
+    // A level typed as text with a space after it — "2 ", as
+    // a copy from a document leaves it — counts as its
+    // number, and the sheet imports with every step under
+    // its own parent, one that climbs back up included. Such
+    // a level once passed the import's check, PHP reading it
+    // as the number, while the save filed each step under its
+    // level as written and looked a parent up by the number:
+    // a 500 halfway through the saves, and in a sheet that
+    // mixed it with plain levels a step under the wrong
+    // parent without a word (simulation-import-level-text).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLevelWrittenAsTextIsImported(): void
+    {
+        $this->world->scenarioCategory($this->en, ['name' => 'Credential theft']);
+        $this->world->scenarioAttribute($this->en, ['name' => 'Urgency']);
+        $sheet = $this->sheetWithSteps([
+            58 => ['1 ', 'Check the sender', 'Correct'],
+            59 => ['2 ', 'Look at the domain', 'Semi-correct'],
+            60 => ['3 ', 'Report it to IT', 'Correct'],
+            61 => ['2 ', 'Reply to ask', 'Incorrect'],
+        ]);
+
+        $response = $this->admin()->from('/admin-panel/admin_simulations')
+            ->post('/admin-panel/admin_simulations/import', ['lang_id' => $this->en, 'doc' => $sheet]);
+        $status = $response->getStatusCode();
+        $scenario = DB::table('bei_scenarios')->where('descr', 'An urgent invoice arrives')->value('id');
+        $steps = DB::table('bei_scenarios_options')->where('scenario_id', $scenario)->orderBy('id')->get(['id', 'parent_option_id', 'level'])->all();
+
+        $this->assertSame(302, $status, 'the import answered with a server error');
+        $this->assertCount(4, $steps, 'the steps were not saved');
+        $this->assertEquals([1, 2, 3, 2], array_column($steps, 'level'));
+        $this->assertEquals([0, $steps[0]->id, $steps[1]->id, $steps[0]->id], array_column($steps, 'parent_option_id'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFileThatIsNoSpreadsheetIsRefusedWithAMessage
+    // -----------------------------------------------------------
+    //
+    // A file named .xlsx that is no spreadsheet — an old .xls
+    // renamed, a download cut short, a password-protected
+    // workbook, an empty file — sends the import dialog back
+    // with a message, and nothing is saved. The import checks
+    // only the name's ending before PhpSpreadsheet opens the
+    // file, and the reader's exception once reached the admin
+    // as a 500 (simulation-import-unreadable).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFileThatIsNoSpreadsheetIsRefusedWithAMessage(): void
+    {
+        $response = $this->admin()->from('/admin-panel/admin_simulations')->post('/admin-panel/admin_simulations/import', [
+            'lang_id' => $this->en,
+            'doc'     => $this->uploadedFile('simulation.xlsx', "Level;Situation;Answer type\n1;Check the sender;Correct\n"),
+        ]);
+        $status = $response->getStatusCode();
+
+        $this->assertSame(302, $status, 'the import of an unreadable file answered with a server error');
+        $response->assertRedirect('/admin-panel/admin_simulations')->assertSessionHasErrors();
+        $this->assertFalse(DB::table('bei_scenarios')->where('lang_id', $this->en)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCategoriesDialogOfADeletedSimulationStoresNothing
+    // -----------------------------------------------------------
+    //
+    // The categories dialog of a simulation deleted since the
+    // page was opened — in another tab, or by the other admin
+    // — goes back with an error and stores nothing, as the
+    // lesson and language forms do since
+    // unchecked-hidden-ids, so a category page lists only
+    // simulations that exist. The dialog once took the
+    // simulation from its address without looking it up and
+    // filed it under the ticked categories, where every
+    // member found a button with no simulation behind it,
+    // "ID:" and nothing else, leading to a 404
+    // (simulation-categories-gone).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCategoriesDialogOfADeletedSimulationStoresNothing(): void
+    {
+        $category = $this->world->scenarioCategory($this->en);
+        $kept = $this->world->scenario($this->en, [], [$category]);
+        $gone = $this->world->scenario($this->en, [], [$category]);
+        $this->admin()->from('/admin-panel/admin_simulations')->post("/admin-panel/admin_simulations/delete/$gone");
+
+        $this->admin()->from('/admin-panel/admin_simulations')
+            ->post("/admin-panel/dialog/simulation/cat/{$this->en}/$gone", ['cat' => [$category]]);
+        $refused = session()->has('errors');
+        $links = DB::table('bei_scenarios_in_category')->where('scenario_id', $gone)->count();
+        $listed = $this->signInMember($this->world->member())->get("/en/simulations/category/$category")->assertOk()->getContent();
+
+        $this->assertSame(0, $links, 'the deleted simulation was filed under the category');
+        $this->assertTrue($refused, 'the dialog of a deleted simulation answered as a save');
+        $this->assertStringNotContainsString('/en/simulation/"', $listed, 'the category page shows a button for no simulation');
+        $this->assertStringContainsString("/en/simulation/$kept\"", $listed);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testTakingTheLastSimulationLeftOffTheOfferAwardsTheBadge
+    // -----------------------------------------------------------
+    //
+    // Taking the last simulation a member had left off the
+    // offer — deleting it, unticking its categories, or
+    // deleting the only category it was in — awards
+    // badge_all_simulations of the language to every member
+    // it completes, and to no member who still has a
+    // simulation on offer unfinished there, as deleting the
+    // last lesson a member had left awards
+    // badge_all_presentations since lesson-delete-badge. The
+    // badge was once awarded only on a run's end page, so a
+    // member with every simulation on offer done and the
+    // progress share full went without it — and without
+    // badge_finished_course and the questionnaire link it
+    // opens — until happening to open an end page again
+    // (simulation-delete-badge).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testTakingTheLastSimulationLeftOffTheOfferAwardsTheBadge(): void
+    {
+        $member = $this->world->member();
+        $behind = $this->world->member();
+        $languages = ['deleted' => $this->en, 'unticked' => $this->world->language('lt'), 'category deleted' => $this->world->language('lv')];
+        $left = [];
+        foreach ($languages as $how => $langId) {
+            $done = $this->world->scenarioCategory($langId);
+            $other = $this->world->scenarioCategory($langId);
+            $this->world->scenarioAttempt($member->id, $this->world->scenario($langId, [], [$done]), $langId);
+            $left[$how] = [$this->world->scenario($langId, [], [$how === 'category deleted' ? $other : $done]), $other];
+
+            // One more on offer, finished by both members: the
+            // member behind still lacks the first one
+            $shared = $this->world->scenario($langId, [], [$done]);
+            $this->world->scenarioAttempt($member->id, $shared, $langId);
+            $this->world->scenarioAttempt($behind->id, $shared, $langId);
+        }
+
+        $page = '/admin-panel/admin_simulations';
+        $this->admin()->from($page)->post("/admin-panel/admin_simulations/delete/{$left['deleted'][0]}");
+        $this->admin()->from($page)->post("/admin-panel/dialog/simulation/cat/{$languages['unticked']}/{$left['unticked'][0]}", []);
+        $this->admin()->from('/admin-panel/admin_simulations/categories')->post("/admin-panel/admin_simulations/categores/delete/{$left['category deleted'][1]}");
+
+        $without = [];
+        $awarded = [];
+        foreach ($languages as $how => $langId) {
+            if (!DB::table('bei_users_badges')->where(['user_id' => $member->id, 'lang_id' => $langId, 'name' => 'badge_all_simulations'])->exists()) {
+                $without[] = $how;
+            }
+            if (DB::table('bei_users_badges')->where(['user_id' => $behind->id, 'lang_id' => $langId, 'name' => 'badge_all_simulations'])->exists()) {
+                $awarded[] = $how;
+            }
+        }
+
+        $this->assertSame([], $without, 'the member completed by the change holds no badge_all_simulations');
+        $this->assertSame([], $awarded, 'the member with a simulation on offer still unfinished got badge_all_simulations');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testOfferLeftEmptyAwardsNothing
+    // -----------------------------------------------------------
+    //
+    // A change that leaves the language no simulation on
+    // offer awards nothing: a member who finished one of the
+    // two simulations of its only category gets no
+    // badge_all_simulations when the category is deleted, nor
+    // badge_finished_course on the next member page, as the
+    // progress then counts no simulation share and a member
+    // who completed none of the lessons gets no lessons badge.
+    // Counted over every member with a finished run, the
+    // award would have found each of them done with an empty
+    // offer.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOfferLeftEmptyAwardsNothing(): void
+    {
+        $category = $this->world->scenarioCategory($this->en);
+        $member = $this->world->member();
+        $this->world->scenarioAttempt($member->id, $this->world->scenario($this->en, [], [$category]), $this->en);
+        $this->world->scenario($this->en, [], [$category]);
+        $this->world->badge($member->id, $this->en, 'badge_all_presentations');
+
+        $this->admin()->from('/admin-panel/admin_simulations/categories')
+            ->post("/admin-panel/admin_simulations/categores/delete/$category")->assertRedirect();
+        $this->signInMember($member)->get('/cp/badges')->assertOk();
+
+        $this->assertSame([], DB::table('bei_users_badges')->where('user_id', $member->id)->whereIn('name', ['badge_all_simulations', 'badge_finished_course'])->pluck('name')->all());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // admin
     // -----------------------------------------------------------
     //
@@ -624,5 +863,57 @@ class AdminSimulationsTest extends FeatureTestCase
         $html = $this->admin()->get($page)->assertOk()->getContent();
         $this->assertSame(1, preg_match("#Confirm_Dialog\\('([^']*/delete/$id)'\\)#", $html, $link), "no delete icon for row $id on $page");
         return parse_url($link[1], PHP_URL_PATH);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // sheetWithSteps
+    // -----------------------------------------------------------
+    //
+    // A simulation spreadsheet with the texts, the category
+    // and the attribute of Sheets::simulationSheet and the
+    // given steps instead of its three: per sheet row the
+    // level as given — a string stays text in the sheet — the
+    // situation and the answer type. simulationSheet writes
+    // its own steps over any cells given for their rows, so
+    // it cannot carry these.
+    //
+    // Used by:
+    //   - testLevelWrittenAsTextIsImported (above)
+    // -----------------------------------------------------------
+
+    private function sheetWithSteps(array $steps): UploadedFile
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $cells = [
+            'C19' => 'An urgent invoice arrives',
+            'C20' => 'Spot the fake',
+            'C21' => 'Finance clerk',
+            'C22' => 'Email',
+            'C26' => '1',
+            'C27' => 'Phishing',
+            'C30' => 'invoice',
+            'B34' => 'Yes',
+            'C34' => 'Credential theft',
+            'D34' => 'Yes',
+            'E34' => 'Urgency',
+        ];
+        foreach ($cells as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+        }
+        foreach ($steps as $row => list($level, $situation, $answer)) {
+            $sheet->setCellValue("A$row", $level);
+            $sheet->setCellValue("C$row", $situation);
+            $sheet->setCellValue("D$row", $answer);
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'sheet');
+        (new Xlsx($spreadsheet))->save($path);
+        return $this->uploadedFile('simulation.xlsx', file_get_contents($path));
     }
 }

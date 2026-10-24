@@ -372,11 +372,14 @@ BEGIN
 	SELECT SUM(hours) AS total_hours INTO @total_hours FROM bei_lm_content WHERE bei_lm_content.lang_id=langid AND bei_lm_content.cat_id IS NOT NULL;
 
 	-- The self-evaluations the course offers: one per category of
-	-- the language that has questions
-	SELECT COUNT(DISTINCT bei_selfeval_question.cat_id) INTO @total_self_eval_tests FROM bei_selfeval_question LEFT JOIN bei_lm_category ON bei_lm_category.id = bei_selfeval_question.cat_id WHERE bei_lm_category.lang_id=langid;
+	-- the language that a member can take and finish — a lesson to
+	-- open it from, the only way a page offers it, and a question a
+	-- member can answer (SelfEval::scopeUsable)
+	SELECT COUNT(*) INTO @total_self_eval_tests FROM bei_lm_category c WHERE c.lang_id = langid AND EXISTS (SELECT 1 FROM bei_lm_content l WHERE l.cat_id = c.id) AND EXISTS (SELECT 1 FROM bei_selfeval_question q WHERE q.cat_id = c.id AND q.q_type IN (1,2) AND EXISTS (SELECT 1 FROM bei_selfeval_option o WHERE o.question_id = q.id));
 
-	-- The member's finished ones, one per category however often taken
-	SELECT COUNT(DISTINCT bei_users_selfeval_test.cat_id) INTO @user_selfeval_tests FROM bei_users_selfeval_test WHERE bei_users_selfeval_test.lang_id = langid AND bei_users_selfeval_test.user_id=userid AND bei_users_selfeval_test.finished=1 AND bei_users_selfeval_test.cat_id IN (SELECT bei_selfeval_question.cat_id FROM bei_selfeval_question LEFT JOIN bei_lm_category ON bei_lm_category.id = bei_selfeval_question.cat_id WHERE bei_lm_category.lang_id=langid);
+	-- The member's finished ones among them, one per category however
+	-- often taken
+	SELECT COUNT(DISTINCT bei_users_selfeval_test.cat_id) INTO @user_selfeval_tests FROM bei_users_selfeval_test WHERE bei_users_selfeval_test.lang_id = langid AND bei_users_selfeval_test.user_id=userid AND bei_users_selfeval_test.finished=1 AND bei_users_selfeval_test.cat_id IN (SELECT c.id FROM bei_lm_category c WHERE c.lang_id = langid AND EXISTS (SELECT 1 FROM bei_lm_content l WHERE l.cat_id = c.id) AND EXISTS (SELECT 1 FROM bei_selfeval_question q WHERE q.cat_id = c.id AND q.q_type IN (1,2) AND EXISTS (SELECT 1 FROM bei_selfeval_option o WHERE o.question_id = q.id)));
 
 	-- The member's share of them, each lesson once however often its
 	-- completion was stored: bei_lm_users has no unique key
@@ -455,6 +458,26 @@ INSERT INTO `bei_settings` (`id`, `name`, `val1`, `val2`, `val3`) VALUES
   (1, 'home_about', NULL, NULL, 0),
   (2, 'self_eval_pertime', NULL, NULL, 5),
   (3, 'knowledge_tests', NULL, NULL, 0);
+
+
+-- ========================================================
+--  Grants
+-- ========================================================
+
+-- The backup services dump the database as the app's user, the
+-- stored function included (mysqldump --routines). MySQL shows a
+-- function's body only to its definer, root here, or to a user who
+-- may read mysql.proc; to anyone else mysqldump stops at the
+-- function with an error, and the dump has neither the function nor
+-- the views. So every user granted on this database alone — the
+-- image's MYSQL_USER — may read mysql.proc. A database set up before
+-- this grant was added needs it by hand.
+SET @grant_proc = (SELECT CONCAT('GRANT SELECT ON mysql.proc TO ', GROUP_CONCAT(CONCAT(QUOTE(User), '@', QUOTE(Host))))
+  FROM mysql.db WHERE DATABASE() LIKE Db AND User <> '');
+SET @grant_proc = IFNULL(@grant_proc, 'DO 0');
+PREPARE grant_proc FROM @grant_proc;
+EXECUTE grant_proc;
+DEALLOCATE PREPARE grant_proc;
 
 
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

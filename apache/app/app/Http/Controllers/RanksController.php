@@ -65,6 +65,7 @@ use App\Models\ViewMaxPointsSelfEvalCat;
 //
 //   self_evaluation — the self-evaluation ranking
 //   simulations     — the simulation ranking
+//   with_places     — each ranked member's place
 //   with_badges     — the badges of every ranked member
 //
 // Used by:
@@ -110,8 +111,9 @@ class RanksController extends BaseController
     //
     // The self-evaluation ranking of the page's language, open
     // to everyone: per member the sum of their best points in
-    // each self-evaluation category, highest first, shown by
-    // rank_self_eval.blade.php with user names and badges
+    // each self-evaluation category, highest first and equal
+    // totals by user name, shown by rank_self_eval.blade.php
+    // with places (with_places), user names and badges
     // (with_badges). The page's language is the session's,
     // which BaseController moves only for a site code; under
     // any other code the page keeps it, and so does the
@@ -128,10 +130,11 @@ class RanksController extends BaseController
         ->where(['lang_id'=>Langs::getLangId(Session::get('lang'))])
         ->groupby('id')
         ->orderbydesc('points')
+        ->orderby('username')
         ->get()
         ->toArray();
 
-        return view('rank_self_eval', ['ranking_table'=>RanksController::with_badges($ranks)]);
+        return view('rank_self_eval', ['ranking_table'=>RanksController::with_badges(RanksController::with_places($ranks))]);
     }
 
 
@@ -145,12 +148,12 @@ class RanksController extends BaseController
     //
     // GET /{lang}/ranks/simulations
     //
-    // The simulation ranking of the page's language, open
-    // to everyone: per member the sum of their best points
-    // in each simulation, highest first, shown by
-    // rank_simulations.blade.php with user names and badges
-    // (with_badges) — the session's language, as for the
-    // self-evaluation ranking.
+    // The simulation ranking of the page's language, open to
+    // everyone: per member the sum of their best points in
+    // each simulation, highest first and equal totals by user
+    // name, shown by rank_simulations.blade.php with places
+    // (with_places), user names and badges (with_badges) — the
+    // session's language, as for the self-evaluation ranking.
     //
     // Used by:
     //   - layouts/main.blade.php — the ranks menu of the top
@@ -163,10 +166,40 @@ class RanksController extends BaseController
         ->where(['lang_id'=>Langs::getLangId(Session::get('lang'))])
         ->groupby('id')
         ->orderbydesc('points')
+        ->orderby('username')
         ->get()
         ->toArray();
 
-        return view('rank_simulations', ['ranking_table'=>RanksController::with_badges($ranks)]);
+        return view('rank_simulations', ['ranking_table'=>RanksController::with_badges(RanksController::with_places($ranks))]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // with_places
+    // -----------------------------------------------------------
+    //
+    // Gives every ranked member its place, the ranks already
+    // highest first: one more than the number of members with
+    // more points, so equal totals share a place and the next
+    // total skips as many — 1, 1, 3. The rankings once
+    // numbered their rows, and of two equal totals MySQL
+    // picked which came first.
+    //
+    // Used by:
+    //   - self_evaluation, simulations (above)
+    // -----------------------------------------------------------
+
+    private static function with_places(array $ranks)
+    {
+        foreach($ranks as $k => $v){
+            $ranks[$k]['place'] = ($k > 0 && $v['points'] == $ranks[$k - 1]['points']) ? $ranks[$k - 1]['place'] : $k + 1;
+        }
+
+        return $ranks;
     }
 
 

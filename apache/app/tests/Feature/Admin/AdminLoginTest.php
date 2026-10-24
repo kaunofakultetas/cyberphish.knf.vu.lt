@@ -294,6 +294,35 @@ class AdminLoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testPanelLoginFormSurvivesAnEmailPostedAsAList
+    // -----------------------------------------------------------
+    //
+    // An email posted as a list fails the email rule, and the
+    // login form comes back with its error. The form once
+    // printed the flashed list straight into the email field,
+    // a TypeError, and the next load of /admin-panel was the
+    // 500 page (admin-login-email-list-500).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPanelLoginFormSurvivesAnEmailPostedAsAList(): void
+    {
+        $this->from('/admin-panel')->post('/admin-panel', ['email' => ['manager@example.test'], 'password' => 'Some-Password-1'])
+            ->assertRedirect('/admin-panel')
+            ->assertSessionHasErrors('email');
+        $error = session('errors')->first('email');
+
+        $this->get('/admin-panel')->assertOk()->assertSee($error);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testTenWrongPasswordsLockTheAdminLogin
     // -----------------------------------------------------------
     //
@@ -316,6 +345,48 @@ class AdminLoginTest extends FeatureTestCase
         $this->signIn($admin->email, World::PASSWORD)
             ->assertRedirect('/admin-panel')
             ->assertSessionHasErrors('email');
+
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLockoutHoldsUnderEverySpellingOfTheAddress
+    // -----------------------------------------------------------
+    //
+    // After ten wrong passwords the address stays locked under
+    // every spelling the email column folds together — a
+    // manager's, the right password typed with ß for an s, and
+    // just as much an address no manager has — so the lockout
+    // neither opens to another spelling nor tells which
+    // addresses are managers'. The failures once counted under
+    // the address transliterated, ß turned into ss, and that
+    // spelling opened the locked account
+    // (login-throttle-collation-bypass).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLockoutHoldsUnderEverySpellingOfTheAddress(): void
+    {
+        $this->world->manager(['email' => 'panel.locked@example.test']);
+        foreach (['panel.locked@example.test', 'panel.nobody@example.test'] as $address) {
+            for ($guess = 1; $guess <= 10; $guess++) {
+                $this->signIn($address, 'Wrong-' . $guess);
+            }
+        }
+
+        foreach (['panel.locked@example.teßt' => World::PASSWORD, 'panel.nobody@example.teßt' => 'Wrong-11'] as $spelling => $password) {
+            $this->signIn($spelling, $password)
+                ->assertRedirect('/admin-panel')
+                ->assertSessionHasErrors('email');
+            $this->assertStringStartsWith(strstr(__('auth.throttle'), ':seconds', true), session('errors')->first('email'), "$spelling was answered, but not by the lockout");
+        }
 
         $this->assertGuest('man');
     }
@@ -388,6 +459,44 @@ class AdminLoginTest extends FeatureTestCase
     public function testSignedInManagerIsSentToTheDashboard(): void
     {
         $this->signInManager($this->world->manager())->get('/admin-panel')->assertRedirect('/admin-panel/dashboard');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPanelLoginOpensForASignedInMember
+    // -----------------------------------------------------------
+    //
+    // A member signed in on the course site — an organiser who
+    // also takes the course — gets the panel's login form, and
+    // the manager's password signs the manager in and lands on
+    // the dashboard, the member staying signed in; from then
+    // on the form sends the manager to the dashboard, as it
+    // does every signed-in manager. The form once sent a
+    // signed-in member to the course's home page (guest:mem),
+    // so such an organiser could not sign in to the panel at
+    // all (panel-login-bounces-members).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPanelLoginOpensForASignedInMember(): void
+    {
+        $member = $this->world->member();
+        $manager = $this->world->manager(['main' => 0, 'country' => 1]);
+
+        $this->signInMember($member)->get('/admin-panel')->assertOk();
+
+        $this->signIn($manager->email, World::PASSWORD)->assertRedirect('/admin-panel/dashboard');
+        $this->assertAuthenticated('man');
+        $this->assertSame($manager->id, (int) $this->app['auth']->guard('man')->id());
+        $this->assertAuthenticated('mem');
+
+        $this->get('/admin-panel')->assertRedirect('/admin-panel/dashboard');
     }
 
 

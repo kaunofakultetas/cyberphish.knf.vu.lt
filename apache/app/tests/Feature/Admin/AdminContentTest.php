@@ -12,12 +12,18 @@
 //  (settings row 1), the self-evaluation length (row 2) and
 //  the knowledge-test limits (row 3), saved into the rows
 //  mysql/init.sql seeds — and the printout of every
-//  simulation, each with its own categories. A language
-//  name is unique and a language in use stays — one with
-//  lessons too; an empty body is saved as one. The panel's
-//  news pages reach the panel, removing a picture an
-//  article no longer has is harmless, and the article
-//  form's script gets its id only as a number.
+//  simulation, each with its own categories. A language's
+//  name and locale are its own, a language in use stays —
+//  one with lessons too — and a deleted one takes its
+//  members' rows along. An empty body is saved as one, a
+//  body with a pasted photo whole, and the editors load the
+//  HTML as stored. The panel's news pages reach the panel,
+//  a deleted or replaced picture leaves no file behind,
+//  removing a picture an article no longer has is harmless,
+//  and the article form's script gets its id only as a
+//  number. An edit of a deleted article or page is refused,
+//  and so is a field of the wrong shape, without a server
+//  error.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -26,6 +32,7 @@
 
 namespace Tests\Feature\Admin;
 
+use Dom\HTMLDocument;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
@@ -732,13 +739,492 @@ class AdminContentTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testBodyWithAPastedPhotoIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // The news, information and lesson forms save a body
+    // with a pasted photo, whole. Summernote puts a picture
+    // chosen from a file into the body itself, base64 inside
+    // an img tag, and nothing caps the body's size; MySQL
+    // refuses a statement over its max_allowed_packet and
+    // closes the connection, and the limit is production's
+    // 64 MB in the test container too. Each post runs on a
+    // connection of its own, as a refused one dies with its
+    // transaction, and the stored body is compared by its
+    // length, not its megabytes. On the stock 4 MB a body
+    // with a photo of about 3 MB or more was once a 500 in
+    // each of the three forms, and nothing was saved
+    // (rich-text-body-over-packet).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBodyWithAPastedPhotoIsNoServerError(): void
+    {
+        // A photo of about 3.4 MB as Summernote embeds it
+        $body = '<p>Spot the fake parcel notice.</p><p><img src="data:image/jpeg;base64,' . str_repeat('QUJD', 1125000) . '"></p>';
+
+        $answers = [];
+        $answers['news'] = $this->bodyPostStatus('/admin-panel/news/new', '/admin-panel/news/create', 'bei_news', [
+            'title'   => 'Parcel notice with a photo',
+            'content' => $body,
+            'lang_id' => $this->en,
+        ]);
+        $answers['information'] = $this->bodyPostStatus('/admin-panel/information/new', '/admin-panel/information/create', 'bei_information', [
+            'title'   => 'Parcel notice page with a photo',
+            'content' => $body,
+            'lang_id' => $this->en,
+        ]);
+        $answers['lesson'] = $this->bodyPostStatus('/admin-panel/lm/content/new/' . $this->en, '/admin-panel/lm/content/create', 'bei_lm_content', [
+            'title'   => 'Parcel notice lesson with a photo',
+            'content' => $body,
+            'uid'     => $this->en,
+            'cat_id'  => $this->world->lmCategory($this->en),
+            'hours'   => 1,
+        ]);
+
+        $whole = [302, strlen($body)];
+        $this->assertSame(['news' => $whole, 'information' => $whole, 'lesson' => $whole], $answers, 'the answers to a body with a pasted photo, with the length of the body stored: ' . json_encode($answers));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRichTextEditorsLoadTheStoredHtml
+    // -----------------------------------------------------------
+    //
+    // The news, information and lesson forms hand their
+    // editor exactly the HTML that is stored, and a refused
+    // edit gets back exactly the body it posted. Summernote
+    // takes the content textarea's text as the editor's HTML,
+    // so the forms write that text escaped once: angle
+    // brackets an admin typed as text, which the editor
+    // stores as entities, reach it as text — a sender's
+    // address in angle brackets, as a lesson on phishing
+    // mails shows one. The Form builder once wrote the text
+    // with double encoding off, so such an address reached
+    // the editor as an unknown element and vanished with the
+    // next save, and a script tag typed as an example ran in
+    // the admin's browser as the form opened
+    // (rich-text-edit-unescapes).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRichTextEditorsLoadTheStoredHtml(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $html = '<p>From: "PayPal" &lt;service@paypa1.example&gt;</p>';
+        $pages = [
+            '/admin-panel/news/edit/' . $this->world->news($this->en, ['content' => $html]),
+            '/admin-panel/information/edit/' . $this->world->information($this->en, ['content' => $html]),
+            '/admin-panel/lm/content/edit/' . $this->world->lmContent($category, $this->en, ['content' => $html]),
+        ];
+
+        $loaded = [];
+        foreach ($pages as $page) {
+            $document = HTMLDocument::createFromString($this->admin()->get($page)->assertOk()->getContent(), LIBXML_NOERROR);
+            $loaded[$page] = $document->querySelector('textarea#summernote')->textContent;
+        }
+
+        foreach ($loaded as $page => $text) {
+            $this->assertSame($html, $text, "$page hands its editor other HTML than the stored");
+        }
+
+        // An edit refused for its empty title comes back with
+        // the body it posted, not the one stored
+        $article = $this->world->news($this->en);
+        $this->admin()->from("/admin-panel/news/edit/$article")->post('/admin-panel/news/update', [
+            'uid'     => $article,
+            'title'   => '',
+            'content' => $html,
+            'lang_id' => $this->en,
+        ])->assertSessionHasErrors('title');
+        $document = HTMLDocument::createFromString($this->admin()->get("/admin-panel/news/edit/$article")->assertOk()->getContent(), LIBXML_NOERROR);
+        $this->assertSame($html, $document->querySelector('textarea#summernote')->textContent, 'the refused edit lost the body it posted');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedArticleTakesItsPictureAlong
+    // -----------------------------------------------------------
+    //
+    // Deleting a news article takes its picture file along,
+    // where the folder is writable, as the article form's
+    // remove link and a lesson's delete take theirs. The
+    // picture once stayed in storage/app/public/feat, still
+    // served at its old address under /upload/feat — one
+    // left behind for good with every deleted article
+    // (news-delete-keeps-picture).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedArticleTakesItsPictureAlong(): void
+    {
+        $this->publishWithPicture('Article with a cover');
+        $article = DB::table('bei_news')->where('title', 'Article with a cover')->first();
+        $picture = storage_path('app/public/' . $article->feat_img);
+        $this->assertFileExists($picture);
+
+        $this->admin()->from('/admin-panel/news')->post("/admin-panel/news/delete/{$article->id}")->assertRedirect();
+        $this->assertFalse(DB::table('bei_news')->where('id', $article->id)->exists());
+
+        $left = is_file($picture);
+        @unlink($picture);
+
+        $this->assertFalse($left, 'the deleted article\'s picture is still on disk and served');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testReplacingAPictureRemovesTheOldFile
+    // -----------------------------------------------------------
+    //
+    // A picture posted with the edit form of an article that
+    // has one replaces the file too: the new picture is
+    // stored and served, and the old file goes, as it goes
+    // with a deleted article. The replaced file once stayed
+    // in storage/app/public/feat, still public
+    // (news-delete-keeps-picture).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testReplacingAPictureRemovesTheOldFile(): void
+    {
+        $this->publishWithPicture('Article with a new cover');
+        $article = DB::table('bei_news')->where('title', 'Article with a new cover')->first();
+        $old = storage_path('app/public/' . $article->feat_img);
+        $this->assertFileExists($old);
+
+        $this->admin()->from("/admin-panel/news/edit/{$article->id}")->post('/admin-panel/news/update', [
+            'uid'     => $article->id,
+            'title'   => 'Article with a new cover',
+            'content' => '<p>With a cover picture.</p>',
+            'lang_id' => $this->en,
+            'feat'    => UploadedFile::fake()->image('new-cover.png', 600, 400),
+        ])->assertSessionHas('success');
+        $new = storage_path('app/public/' . DB::table('bei_news')->where('id', $article->id)->value('feat_img'));
+
+        $stored = $new !== $old && is_file($new);
+        $left = is_file($old);
+        @unlink($old);
+        @unlink($new);
+
+        $this->assertTrue($stored, 'the new picture was not stored');
+        $this->assertFalse($left, 'the replaced picture is still on disk and served');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEditOfADeletedItemIsRefused
+    // -----------------------------------------------------------
+    //
+    // The news and information edit forms refuse an article
+    // or page deleted while the form stood open — in another
+    // tab, or by another admin — with an error, store
+    // nothing and leave no new picture on disk, as the forms
+    // that add a file to a lesson, or a category or a lesson
+    // to a language, refuse a parent that is gone
+    // (unchecked-hidden-ids). They once updated whatever row
+    // their hidden id named, answered "Updated!" when none
+    // did, and the news form first moved its new picture
+    // into storage/app/public/feat, where no row pointed at
+    // it (update-of-a-deleted-item).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEditOfADeletedItemIsRefused(): void
+    {
+        $article = $this->world->news($this->en);
+        $page = $this->world->information($this->en);
+        DB::table('bei_news')->where('id', $article)->delete();
+        DB::table('bei_information')->where('id', $page)->delete();
+        $before = glob(storage_path('app/public/feat/*')) ?: [];
+
+        $this->admin()->from("/admin-panel/news/edit/$article")->post('/admin-panel/news/update', [
+            'uid'     => $article,
+            'title'   => 'Edited after its delete',
+            'content' => '<p>Edited.</p>',
+            'lang_id' => $this->en,
+            'feat'    => UploadedFile::fake()->image('cover.png', 600, 400),
+        ]);
+        $newsAnswer = session('success');
+        $this->admin()->from("/admin-panel/information/edit/$page")->post('/admin-panel/information/update', [
+            'uid'     => $page,
+            'title'   => 'Edited after its delete',
+            'content' => '<p>Edited.</p>',
+            'lang_id' => $this->en,
+        ]);
+        $pageAnswer = session('success');
+
+        $added = array_values(array_diff(glob(storage_path('app/public/feat/*')) ?: [], $before));
+        foreach ($added as $path) {
+            @unlink($path);
+        }
+
+        $problems = [];
+        if ($added !== []) {
+            $problems[] = 'the picture was left on disk';
+        }
+        if ($newsAnswer !== null) {
+            $problems[] = "the news edit answered \"$newsAnswer\"";
+        }
+        if ($pageAnswer !== null) {
+            $problems[] = "the information edit answered \"$pageAnswer\"";
+        }
+        $this->assertSame([], $problems, implode('; ', $problems));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedLanguageLeavesNothingOfItsMembers
+    // -----------------------------------------------------------
+    //
+    // A language whose content is all gone takes its
+    // members' rows along when it is deleted — badges,
+    // knowledge tests, self-evaluations and simulation runs —
+    // and the same member's rows of another language stay.
+    // The content goes through the panel's own deletes
+    // first, as an admin retiring a language would do it.
+    // MySQL 5.7 gives the highest id out again after a
+    // restart, so a language added later can take the
+    // deleted one's id. The rows once stayed behind for such
+    // a language to inherit — a passed knowledge test, and
+    // with it the certificate, in a language the member
+    // never studied (language-delete-orphans).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedLanguageLeavesNothingOfItsMembers(): void
+    {
+        $maltese = $this->world->language('mt');
+        $member = $this->world->member(['country' => 5]);
+        $this->world->badge($member->id, $maltese, 'badge_final_test');
+        $this->world->knowledgeAttempt($member->id, $maltese, ['results' => 90]);
+        $category = $this->world->lmCategory($maltese);
+        $this->world->selfEvalAttempt($member->id, $category, $maltese, ['points' => 80]);
+        $scenario = $this->world->scenario($maltese);
+        $this->world->scenarioAttempt($member->id, $scenario, $maltese, ['points' => 400]);
+
+        // A badge of the same member in English, which stays
+        $english = $this->world->badge($member->id, $this->en, 'badge_final_test');
+
+        // The content goes first, through the panel's own deletes
+        $this->admin()->from('/admin-panel/lm/categories')
+            ->post("/admin-panel/lm/categores/delete/$category");
+        $this->admin()->from('/admin-panel/admin_simulations')
+            ->post("/admin-panel/admin_simulations/delete/$scenario");
+        $this->assertFalse(DB::table('bei_lm_category')->where('id', $category)->exists(), 'the category was not deleted');
+        $this->assertFalse(DB::table('bei_scenarios')->where('id', $scenario)->exists(), 'the simulation was not deleted');
+
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post("/admin-panel/settings/languages/delete/$maltese")
+            ->assertRedirect('/admin-panel/settings/languages');
+
+        $gone = !DB::table('bei_lang')->where('id', $maltese)->exists();
+        $left = [];
+        foreach (['bei_users_badges', 'bei_users_knowledge_test', 'bei_users_selfeval_test', 'bei_users_scenarios'] as $table) {
+            if (DB::table($table)->where('lang_id', $maltese)->exists()) {
+                $left[] = $table;
+            }
+        }
+
+        $this->assertTrue($gone, 'the language was not deleted');
+        $this->assertSame([], $left, 'the deleted language left its members\' rows in ' . implode(', ', $left));
+        $this->assertTrue(DB::table('bei_users_badges')->where('id', $english)->exists(), 'the member\'s English badge went with the other language');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedLanguageLeavesTheLoginBadge
+    // -----------------------------------------------------------
+    //
+    // badge_login_10 stays when the language it was filed
+    // under is deleted, and the badges page goes on showing it
+    // as held: the badge is the member's in every language,
+    // filed under the session's language when it was earned,
+    // which need not be one the member studies.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedLanguageLeavesTheLoginBadge(): void
+    {
+        $maltese = $this->world->language('mt');
+        $member = $this->world->member();
+        $this->world->badge($member->id, $maltese, 'badge_login_10');
+
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post("/admin-panel/settings/languages/delete/$maltese")
+            ->assertRedirect('/admin-panel/settings/languages');
+
+        $this->assertFalse(DB::table('bei_lang')->where('id', $maltese)->exists(), 'the language was not deleted');
+        $this->signInMember($member)->get('/cp/badges')->assertOk()->assertSee('/badges/badge_login_10.png', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLocaleOfAnotherLanguageIsRefused
+    // -----------------------------------------------------------
+    //
+    // The language dialog refuses a locale another language
+    // has, on adding a language and on editing one, as it
+    // refuses a name another has, while an edit that keeps
+    // the language's own locale saves. The site finds a
+    // language by its locale and takes the first row that
+    // has it (Langs::getLangId). The dialog once took any
+    // locale, so of two languages sharing one the other's
+    // news, lessons, tests and simulations reached no
+    // visitor, while the panel gave it tabs of its own
+    // (language-locale-taken).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLocaleOfAnotherLanguageIsRefused(): void
+    {
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post('/admin-panel/dialog/lang/create', ['name' => 'English (UK)', 'locale' => 'en']);
+        $afterCreate = DB::table('bei_lang')->where('locale', 'en')->count();
+
+        $latvian = $this->world->language('lv');
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post('/admin-panel/dialog/lang/update', ['uid' => $latvian, 'name' => 'Latvian', 'locale' => 'en']);
+        $afterUpdate = DB::table('bei_lang')->where('locale', 'en')->count();
+
+        $this->assertSame([1, 1], [$afterCreate, $afterUpdate], 'languages with the locale en after the new language and after the edit');
+
+        // The same edit with the language's own locale saves
+        $this->admin()->from('/admin-panel/settings/languages')
+            ->post('/admin-panel/dialog/lang/update', ['uid' => $latvian, 'name' => 'Latvian', 'locale' => 'lv'])
+            ->assertSessionHas('success');
+        $this->assertSame('Latvian', DB::table('bei_lang')->where('id', $latvian)->value('name'));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPanelFormsRefuseFieldsOfTheWrongShape
+    // -----------------------------------------------------------
+    //
+    // The panel's forms refuse a field of the wrong shape
+    // without a server error: a list posted where they read
+    // a text, and a plain value where the question editors
+    // expect one value per option. That holds for the
+    // language dialog's create and update, the news and
+    // information forms, the new lesson, the new
+    // learning-material category, the new simulation category
+    // and attribute, and the self-evaluation and
+    // knowledge-test question editors, as it does for the
+    // manager and password dialogs. Their rules — required,
+    // min and max — once let a list through, counting its
+    // items, to Str::slug, the unique rule's query or the
+    // insert itself, and the editors indexed a plain value
+    // like a list, a 500 each (admin-form-list-500).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPanelFormsRefuseFieldsOfTheWrongShape(): void
+    {
+        $news = $this->world->news($this->en);
+        $info = $this->world->information($this->en);
+        $category = $this->world->lmCategory($this->en);
+        $selfEval = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+        $knowledge = $this->world->knowledgeQuestion($category, [['Right', true], ['Wrong', false]]);
+
+        $posts = [
+            'new language, name as a list'            => ['/admin-panel/dialog/lang/create', ['name' => ['Listed'], 'locale' => 'xx']],
+            'language update, id as a list'           => ['/admin-panel/dialog/lang/update', ['uid' => [(string) $this->en], 'name' => 'English', 'locale' => 'en']],
+            'new article, title as a list'            => ['/admin-panel/news/create', ['title' => ['Title'], 'content' => 'Body', 'lang_id' => (string) $this->en]],
+            'article update, title as a list'         => ['/admin-panel/news/update', ['uid' => (string) $news, 'title' => ['Title'], 'content' => 'Body', 'lang_id' => (string) $this->en]],
+            'new page, body as a list'                => ['/admin-panel/information/create', ['title' => 'Title', 'content' => ['Body'], 'lang_id' => (string) $this->en]],
+            'page update, title as a list'            => ['/admin-panel/information/update', ['uid' => (string) $info, 'title' => ['Title'], 'content' => 'Body', 'lang_id' => (string) $this->en]],
+            'new lesson, hours as a list'             => ['/admin-panel/lm/content/create', ['title' => 'Lesson', 'uid' => (string) $this->en, 'cat_id' => (string) $category, 'content' => 'Body', 'hours' => ['1']]],
+            'new category, name as a list'            => ['/admin-panel/dialog/lm/categories/create', ['name' => ['Category'], 'uid' => (string) $this->en]],
+            'new simulation category, name as a list' => ['/admin-panel/dialog/simulations/categories/create', ['name' => ['Category'], 'uid' => (string) $this->en]],
+            'new attribute, name as a list'           => ['/admin-panel/dialog/simulations/attributes/create', ['name' => ['Attribute'], 'uid' => (string) $this->en]],
+            'self-evaluation question, one value'     => ['/admin-panel/lm/self_eval/update/' . $selfEval['question'], [
+                'q' => 'Question', 'q_type' => '1',
+                'option' => [$selfEval['options'][0] => 'Right', $selfEval['options'][1] => 'Wrong'],
+                'correct' => '1',
+                'points' => [$selfEval['options'][0] => '100', $selfEval['options'][1] => '0'],
+            ]],
+            'knowledge question, one value'           => ['/admin-panel/lm/knowledge_test/update/' . $knowledge['question'], [
+                'q' => 'Question',
+                'option' => [$knowledge['options'][0] => 'Right', $knowledge['options'][1] => 'Wrong'],
+                'correct' => '1',
+            ]],
+        ];
+
+        $statuses = [];
+        foreach ($posts as $label => list($path, $body)) {
+            $statuses[$label] = $this->admin()->from('/admin-panel/dashboard')->post($path, $body)->getStatusCode();
+        }
+
+        $this->assertSame([], array_keys(array_filter($statuses, function (int $status) {
+            return $status >= 500;
+        })), 'posts answered with a server error');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // publishWithPicture
     // -----------------------------------------------------------
     //
     // Publishes an English article with a PNG picture.
     //
     // Used by:
-    //   - testNewsPictureIsStoredForTheSite (above)
+    //   - testNewsPictureIsStoredForTheSite,
+    //     testDeletedArticleTakesItsPictureAlong and
+    //     testReplacingAPictureRemovesTheOldFile (above)
     // -----------------------------------------------------------
 
     private function publishWithPicture(string $title): void
@@ -749,6 +1235,66 @@ class AdminContentTest extends FeatureTestCase
             'lang_id' => $this->en,
             'feat'    => UploadedFile::fake()->image('cover.png', 600, 400),
         ])->assertSessionHas('success');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // bodyPostStatus
+    // -----------------------------------------------------------
+    //
+    // Posts a form as a fresh main admin — the class's own
+    // goes with the first connection dropped — and returns
+    // the answer's status with the length of the body the
+    // table then holds under the posted title, or null when
+    // it holds none. Both are read before the test carries
+    // on over a fresh connection (freshConnection), which
+    // takes the stored row away again.
+    //
+    // Used by:
+    //   - testBodyWithAPastedPhotoIsNoServerError (above)
+    // -----------------------------------------------------------
+
+    private function bodyPostStatus(string $from, string $path, string $table, array $fields): array
+    {
+        $status = $this->signInManager($this->world->manager())->from($from)->post($path, $fields)->getStatusCode();
+
+        // A server error may have taken the connection along,
+        // and a query on it would end the test in an error
+        $stored = $status < 500 ? DB::table($table)->where('title', $fields['title'])->value('content') : null;
+        $this->freshConnection();
+        return [$status, $stored === null ? null : strlen($stored)];
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // freshConnection
+    // -----------------------------------------------------------
+    //
+    // MySQL closes the connection over a packet larger than
+    // its max_allowed_packet, and the test's transaction goes
+    // with it. This drops the connection — what its
+    // transaction held is rolled back — and opens a new one
+    // inside a new transaction, which the suite's tearDown
+    // rolls back. The guards are built again too, as their
+    // user providers hold the connection they were made with.
+    //
+    // Used by:
+    //   - bodyPostStatus (above)
+    // -----------------------------------------------------------
+
+    private function freshConnection(): void
+    {
+        DB::purge();
+        DB::beginTransaction();
+        $this->app['auth']->forgetGuards();
     }
 
 

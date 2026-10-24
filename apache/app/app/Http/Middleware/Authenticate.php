@@ -17,6 +17,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Auth\Middleware\Authenticate as Middleware;
+use Illuminate\Support\Facades\Session;
 
 
 
@@ -62,9 +63,14 @@ class Authenticate extends Middleware
     // redirectTo
     // -----------------------------------------------------------
     //
-    // Where a refused request goes: the member login page
-    // (the route named login) for a browser, nowhere for a
-    // JSON request, which Laravel then answers with 401.
+    // Where a refused request goes: the member login page (the
+    // route named login) for a browser, nowhere for a JSON
+    // request, which Laravel then answers with 401. A member
+    // page's site code ({lang}) becomes the session's language
+    // first: BaseController, which reads it on every other
+    // page, runs only after this middleware, so a fresh
+    // session following a Lithuanian link once got the login
+    // form in English.
     //
     // Used by:
     //   - Laravel's Authenticate middleware, when it refuses a
@@ -74,6 +80,12 @@ class Authenticate extends Middleware
     protected function redirectTo($request)
     {
         if (! $request->expectsJson()) {
+            // BaseController, the one to read {lang}, runs after
+            // this middleware: the login form takes it from here
+            if (in_array($request->route('lang'), ['en', 'lt', 'ee', 'lv', 'gr'], true)) {
+                Session::put('lang', $request->route('lang'));
+            }
+
             return route('login');
         }
     }

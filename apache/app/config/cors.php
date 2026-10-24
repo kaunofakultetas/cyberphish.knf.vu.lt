@@ -6,9 +6,11 @@
 //  The settings of HandleCors — Laravel's own since the
 //  fruitcake/laravel-cors package went into the framework —
 //  which sits in the global stack of app/Http/Kernel.php
-//  but acts only on the paths listed here: api/*, where
-//  routes/api.php registers no route, so no response of the
-//  site carries a CORS header — the app's own Cors
+//  but acts only on the paths listed here — none, so no
+//  response of the site carries a CORS header. It once
+//  listed api/*, where routes/api.php registers no route
+//  but the member routes' {lang} took api for a language,
+//  and those pages allowed every origin. The app's own Cors
 //  middleware (app/Http/Middleware/Cors.php) sets only
 //  Cache-Control. In production the endpoint answers a
 //  request with a foreign Origin with a 403 before Apache
@@ -24,14 +26,14 @@
 //
 //  Used by:
 //    - HandleCors (Illuminate\Http\Middleware) — every
-//      request, but it handles only the api/* paths
+//      request, none of whose paths it handles
 // -----------------------------------------------------------
 
 
 return [
 
     // The paths HandleCors answers for — api/* only
-    'paths' => ['api/*'],
+    'paths' => [],
 
     // The methods a cross-origin request may use — any
     'allowed_methods' => ['*'],

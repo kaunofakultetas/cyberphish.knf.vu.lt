@@ -122,11 +122,15 @@ class KnowledgeTestController extends BaseController
     // member to the lessons. An attempt still open sends the
     // member straight back into it, to its progress page.
     // Otherwise knowledge_test.blade.php shows the tries used,
-    // whether the language has questions at all, the results
-    // of the finished attempts and — once one passed — the
-    // full-name form, with the certificate link once a name is
-    // stored. The page hides the start form after three tries,
-    // and start refuses a fourth.
+    // whether the language has questions a test can draw
+    // (KnowledgeTest::scopeAnswerable), the results of the
+    // finished attempts and — once one passed — the full-name
+    // form, with the certificate link once a name is stored.
+    // The page hides the start form after three tries, and
+    // start refuses a fourth. A language whose questions all
+    // lack a correct option says it has none
+    // (main.no_questions), where the page once showed a start
+    // that drew nothing and came back without a word.
     //
     // Used by:
     //   - parts/lm_left_sidebar.blade.php — the knowledge-test
@@ -146,7 +150,7 @@ class KnowledgeTestController extends BaseController
 
         $unfinished = KnowledgeUserTest::where(['finished'=>0, 'user_id'=>Auth::guard('mem')->id(), 'lang_id'=>Langs::getLangId($lang)])->count();
 
-        $count_questions = KnowledgeTest::whereIn('cat_id', KnowledgeTestController::get_lang_cats($lang))->count();
+        $count_questions = KnowledgeTest::whereIn('cat_id', KnowledgeTestController::get_lang_cats($lang))->answerable()->count();
 
         // A pass is a result above 74, the mark CertController
         // checks too
@@ -366,17 +370,21 @@ class KnowledgeTestController extends BaseController
     // since the draw, or left without options, can never be
     // answered: the page marks it answered with no answer row
     // (mark_answered), so it counts as wrong, as a skipped
-    // question does, and the attempt can still close. Once none is left an open
-    // attempt closes — finished, ended now, the result from
-    // calculate_results — and a pass (above 74) earns
-    // badge_final_test of the attempt's language, whichever
-    // try it is, with a message on this page when the badge is
-    // new (save_badge refuses a second copy). The attempt's
-    // language is the one it was drawn in, whatever code the
-    // URL carries now: another language's, or one no language
-    // has, which once stored the badge with no language, a
-    // 500. A finished attempt keeps its end date, the date the
-    // certificate prints, and its result. The page is
+    // question does, and the attempt can still close. Once
+    // none is left an open attempt closes — finished, ended
+    // now, the result from calculate_results — and a pass
+    // (above 74) earns badge_final_test of the attempt's
+    // language, whichever try it is, with a message on this
+    // page when the badge is new (save_badge refuses a second
+    // copy). The attempt's language is the one it was drawn
+    // in, whatever code the URL carries now: another
+    // language's, or one no language has, which once stored
+    // the badge with no language, a 500. A finished attempt
+    // keeps its end date, the date the certificate prints, and
+    // its result. The course progress the closing page shows
+    // counts the test it closes
+    // (BaseController::share_course), where it once showed the
+    // figure from before. The page is
     // knowledge_progress.blade.php either way.
     //
     // Used by:
@@ -465,6 +473,9 @@ class KnowledgeTestController extends BaseController
             $options = [];
 
             KnowledgeUserTest::where(['id'=>$id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date('Y-m-d H:i:s'), 'results'=>$results]);
+
+            // The progress the page shows counts the test it closes
+            BaseController::share_course();
 
             // The badge of the attempt's own language: the URL's code
             // may name another language, or none at all

@@ -31,7 +31,9 @@ use Tests\ApacheTestCase;
 // FrontControllerTest
 // -----------------------------------------------------------
 //
-// Plain requests without a session.
+// Plain requests without a session, but for
+// testLineBreakInTheLanguageIsNoServerError, which signs a
+// member in to reach a member page.
 //
 // Used by:
 //   - PHPUnit — the Apache suite (runTests.sh)
@@ -191,5 +193,41 @@ class FrontControllerTest extends ApacheTestCase
             $this->assertSame(403, $response->getStatusCode(), $folder);
             $this->assertStringNotContainsString('Index of', (string) $response->getBody(), $folder);
         }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLineBreakInTheLanguageIsNoServerError
+    // -----------------------------------------------------------
+    //
+    // A line break in a member page's language segment is no
+    // server error: {lang} takes two letters only, so such a
+    // segment matches no route, while an unknown two-letter
+    // code, or a site code in upper case, still opens its
+    // page. In-process tests never send headers, which is why
+    // this runs over HTTP.
+    // {lang} once took any segment, and a member page built
+    // its redirect from it as it came, so the line break
+    // reached the Location header, which PHP refused to send —
+    // a 500, logged at every request
+    // (lang-segment-line-break).
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLineBreakInTheLanguageIsNoServerError(): void
+    {
+        $this->signInOverHttp($this->world->member());
+
+        $response = $this->http->get('/%0A/knowledge_test');
+
+        $this->assertLessThan(500, $response->getStatusCode(), 'GET /%0A/knowledge_test answered with a server error');
+        $this->assertSame(200, $this->http->get('/xx/news')->getStatusCode(), 'a two-letter code no language has no longer opens its page');
+        $this->assertSame(200, $this->http->get('/EN/news')->getStatusCode(), 'a site code in upper case no longer opens its page');
     }
 }

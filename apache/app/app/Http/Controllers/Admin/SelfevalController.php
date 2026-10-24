@@ -52,9 +52,10 @@ use Illuminate\Support\Facades\Validator;
 //   index                  — the questions of a category
 //   import_question_dialog,
 //   import_questions       — the import from a text file
+//   file_text,
 //   is_question_line,
-//   line_without_marker    — the file's question lines, for
-//                            both imports
+//   line_without_marker    — the file's text and question
+//                            lines, for both imports
 //   question_edit,
 //   question_update        — one question and its options
 //   question_delete        — a question goes, options and
@@ -192,22 +193,26 @@ class SelfevalController extends BaseController
     // POST /admin-panel/lm/self_eval/import
     //
     // Imports the questions of a plain-text file into the
-    // category in cat_id. The file is cut into blocks at
-    // "::". In a block, a question line (is_question_line)
-    // opens a question whose text follows its first
-    // backslash-colon, up to the next one; a line starting
-    // with "=" is a correct option, "~" a wrong one, its text
-    // everything after that marker, and other lines are
-    // skipped.
-    // One correct option makes a single-choice question
-    // (q_type 1), more make a multiple-choice one (2); the
-    // correct options share 100 points and the wrong ones
-    // get 0. Back with "Questions imported!". Main admins
-    // only (auth.admin:man, perms).
+    // category in cat_id. The file is cut into blocks at "::".
+    // In a block, a question line (is_question_line) opens a
+    // question whose text follows its first backslash-colon,
+    // up to the next one; a line starting with "=" is a
+    // correct option, "~" a wrong one, its text everything
+    // after that marker, and other lines are skipped. One
+    // correct option makes a single-choice question (q_type
+    // 1), more make a multiple-choice one (2); the correct
+    // options share 100 points and the wrong ones get 0. Back
+    // with "Questions imported!". Main admins only
+    // (auth.admin:man, perms).
     //
     // A post without a file goes back with "No file was
     // uploaded!", as the simulation import does, where reading
-    // the missing file was a 500. A category that is gone, or
+    // the missing file was a 500. The file is read as UTF-8
+    // (file_text): a UTF-16 one is converted and a byte order
+    // mark dropped, and one in any other encoding goes back
+    // with a message — its texts were once stored cut short,
+    // or not at all, under "Questions imported!". A category
+    // that is gone, or
     // a question line without a backslash-colon
     // (line_without_marker), refuses the whole file with a
     // message before anything is stored, and the blocks are
@@ -234,8 +239,12 @@ class SelfevalController extends BaseController
             return back()->withErrors("No file was uploaded!");
         }
 
-        $content = file_get_contents($request->file('doc'));
+        $content = SelfevalController::file_text($request->file('doc'));
         $cat_id = $request->get('cat_id');
+
+        if ($content === null) {
+            return back()->withErrors("The file is not saved as UTF-8! Save it as UTF-8 and import it again.");
+        }
 
         $content = explode("::", $content);
 
@@ -436,16 +445,20 @@ class SelfevalController extends BaseController
     //
     // POST /admin-panel/lm/self_eval/update/{uid}
     //
-    // Saves the edit page: the question's text and type,
-    // then every posted option, keyed by its id, with its
-    // text, correctness and points — points typed with a
-    // decimal comma read as with a point: MySQL, its strict
-    // mode off, took "33,33" for 33 with only a warning, and
-    // three such right options scored 99. Nothing checks that
-    // the options belong to this question. A question without
-    // options — an import block can leave one — saves its
-    // text and type all the same. Back with "Updated!". Main
-    // admins only (auth.admin:man, perms).
+    // Saves the edit page: the question's text and type, then
+    // every posted option, keyed by its id, with its text,
+    // correctness and points — points typed with a decimal
+    // comma read as with a point: MySQL, its strict mode off,
+    // took "33,33" for 33 with only a warning, and three such
+    // right options scored 99. A field of the wrong shape —
+    // the options, correctness or points as one value, or any
+    // one of them as a list — goes back with an error, where
+    // it once was a 500, and an option posted without its
+    // correctness or points is stored with 0. Nothing checks
+    // that the options belong to this question. A question
+    // without options — an import block can leave one — saves
+    // its text and type all the same. Back with "Updated!".
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/self_eval_edit.blade.php — the question
@@ -454,6 +467,23 @@ class SelfevalController extends BaseController
 
     public function question_update(Request $request, $uid)
     {
+        $single = function ($attribute, $value, $fail) {
+            if (is_array($value)) {
+                $fail('The '.$attribute.' must be a single value.');
+            }
+        };
+
+        $request->validate([
+            'q' => [ 'nullable', 'string' ],
+            'q_type' => [ 'nullable', $single ],
+            'option' => [ 'nullable', 'array' ],
+            'option.*' => [ 'nullable', $single ],
+            'correct' => [ 'nullable', 'array' ],
+            'correct.*' => [ 'nullable', $single ],
+            'points' => [ 'nullable', 'array' ],
+            'points.*' => [ 'nullable', $single ],
+        ]);
+
         $question = $request->get('q');
 
         $answers = $request->get('option');
@@ -468,15 +498,55 @@ class SelfevalController extends BaseController
 
             foreach($answers as $k => $v){
 
-                $option_points = is_string($points[$k]) ? str_replace(',', '.', $points[$k]) : $points[$k];
+                $option_points = is_string($points[$k] ?? null) ? str_replace(',', '.', $points[$k]) : ($points[$k] ?? 0);
 
-                SelfEvalOption::where(['id'=>$k])->update(['option'=>$v, 'correct'=>$correct[$k], 'points'=>$option_points]);
+                SelfEvalOption::where(['id'=>$k])->update(['option'=>$v, 'correct'=>$correct[$k] ?? 0, 'points'=>$option_points]);
 
             }
 
         }
 
         return back()->withSuccess("Updated!");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // file_text
+    // -----------------------------------------------------------
+    //
+    // The text of an uploaded question file as UTF-8, or null
+    // when it is in an encoding the imports cannot read. A
+    // UTF-16 file, as Notepad saves "Unicode", is converted,
+    // and a byte order mark at the start is dropped: it once
+    // hid the first line's question marker, and that question
+    // was lost. Any other text that is not UTF-8 — a legacy
+    // code page such as Windows-1257 — cannot be told apart
+    // from the others and is refused: MySQL, its strict mode
+    // off, once cut each of its texts at the first byte that
+    // was not UTF-8.
+    //
+    // Used by:
+    //   - import_questions (this class)
+    //   - KnowledgeController::import_questions
+    // -----------------------------------------------------------
+
+    public static function file_text($path)
+    {
+        $content = file_get_contents($path);
+
+        if (strncmp($content, "\xFF\xFE", 2) === 0 || strncmp($content, "\xFE\xFF", 2) === 0) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'UTF-16');
+        }
+
+        if (strncmp($content, "\xEF\xBB\xBF", 3) === 0) {
+            $content = substr($content, 3);
+        }
+
+        return mb_check_encoding($content, 'UTF-8') ? $content : null;
     }
 
 

@@ -206,16 +206,21 @@ class KnowledgeController extends BaseController
     //
     // A post without a file goes back with "No file was
     // uploaded!", as the simulation import does, where reading
-    // the missing file was a 500. Each block starts with no
-    // question, so a block without a question line stores none
-    // of its options, where they once went under an earlier
-    // block's question or, in the first block, ended in a 500.
-    // A category that is gone, or a question line without a
-    // backslash-colon (SelfevalController::line_without_marker),
-    // refuses the whole file with a message before anything is
-    // stored, and the blocks are stored in one transaction:
-    // such a line once broke the import halfway — a 500, the
-    // blocks before it kept.
+    // the missing file was a 500. The file is read as UTF-8
+    // (SelfevalController::file_text): a UTF-16 one is
+    // converted and a byte order mark dropped, and one in any
+    // other encoding goes back with a message, where its texts
+    // were once stored cut short or not at all. Each block
+    // starts with no question, so a block without a question
+    // line stores none of its options, where they once went
+    // under an earlier block's question or, in the first
+    // block, ended in a 500. A category that is gone, or a
+    // question line without a backslash-colon
+    // (SelfevalController::line_without_marker), refuses the
+    // whole file with a message before anything is stored, and
+    // the blocks are stored in one transaction: such a line
+    // once broke the import halfway — a 500, the blocks before
+    // it kept.
     //
     // Used by:
     //   - admin-panel/dialog/knowledge.blade.php — the import
@@ -231,8 +236,12 @@ class KnowledgeController extends BaseController
             return back()->withErrors("No file was uploaded!");
         }
 
-        $content = file_get_contents($request->file('doc'));
+        $content = SelfevalController::file_text($request->file('doc'));
         $cat_id = $request->get('cat_id');
+
+        if ($content === null) {
+            return back()->withErrors("The file is not saved as UTF-8! Save it as UTF-8 and import it again.");
+        }
 
         $content = explode("::", $content);
 
@@ -419,11 +428,14 @@ class KnowledgeController extends BaseController
     //
     // Saves the edit page: the question's text, then every
     // posted option, keyed by its id, with its text and
-    // correctness. Nothing checks that the options belong to
-    // this question. A question without options — an import
-    // block can leave one — saves its text all the same. Back
-    // with "Updated!". Main admins only (auth.admin:man,
-    // perms).
+    // correctness. A field of the wrong shape — the options or
+    // their correctness as one value, or any one of them as a
+    // list — goes back with an error, where it once was a 500,
+    // and an option posted without its correctness is stored
+    // as wrong. Nothing checks that the options belong to this
+    // question. A question without options — an import block
+    // can leave one — saves its text all the same. Back with
+    // "Updated!". Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/knowledge_edit.blade.php — the question
@@ -432,6 +444,20 @@ class KnowledgeController extends BaseController
 
     public function question_update(Request $request, $uid)
     {
+        $single = function ($attribute, $value, $fail) {
+            if (is_array($value)) {
+                $fail('The '.$attribute.' must be a single value.');
+            }
+        };
+
+        $request->validate([
+            'q' => [ 'nullable', 'string' ],
+            'option' => [ 'nullable', 'array' ],
+            'option.*' => [ 'nullable', $single ],
+            'correct' => [ 'nullable', 'array' ],
+            'correct.*' => [ 'nullable', $single ],
+        ]);
+
         $question = $request->get('q');
 
         $answers = $request->get('option');
@@ -444,7 +470,7 @@ class KnowledgeController extends BaseController
 
             foreach($answers as $k => $v){
 
-                KnowledgeOption::where(['id'=>$k])->update(['option'=>$v, 'correct'=>$correct[$k]]);
+                KnowledgeOption::where(['id'=>$k])->update(['option'=>$v, 'correct'=>$correct[$k] ?? 0]);
 
             }
 

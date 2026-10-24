@@ -174,11 +174,15 @@ class FinishedSe
     // much when it is correct and takes it away when it is
     // not, each option once even should its row have been
     // stored twice. The points count as stored, to the
-    // hundredth — three right options share 100 at 33.33
-    // each — and the total is rounded to a whole number once,
-    // at the end, so a fully right answer scores 100. They
-    // were once cut to whole numbers first: 33 three times,
-    // 99. A negative total counts as 0.
+    // hundredth — three right options share 100 at 33.33 each
+    // — and the total is rounded to a whole number once, at
+    // the end, so a fully right answer scores 100. They were
+    // once cut to whole numbers first: 33 three times, 99. A
+    // question deleted while the attempt was open keeps, for
+    // each right option chosen, the points that option was
+    // stored with, and a wrong one costs nothing: its worth
+    // once went with its options, so a right answer scored
+    // nothing. A negative total counts as 0.
     //
     // Used by:
     //   - handle (above) — when it closes an attempt
@@ -193,11 +197,18 @@ class FinishedSe
 
             $max_points = (float)SelfEvalOption::select('points')->where(['question_id'=>$v])->orderByDesc('points')->get()->pluck('points')->first();
 
-            $answers = SelfEvalUser::select('option_id', 'correct')->where(['question_id'=>$v, 'public_id'=>$public_id])->distinct()->get()->toArray();
+            $answers = SelfEvalUser::select('option_id', 'correct', 'points')->where(['question_id'=>$v, 'public_id'=>$public_id])->distinct()->get()->toArray();
+
+            // A question deleted since has no options to take its
+            // worth from: a right answer keeps the points it was
+            // stored with, and a wrong one costs nothing
+            $deleted = SelfEvalOption::where(['question_id'=>$v])->count() == 0;
 
             foreach($answers as $kk => $vv){
 
-                if($vv['correct'] == 1){
+                if($deleted){
+                    $points = $points + ($vv['correct'] == 1 ? (float) $vv['points'] : 0);
+                } elseif($vv['correct'] == 1){
                     $points = $points + $max_points;
                 } else {
                     $points = $points - $max_points;

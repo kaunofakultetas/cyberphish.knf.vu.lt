@@ -130,18 +130,21 @@ class LMUsers extends Model
     // percentage, from the stored function
     // bei_user_course_progress of mysql/init.sql: up to 25
     // points for the hours of completed lessons, 20 for the
-    // self-evaluations, 30 for a passed knowledge test (75
-    // or more) and 25 for the simulations finished. The
-    // lessons are those filed under a category, the ones a
-    // member page lists, each counted once however often
-    // its completion was stored; the simulations, those a
-    // category of their language offers
-    // (Scenarios::scopeOffered); the self-evaluations are
-    // one per category that has questions, counted once
-    // however often it is taken. A share the language does
-    // not offer counts 0, so in a language without
-    // simulations the progress tops out at 75. A NULL from
-    // the function comes back as 0.
+    // self-evaluations, 30 for a passed knowledge test (75 or
+    // more) and 25 for the simulations finished. The lessons
+    // are those filed under a category, the ones a member page
+    // lists, each counted once however often its completion
+    // was stored; the simulations, those a category of their
+    // language offers (Scenarios::scopeOffered); the
+    // self-evaluations are one per category that offers one a
+    // member can finish — a lesson to open it from, and a
+    // question SelfEval::scopeUsable asks — counted once
+    // however often it is taken: a category with questions but
+    // no lesson, or none a member can answer, once held every
+    // member below the full share for good. A share the
+    // language does not offer counts 0, so in a language
+    // without simulations the progress tops out at 75. A NULL
+    // from the function comes back as 0.
     //
     // Used by:
     //   - BaseController::__construct — the progress bar of
@@ -183,24 +186,30 @@ class LMUsers extends Model
     // pair — seven queries a call, which made the dashboard of
     // every country take over a second. The rows the shares
     // count — completed lessons, each once and only those
-    // filed under a category, finished self-evaluations,
-    // passed tests, finished runs of the simulations on offer
-    // (Scenarios::scopeOffered) — are stacked into one list
-    // and grouped by member and language in a single pass,
-    // then set against each language's totals: joining the
-    // four groupings to every member and language instead
+    // filed under a category, finished self-evaluations of the
+    // categories that offer one a member can finish (a lesson
+    // to open it from and a question SelfEval::scopeUsable
+    // asks), passed tests, finished runs of the simulations on
+    // offer (Scenarios::scopeOffered) — are stacked into one
+    // list and grouped by member and language in a single
+    // pass, then set against each language's totals: joining
+    // the four groupings to every member and language instead
     // leaned on keys MySQL builds only while its table
     // statistics are settled, and took 3.8 seconds on a
-    // freshly restored database. The arithmetic is the
-    // function's, expression for expression, on the same
-    // column types, so MySQL rounds alike: the lesson hours
-    // are a FLOAT, whose doubles round half to even, the
-    // counts are exact and round half away from zero, and the
-    // sum turns into a whole number as the function's INT
-    // return does. A change to the function must be made here
-    // too, as mysql/init.sql notes beside it;
-    // AdminDashboardTest holds these figures to the
-    // function's, halfway cases included.
+    // freshly restored database. The categories whose
+    // self-evaluation counts are read beforehand, in a query
+    // of their own, and handed to the statement as a list: as
+    // a test inside it, MySQL 5.7 ran the check again for
+    // every finished attempt, three times as slow with 2,500
+    // members. The arithmetic is the function's, expression
+    // for expression, on the same column types, so MySQL
+    // rounds alike: the lesson hours are a FLOAT, whose
+    // doubles round half to even, the counts are exact and
+    // round half away from zero, and the sum turns into a
+    // whole number as the function's INT return does. A change
+    // to the function must be made here too, as mysql/init.sql
+    // notes beside it; AdminDashboardTest holds these figures
+    // to the function's, halfway cases included.
     //
     // Used by:
     //   - Admin\ManagerMainController::dashboard — the course
@@ -210,6 +219,12 @@ class LMUsers extends Model
 
     public static function country_progress($country, $every_country)
     {
+        // The categories whose self-evaluation counts, read
+        // first: as a test in the statement, MySQL 5.7 ran it
+        // again for every finished attempt
+        $categories = LMCategory::whereIn('id', LMContent::select('cat_id'))->whereIn('id', SelfEval::usable()->select('cat_id'))->pluck('id')->all();
+        $counted = count($categories) > 0 ? implode(', ', array_fill(0, count($categories), '?')) : 'NULL';
+
         $rows = DB::select("SELECT pairs.user_id, pairs.lang_id,
                 CAST(ROUND(
                       IFNULL(ROUND(pairs.hours * 100 / NULLIF(totals.hours, 0), 0) * 0.25, 0)
@@ -228,7 +243,7 @@ class LMUsers extends Model
                     UNION ALL
                     SELECT t.user_id, t.lang_id, NULL, t.cat_id, 0, NULL
                         FROM bei_users_selfeval_test t JOIN bei_lm_category c ON c.id = t.cat_id AND c.lang_id = t.lang_id
-                        WHERE t.finished = 1 AND t.cat_id IN (SELECT cat_id FROM bei_selfeval_question)
+                        WHERE t.finished = 1 AND t.cat_id IN ($counted)
                     UNION ALL
                     SELECT user_id, lang_id, NULL, NULL, 1, NULL FROM bei_users_knowledge_test WHERE finished = 1 AND results >= 75
                     UNION ALL
@@ -243,12 +258,12 @@ class LMUsers extends Model
             JOIN (
                 SELECT bei_lang.id AS lang_id,
                     (SELECT SUM(hours) FROM bei_lm_content WHERE bei_lm_content.lang_id = bei_lang.id AND bei_lm_content.cat_id IS NOT NULL) AS hours,
-                    (SELECT COUNT(DISTINCT q.cat_id) FROM bei_selfeval_question q JOIN bei_lm_category c ON c.id = q.cat_id WHERE c.lang_id = bei_lang.id) AS categories,
+                    (SELECT COUNT(*) FROM bei_lm_category c WHERE c.lang_id = bei_lang.id AND c.id IN ($counted)) AS categories,
                     (SELECT COUNT(*) FROM bei_scenarios s WHERE s.lang_id = bei_lang.id AND EXISTS (SELECT 1 FROM bei_scenarios_in_category ic JOIN bei_scenarios_category c ON c.id = ic.cat_id
                         WHERE ic.scenario_id = s.id AND ic.lang_id = s.lang_id AND c.lang_id = s.lang_id)) AS scenarios
                 FROM bei_lang
             ) AS totals ON totals.lang_id = pairs.lang_id
-            HAVING progress <> 0", [$every_country ? 1 : 0, $country]);
+            HAVING progress <> 0", array_merge($categories, [$every_country ? 1 : 0, $country], $categories));
 
         $progress = array();
         foreach($rows as $row){

@@ -206,9 +206,11 @@ class InfoController extends BaseController
     // posted. An empty editor arrives as NULL
     // (ConvertEmptyStringsToNull) and is stored as an empty
     // body, the NOT NULL column refusing NULL; a missing or
-    // unknown language goes back with a form error. Answers a
-    // redirect to the list — the list itself, whatever page
-    // an auth middleware parked in the session.
+    // unknown language goes back with a form error, and so
+    // does a title or body sent as a list, which once reached
+    // the insert, a 500. Answers a redirect to the list — the
+    // list itself, whatever page an auth middleware parked in
+    // the session.
     //
     // Used by:
     //   - admin-panel/information_form.blade.php — the form,
@@ -218,7 +220,8 @@ class InfoController extends BaseController
     public function create(Request $request)
     {
         $validatedData = $request->validate([
-            'title' => [ 'required', 'min:1', 'max:255' ],
+            'title' => [ 'required', 'string', 'min:1', 'max:255' ],
+            'content' => [ 'nullable', 'string' ],
             'lang_id' => ['required', 'exists:bei_lang,id'],
         ]);
 
@@ -244,15 +247,16 @@ class InfoController extends BaseController
     // POST /admin-panel/information/update
     //
     // Saves the edit form over the page named by uid: the
-    // title and its slug, the body and the language as
-    // posted — a language that exists, checked as in create,
-    // or the form comes back with the validator's message.
-    // Answers a redirect back to the form. An empty
-    // body is stored as an empty string, as in create, but by
-    // MySQL rather than the code: config/database.php turns
-    // strict mode off, and outside it an UPDATE setting a NOT
-    // NULL column to NULL stores the column's default with a
-    // warning.
+    // title and its slug, the body and the language as posted
+    // — a language that exists, checked as in create, or the
+    // form comes back with the validator's message. A page
+    // deleted meanwhile goes back with an error, where the
+    // edit once answered "Updated!" over no row. Answers a
+    // redirect back to the form. An empty body is stored as an
+    // empty string, as in create, but by MySQL rather than the
+    // code: config/database.php turns strict mode off, and
+    // outside it an UPDATE setting a NOT NULL column to NULL
+    // stores the column's default with a warning.
     //
     // Used by:
     //   - admin-panel/information_form.blade.php — the form,
@@ -263,9 +267,14 @@ class InfoController extends BaseController
     {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'title' => [ 'required', 'min:1', 'max:255' ],
+            'title' => [ 'required', 'string', 'min:1', 'max:255' ],
+            'content' => [ 'nullable', 'string' ],
             'lang_id' => ['required', 'exists:bei_lang,id'],
         ]);
+
+        if (Information::where(['id' => $validatedData['uid']])->count() == 0) {
+            return back()->withErrors("The page no longer exists!");
+        }
 
         $update = [
             'title'=>$validatedData['title'],

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ \App\Models\Langs::iso_code(Session::get('lang', 'en')) }}">
 
 <head>
 
@@ -321,8 +321,9 @@
 	  },
 	  "theme": "classic",
 	  "content": {
-	    "message": "This website uses\ncookies. Cookies are used for this website functioning. For more information, see our ",
-	    "link": "Cookie Policy",
+	    "message": @json(__('main.cookie_message')),
+	    "link": @json(__('main.cookie_link')),
+	    "dismiss": @json(__('main.cookie_dismiss')),
 	    "href": "{{ env('APP_URL') }}/{{ $lang ?? 'en' }}/page/cookie-policy/19"
 	  }
 	});

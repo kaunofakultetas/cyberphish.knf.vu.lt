@@ -178,6 +178,46 @@ class PasswordResetTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testResetLinkGoesOnlyToTheAccountsOwnAddress
+    // -----------------------------------------------------------
+    //
+    // A reset request for an address that differs from a
+    // member's only by an accent in the domain — a look-alike
+    // domain anyone can register — finds the member's account,
+    // as the email column ignores case and accents, and the
+    // link still goes to the address the account holds, and to
+    // no other; the account's exact address gets its link as
+    // ever. The link once went to the address as typed, and
+    // whoever held the look-alike mailbox could reset the
+    // member's password (reset-link-typed-address).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResetLinkGoesOnlyToTheAccountsOwnAddress(): void
+    {
+        $member = $this->world->member();
+        $lookAlike = str_replace('@example.test', '@exämple.test', $member->email);
+        $this->solveCaptcha();
+
+        $this->requestReset($lookAlike)->assertSessionHasNoErrors();
+        $this->requestReset($member->email)->assertSessionHasNoErrors();
+
+        Mail::assertNotSent(SendRemindLink::class, function (SendRemindLink $mail) use ($lookAlike) {
+            return $mail->hasTo($lookAlike);
+        });
+        $this->assertCount(2, Mail::sent(SendRemindLink::class, function (SendRemindLink $mail) use ($member) {
+            return $mail->hasTo($member->email);
+        }), 'both requests mail the link to the address the account holds');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testUnsolvedCaptchaSendsNothing
     // -----------------------------------------------------------
     //
@@ -197,6 +237,36 @@ class PasswordResetTest extends FeatureTestCase
 
         $this->assertSame('', Members::find($member->id)->reset_token);
         Mail::assertNothingSent();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResetRequestCaptchaSpeaksTheSitesLanguage
+    // -----------------------------------------------------------
+    //
+    // The reset request page asks Google for its reCAPTCHA in
+    // the site's language, by its ISO code, as the sign-up
+    // page does — el for Greek and et for Estonian. Its layout
+    // once loaded the script with no language, and the widget
+    // spoke whatever the browser was set to, in the middle of
+    // a Lithuanian, Latvian, Estonian or Greek page
+    // (reset-captcha-language).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResetRequestCaptchaSpeaksTheSitesLanguage(): void
+    {
+        foreach (['lt' => 'lt', 'lv' => 'lv', 'ee' => 'et', 'gr' => 'el'] as $locale => $iso) {
+            $page = $this->withSession(['lang' => $locale])->get('/forgot-password')->assertOk()->getContent();
+            $this->assertStringContainsString('recaptcha/api.js', $page, "the $locale reset request page loads no reCAPTCHA");
+            $this->assertStringContainsString('hl=' . $iso, $page, "the reset request page of a $locale session asks Google for no language");
+        }
     }
 
 

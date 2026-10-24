@@ -9,11 +9,11 @@
 //  author is the signed-in manager; its picture is moved to
 //  storage/app/public/feat under a random 40-character name
 //  and served as /upload/feat/… through the public/upload
-//  link the Dockerfile makes. Production mounts
-//  storage/app/public read-only (docker-compose.yml), so
-//  there a new picture cannot be stored — the move fails, a
-//  500 — and removing one only empties feat_img, the file
-//  staying. Every route sits behind auth.admin:man and
+//  link the Dockerfile makes. Removing a picture, replacing
+//  it or deleting its article removes the file too
+//  (remove_picture); a folder that cannot be written, as
+//  production's once was, keeps the file and the action
+//  goes through. Every route sits behind auth.admin:man and
 //  perms: main admins only.
 //
 //  RouteServiceProvider loads routes/web_admin.php before
@@ -61,6 +61,7 @@ use Illuminate\Support\Facades\Validator;
 //   create, update — the form's two posts
 //   delete         — removes an article
 //   delete_picture — removes an article's picture
+//   remove_picture — removes a picture's file
 //
 // Used by:
 //   - routes/web_admin.php — the admin-panel/news routes
@@ -207,7 +208,9 @@ class NewsController extends BaseController
     // An empty editor arrives as NULL
     // (ConvertEmptyStringsToNull) and is stored as an empty
     // body, the NOT NULL column refusing NULL; a missing or
-    // unknown language goes back with a form error.
+    // unknown language goes back with a form error, and so
+    // does a title or body sent as a list, which once reached
+    // Str::slug or the insert, a 500.
     //
     // The picture may not be an SVG, though svg is among the
     // allowed types (NewsController.php:226): Laravel 13's
@@ -223,7 +226,8 @@ class NewsController extends BaseController
     public function create(Request $request)
     {
         $validatedData = $request->validate([
-            'title' => [ 'required', 'min:1', 'max:255' ],
+            'title' => [ 'required', 'string', 'min:1', 'max:255' ],
+            'content' => [ 'nullable', 'string' ],
             'feat' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
             'lang_id' => ['required', 'exists:bei_lang,id'],
         ]);
@@ -264,12 +268,17 @@ class NewsController extends BaseController
     // title and its slug, the body and the language as posted
     // — a language that exists, checked as in create, or the
     // form comes back with the validator's message — and the
-    // picture when one comes; answers a redirect back to the
-    // form. An empty body is stored as an empty string,
-    // as in create, but by MySQL rather than the code:
-    // config/database.php turns strict mode off, and outside
-    // it an UPDATE that sets a NOT NULL column to NULL stores
-    // the column's default with a warning.
+    // picture when one comes, the file of the one it replaces
+    // removed (remove_picture); answers a redirect back to the
+    // form. An article deleted meanwhile, in another tab or by
+    // another admin, goes back with an error before anything
+    // is stored, where the edit once answered "Updated!" over
+    // no row and left its picture on disk. An empty body is
+    // stored as an empty string, as in create, but by MySQL
+    // rather than the code: config/database.php turns strict
+    // mode off, and outside it an UPDATE that sets a NOT NULL
+    // column to NULL stores the column's default with a
+    // warning.
     //
     // Used by:
     //   - admin-panel/news_form.blade.php — the form, opened
@@ -280,10 +289,17 @@ class NewsController extends BaseController
     {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'title' => [ 'required', 'min:1', 'max:255' ],
+            'title' => [ 'required', 'string', 'min:1', 'max:255' ],
+            'content' => [ 'nullable', 'string' ],
             'lang_id' => ['required', 'exists:bei_lang,id'],
             'feat' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
         ]);
+
+        $article = News::where(['id' => $validatedData['uid']])->first();
+
+        if ($article === null) {
+            return back()->withErrors("The article no longer exists!");
+        }
 
         $update = [
             'title'=>$validatedData['title'],
@@ -297,6 +313,9 @@ class NewsController extends BaseController
             $imageName = Str::random(40).'.'.$request->feat->extension();
             $request->feat->move(storage_path('app/public/feat'), $imageName);
             $update['feat_img'] = 'feat/'.$imageName;
+
+            // The picture it replaces goes, as delete_picture does
+            NewsController::remove_picture($article->feat_img);
 
         }
 
@@ -316,9 +335,11 @@ class NewsController extends BaseController
     //
     // POST /admin-panel/news/delete/{uid}
     //
-    // Deletes the article and answers a redirect to the page
-    // before, on the article's language tab. Its picture file
-    // stays in storage/app/public/feat.
+    // Deletes the article and its picture file
+    // (remove_picture) and answers a redirect to the page
+    // before, on the article's language tab. The picture once
+    // stayed in storage/app/public/feat, still public at its
+    // address.
     //
     // Used by:
     //   - admin-panel/news.blade.php — each row's delete icon,
@@ -329,6 +350,7 @@ class NewsController extends BaseController
     {
         $lang_id = News::where(['id'=>$uid])->pluck('lang_id')->first();
 
+        NewsController::remove_picture(News::where(['id'=>$uid])->value('feat_img'));
         News::destroy($uid);
 
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
@@ -360,16 +382,39 @@ class NewsController extends BaseController
 
     public function delete_picture($uid)
     {
-        $feat_img = News::where(['id'=>$uid])->pluck('feat_img')->first();
-        $picture = storage_path('app/public').'/'.$feat_img;
-
-        // Without a picture the path is the folder itself
-        if($feat_img != '' && is_file($picture) && is_writable(dirname($picture))){
-            unlink($picture);
-        }
+        NewsController::remove_picture(News::where(['id'=>$uid])->pluck('feat_img')->first());
 
         News::where(['id' => $uid])->update(['feat_img'=>'']);
 
         return back()->withSuccess("Removed!");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // remove_picture
+    // -----------------------------------------------------------
+    //
+    // Removes an article's picture file from
+    // storage/app/public, given the feat_img the row holds. An
+    // empty one names no file — the path would be the folder
+    // itself — and a folder that cannot be written, as
+    // production's upload folders once were, keeps its file
+    // rather than failing the action.
+    //
+    // Used by:
+    //   - update, delete, delete_picture (above)
+    // -----------------------------------------------------------
+
+    private static function remove_picture($feat_img)
+    {
+        $picture = storage_path('app/public').'/'.$feat_img;
+
+        if($feat_img != '' && is_file($picture) && is_writable(dirname($picture))){
+            unlink($picture);
+        }
     }
 }

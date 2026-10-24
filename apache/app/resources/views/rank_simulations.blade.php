@@ -31,14 +31,14 @@
 
 										@foreach($ranking_table as $k => $v)
     									  <tr>
-    									    <td>{{ $loop->iteration }}</td>
+    									    <td>{{ $v['place'] }}</td>
                                           	<td>{{ $v['username'] }}</td>
                                           	<td>
                                           	@if(count($v['badges']) > 0)
 
                                           		@foreach($v['badges'] as $kk => $vv)
 
-													<a href="{{ env('APP_URL') }}/upload/badges/{{ $vv['name'] }}.png" data-featherlight="image"><img data-toggle="tooltip" data-placement="bottom" title="{{ __('main.'.$vv['name']) }}" src="{{ env('APP_URL') }}/upload/badges/{{ $vv['name'] }}.png" style="max-width:30px;"></a> &nbsp;
+													<a href="{{ env('APP_URL') }}/assets/img/badges/{{ $vv['name'] }}.png" data-featherlight="image"><img data-toggle="tooltip" data-placement="bottom" title="{{ __('main.'.$vv['name']) }}" src="{{ env('APP_URL') }}/assets/img/badges/{{ $vv['name'] }}.png" style="max-width:30px;"></a> &nbsp;
 
                                           		@endforeach
 

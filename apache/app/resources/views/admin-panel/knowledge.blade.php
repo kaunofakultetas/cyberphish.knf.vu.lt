@@ -39,7 +39,7 @@
 
                     @elseif(count($recordlist) == 0)
                     	<tr>
-                    		<td colspan="5"><center>No self evaluation questions for {{ $name }}</center></td>
+                    		<td colspan="5"><center>No knowledge questions for {{ $name }}</center></td>
                     	</tr>
                     @endif
                     </tbody>

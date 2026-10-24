@@ -26,7 +26,6 @@ use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use App\Models\Managers as Managers;
 use Route;
 use Carbon\Carbon;
@@ -82,11 +81,14 @@ class AdminLoginController extends Controller
     // __construct
     // -----------------------------------------------------------
     //
-    // Keeps signed-in users off the login, while the logout
-    // stays open to anyone. guest:man sends a signed-in
-    // manager to the dashboard and guest:mem a signed-in
-    // member to the home page; the bare guest names no guard,
-    // and RedirectIfAuthenticated acts only on man and mem, so
+    // Keeps signed-in managers off the login, while the logout
+    // stays open to anyone: guest:man sends one to the
+    // dashboard. A member signed in on the course passes, as
+    // the two guards' sessions live side by side; guest:mem
+    // once sent such a member to the home page, and an
+    // organiser with both accounts could not sign in to the
+    // panel at all. The bare guest names no guard, and
+    // RedirectIfAuthenticated acts only on man and mem, so
     // that one lets everybody through.
     //
     // Used by:
@@ -96,7 +98,6 @@ class AdminLoginController extends Controller
     public function __construct()
     {
         $this->middleware('guest')->except('logout');
-        $this->middleware('guest:mem')->except('logout');
         $this->middleware('guest:man')->except('logout');
     }
 
@@ -218,12 +219,20 @@ class AdminLoginController extends Controller
     // -----------------------------------------------------------
     //
     // The key ThrottlesLogins counts this login's failures
-    // under: the trait's own, the email and the address,
-    // marked as the panel's. The member login counts under the
-    // bare key in the same cache, so ten wrong member
-    // passwords for a manager's address once locked the
-    // panel's sign-in of that address too, and the panel's
-    // failures the member login's.
+    // under, marked as the panel's: the email as its column
+    // compares it — the weight string of utf8mb4_general_ci,
+    // which folds case and accents, ß into s among them —
+    // hashed, with the address the post came from, as the
+    // member login keys its own. Every spelling that finds a
+    // manager counts under one key, and an address no manager
+    // has the same way, so the lockout tells no one which
+    // addresses are managers'. The trait's own key, the email
+    // transliterated, turns ß into ss, so a locked account
+    // once opened under such a spelling of its address. The
+    // member login counts under keys of its own in the same
+    // cache, so ten wrong member passwords for a manager's
+    // address once locked the panel's sign-in of that address
+    // too, and the panel's failures the member login's.
     //
     // Used by:
     //   - ThrottlesLogins, through login (above)
@@ -231,7 +240,9 @@ class AdminLoginController extends Controller
 
     protected function throttleKey(Request $request)
     {
-        return 'admin-panel|'.Str::transliterate(Str::lower($request->input($this->username())).'|'.$request->ip());
+        $email = DB::selectOne('SELECT SHA2(WEIGHT_STRING(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci), 256) AS folded', [$request->input($this->username())])->folded;
+
+        return 'admin-panel|'.$email.'|'.$request->ip();
     }
 
 

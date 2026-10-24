@@ -78,6 +78,8 @@ use Illuminate\Support\Facades\DB;
 //   simulation_categories, simulation_categories_update,
 //   simulation_delete
 //                     — one simulation
+//   award_simulations_badge
+//                     — the badge a change brings within reach
 //
 // Used by:
 //   - routes/web_admin.php
@@ -218,7 +220,13 @@ class SimulationsController extends BaseController
     // the step before it, or whose answer type is none of the
     // four: each once stopped the saves with a 500, a blank
     // level when the step's parent was looked up, and the
-    // message now names the step's row.
+    // message now names the step's row. A level written as
+    // text — "2 ", a paste from a document — is read as the
+    // number it shows, where it once passed the check and then
+    // missed its parent, a 500. A file that no spreadsheet
+    // reader can open — an .xls renamed, a download cut short
+    // — goes back with a message and leaves no copy behind,
+    // where it was a 500.
     //
     // Used by:
     //   - admin-panel/dialog/simulation_import.blade.php — the
@@ -258,7 +266,17 @@ class SimulationsController extends BaseController
         // ==================================================
         $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
         $reader->setReadDataOnly(TRUE);
-        $spreadsheet = $reader->load(public_path('upload/simulations/').$random_name);
+
+        // A name ending in .xlsx is no spreadsheet yet: an old
+        // .xls renamed, a download cut short or a protected
+        // workbook throws here, once a 500
+        try {
+            $spreadsheet = $reader->load(public_path('upload/simulations/').$random_name);
+        } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
+            @unlink(public_path('upload/simulations/').$random_name);
+
+            return back()->withErrors("The file is not a readable .xlsx spreadsheet!");
+        }
 
         $worksheet = $spreadsheet->getActiveSheet();
 
@@ -311,7 +329,7 @@ class SimulationsController extends BaseController
         // a level must be whole and at most one below the step
         // before it
         $previous_level = 0;
-        foreach($questions as $step){
+        foreach($questions as $key => $step){
 
             if(!is_numeric($step['level']) || floor($step['level']) != $step['level'] || $step['level'] < 1){
                 return back()->withErrors("Row ".$step['row'].": the step needs a level of 1 or more in column A!");
@@ -326,6 +344,12 @@ class SimulationsController extends BaseController
             }
 
             $previous_level = $step['level'];
+
+            // As a whole number from here on: the saves key the
+            // steps by their level, and "2 " — a number stored as
+            // text with a space — passed the check above and then
+            // missed its parent, a 500
+            $questions[$key]['level'] = (int) $step['level'];
         }
 
         DB::beginTransaction();
@@ -526,7 +550,7 @@ class SimulationsController extends BaseController
     public function categories_create(Request $request)
     {
         $validatedData = $request->validate([
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:255' ],
             'uid' => [ 'required', 'exists:bei_lang,id' ],
         ]);
 
@@ -563,7 +587,7 @@ class SimulationsController extends BaseController
     {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:255' ],
         ]);
 
         ScenariosCategory::where(['id' => $validatedData['uid']])->update(['name'=>$validatedData['name']]);
@@ -584,11 +608,13 @@ class SimulationsController extends BaseController
     //
     // Removes the category's simulation links
     // (bei_scenarios_in_category) and the category, then
-    // redirects back to the page the request came from, on
-    // the category's language tab, with "Removed!" — the
-    // route spells "categores" that way. A simulation whose
-    // only category this was is left in none; its start page
-    // on the member side still opens. Main admins only
+    // redirects back to the page the request came from, on the
+    // category's language tab, with "Removed!" — the route
+    // spells "categores" that way. A simulation whose only
+    // category this was is left in none; its start page on the
+    // member side still opens. A member left with every
+    // simulation on offer finished gets the badge
+    // (award_simulations_badge). Main admins only
     // (auth.admin:man, perms).
     //
     // Used by:
@@ -603,6 +629,7 @@ class SimulationsController extends BaseController
 
         ScenariosInCategory::where(['cat_id'=>$uid])->delete();
         ScenariosCategory::destroy($uid);
+        SimulationsController::award_simulations_badge($lang_id);
 
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
     }
@@ -722,7 +749,7 @@ class SimulationsController extends BaseController
     public function attributes_create(Request $request)
     {
         $validatedData = $request->validate([
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:255' ],
             'uid' => [ 'required', 'exists:bei_lang,id' ],
         ]);
 
@@ -760,7 +787,7 @@ class SimulationsController extends BaseController
     {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:255' ],
         ]);
 
         ScenariosAttributes::where(['id' => $validatedData['uid']])->update(['name'=>$validatedData['name']]);
@@ -959,12 +986,14 @@ class SimulationsController extends BaseController
     //
     // POST /admin-panel/admin_simulations/delete/{uid}
     //
-    // Removes the simulation with everything that hangs off
-    // it — its category and attribute links, its steps, the
+    // Removes the simulation with everything that hangs off it
+    // — its category and attribute links, its steps, the
     // members' runs and the options picked in them — then
-    // redirects back to the page the request came from, on
-    // the simulation's language tab, with "Removed!". Main
-    // admins only (auth.admin:man, perms).
+    // redirects back to the page the request came from, on the
+    // simulation's language tab, with "Removed!". A member
+    // left with every simulation on offer finished gets the
+    // badge (award_simulations_badge). Main admins only
+    // (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/simulations.blade.php — the delete icon
@@ -982,6 +1011,7 @@ class SimulationsController extends BaseController
         ScenariosUsers::where(['scenario_id'=>$uid])->delete();
         ScenariosUsersOptions::where(['scenario_id'=>$uid])->delete();
         Scenarios::destroy($uid);
+        SimulationsController::award_simulations_badge($lang_id);
 
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");
     }
@@ -1122,7 +1152,13 @@ class SimulationsController extends BaseController
     // stored: a posted id of another language's category, as
     // the old import once filed six Latvian simulations under
     // English categories, would offer the simulation nowhere.
-    // Main admins only (auth.admin:man, perms).
+    // A simulation that no longer exists in the language —
+    // deleted from another tab — goes back with an error and
+    // stores nothing, where its links were once stored and
+    // members saw an empty button. A member left with every
+    // simulation on offer finished gets the badge
+    // (award_simulations_badge). Main admins only
+    // (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/simulation_categories.blade.php —
@@ -1131,6 +1167,10 @@ class SimulationsController extends BaseController
 
     public function simulation_categories_update(Request $request, $lang_id, $simulation_id)
     {
+        if(Scenarios::where(['id'=>$simulation_id, 'lang_id'=>$lang_id])->count() == 0){
+            return back()->withErrors("The simulation does not exist!");
+        }
+
         $cats = $request->get('cat');
 
         ScenariosInCategory::where(['lang_id'=>$lang_id, 'scenario_id'=>$simulation_id])->delete();
@@ -1149,6 +1189,60 @@ class SimulationsController extends BaseController
 
         }
 
+        SimulationsController::award_simulations_badge($lang_id);
+
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Updated!");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // award_simulations_badge
+    // -----------------------------------------------------------
+    //
+    // Awards badge_all_simulations of the language, without a
+    // message, to every member who has now finished every
+    // simulation it offers (Scenarios::scopeOffered). The
+    // member side awards it only on a run's end page
+    // (SimulationsController::simulation_do_stuff): deleting
+    // the one simulation a member had left, taking it off its
+    // categories, or deleting its only category, once left
+    // every simulation on offer finished, the share of the
+    // progress full, and the badge — with badge_finished_course
+    // behind it — out of reach, as lessons once were
+    // (Admin\LMController::award_lessons_badge). The check is
+    // the one check_if_all_simulations_finished makes for the
+    // signed-in member, made in one statement for every member
+    // who finished a simulation still on offer: a language
+    // left with none on offer awards nothing, as the progress
+    // then counts no simulation share, and as a member who
+    // completed none of the lessons gets no lessons badge.
+    //
+    // Used by:
+    //   - categories_delete, simulation_categories_update,
+    //     simulation_delete (above)
+    // -----------------------------------------------------------
+
+    private static function award_simulations_badge($lang_id)
+    {
+        DB::insert("INSERT INTO bei_users_badges (lang_id, user_id, name)
+            SELECT ?, members.user_id, 'badge_all_simulations'
+            FROM (SELECT DISTINCT bei_users_scenarios.user_id FROM bei_users_scenarios
+                    JOIN bei_scenarios ON bei_scenarios.id = bei_users_scenarios.scenario_id
+                    WHERE bei_scenarios.lang_id = ? AND bei_users_scenarios.finished = 1
+                    AND EXISTS (SELECT 1 FROM bei_scenarios_in_category ic JOIN bei_scenarios_category c ON c.id = ic.cat_id
+                        WHERE ic.scenario_id = bei_scenarios.id AND ic.lang_id = bei_scenarios.lang_id AND c.lang_id = bei_scenarios.lang_id)) AS members
+            WHERE NOT EXISTS (SELECT 1 FROM bei_users_badges
+                    WHERE bei_users_badges.user_id = members.user_id AND bei_users_badges.lang_id = ? AND bei_users_badges.name = 'badge_all_simulations')
+            AND NOT EXISTS (SELECT 1 FROM bei_scenarios s
+                    WHERE s.lang_id = ?
+                    AND EXISTS (SELECT 1 FROM bei_scenarios_in_category ic JOIN bei_scenarios_category c ON c.id = ic.cat_id
+                        WHERE ic.scenario_id = s.id AND ic.lang_id = s.lang_id AND c.lang_id = s.lang_id)
+                    AND NOT EXISTS (SELECT 1 FROM bei_users_scenarios r
+                        WHERE r.user_id = members.user_id AND r.scenario_id = s.id AND r.finished = 1))",
+            [$lang_id, $lang_id, $lang_id, $lang_id]);
     }
 }

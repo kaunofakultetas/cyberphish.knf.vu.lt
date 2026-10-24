@@ -93,14 +93,16 @@ class AdminDashboardTest extends FeatureTestCase
     //
     // Four members of the country, each busy in a different
     // way — one with something of every kind in English, one
-    // with a Lithuanian self-evaluation alone, one with only an
-    // unfinished Lithuanian run and a failed and an unfinished
-    // English test, one with nothing — and every row of every
-    // tab shows what figuresOf works out for that member and
-    // language. The rows are exactly the four member and
-    // language pairs begun, the idle member is not started,
-    // and three rows are pinned to their values, so the
-    // comparison cannot pass on figures that are all 0.
+    // with a Lithuanian self-evaluation alone, one with only
+    // an unfinished Lithuanian run and a failed and an
+    // unfinished English test, one with nothing — and every
+    // row of every tab shows what figuresOf works out for that
+    // member and language. The rows are exactly the four
+    // member and language pairs begun, the idle member is not
+    // started, and three rows are pinned to their values, so
+    // the comparison cannot pass on figures that are all 0.
+    // Each category with questions has a lesson, so its
+    // self-evaluation is one the progress counts.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -112,6 +114,7 @@ class AdminDashboardTest extends FeatureTestCase
         $lesson = $this->world->lmContent($category, $this->en);
         $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
         $ltCategory = $this->world->lmCategory($this->lt);
+        $this->world->lmContent($ltCategory, $this->lt);
         $this->world->selfEvalQuestion($ltCategory, [['Right', true, 100], ['Wrong', false, 0]]);
         $scenario = $this->world->scenario($this->en, [], [$this->world->scenarioCategory($this->en)]);
         $ltScenario = $this->world->scenario($this->lt, [], [$this->world->scenarioCategory($this->lt)]);
@@ -353,10 +356,15 @@ class AdminDashboardTest extends FeatureTestCase
     // passed test, and their sums — every member and language
     // comes out exactly as bei_user_course_progress has it,
     // rounding included: half the lessons alone is 12, where
-    // the double 12.5 rounds to the even 12. So do a lesson
+    // the double 12.5 rounds to the even 12, and a third of
+    // the self-evaluations with half the simulations is 19.
+    // The self-evaluations' categories each hold a lesson of
+    // no hours, as a category's self-evaluation counts only
+    // while it has a lesson to open it from. So do a lesson
     // stored twice, which counts once, a lesson without a
     // category, which counts not at all, and a simulation no
-    // category offers, which counts neither in the total nor
+    // category offers, or a self-evaluation of a category
+    // without lessons, which counts neither in the total nor
     // for the member who finished it.
     //
     // Used by:
@@ -372,7 +380,10 @@ class AdminDashboardTest extends FeatureTestCase
         for ($i = 0; $i < 3; $i++) {
             $categories[] = $category = $this->world->lmCategory($this->en);
             $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+            $this->world->lmContent($category, $this->en, ['hours' => 0]);
         }
+        $lessonless = $this->world->lmCategory($this->en);
+        $this->world->selfEvalQuestion($lessonless, [['Right', true, 100], ['Wrong', false, 0]]);
         $simulationCategory = $this->world->scenarioCategory($this->en);
         $scenario = $this->world->scenario($this->en, [], [$simulationCategory]);
         $this->world->scenario($this->en, [], [$simulationCategory]);
@@ -406,10 +417,13 @@ class AdminDashboardTest extends FeatureTestCase
         $offTheMenu = $this->world->member(['country' => 2]);
         $this->world->scenarioAttempt($offTheMenu->id, $scenario, $this->en);
         $this->world->scenarioAttempt($offTheMenu->id, $unoffered, $this->en);
+        $withoutLessons = $this->world->member(['country' => 2]);
+        $this->world->selfEvalAttempt($withoutLessons->id, $lessonless, $this->en);
+        $this->world->selfEvalAttempt($withoutLessons->id, $categories[0], $this->en);
 
         $progress = LMUsers::country_progress(2, false);
 
-        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle, $twice, $unreachable, $offTheMenu] as $member) {
+        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle, $twice, $unreachable, $offTheMenu, $withoutLessons] as $member) {
             foreach ([$this->en, $this->lt] as $langId) {
                 $this->assertEquals(LMUsers::course_progress($member->id, $langId), $progress[$langId][$member->id] ?? 0, "member {$member->id} in language $langId");
             }
@@ -418,6 +432,9 @@ class AdminDashboardTest extends FeatureTestCase
         $this->assertEquals(12, $progress[$this->en][$twice->id]);
         $this->assertEquals(12, $progress[$this->en][$unreachable->id]);
         $this->assertEquals(12, $progress[$this->en][$offTheMenu->id]);
+        $this->assertEquals(19, $progress[$this->en][$third->id]);
+        $this->assertEquals(38, $progress[$this->en][$twoThirds->id]);
+        $this->assertEquals(7, $progress[$this->en][$withoutLessons->id]);
     }
 
 

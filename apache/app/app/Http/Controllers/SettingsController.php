@@ -268,9 +268,11 @@ class SettingsController extends Controller
     // Switches the site's language, for everyone: one of en,
     // lt, ee, lv and gr goes into the session — and into the
     // locale of this request — and the visitor lands on the
-    // home page; anything else is a 400 that leaves the
-    // session alone. Pages under a {lang} URL set the language
-    // themselves, through BaseController.
+    // home page; another pair of letters is a 400 that leaves
+    // the session alone, and any other segment matches no
+    // route, a 404 (RouteServiceProvider::boot). Pages under a
+    // {lang} URL set the language themselves, through
+    // BaseController.
     //
     // Used by:
     //   - layouts/main.blade.php — the five entries of the

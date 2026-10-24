@@ -63,6 +63,7 @@ use Illuminate\Support\Facades\Validator;
 //   additional_files, files_form, files_create,
 //   files_update, files_delete
 //                    — the files of one lesson
+//   single_value     — a rule refusing a list
 //   hours            — a lesson's hours as typed
 //   award_lessons_badge
 //                    — the badge a delete brings within reach
@@ -222,14 +223,16 @@ class LMController extends BaseController
     // characters, the category, body and hours are taken as
     // posted — an empty editor, NULL by then
     // (ConvertEmptyStringsToNull), as an empty body and empty
-    // hours as 0, both columns being NOT NULL, and hours
-    // typed with a decimal comma as with a point (hours) —
-    // and the language is the form's hidden uid. The language
-    // and the category must exist, or the post goes back with
-    // the validation's error, where their foreign keys once
-    // answered a stale page with a 500. Then back to
-    // the lessons page on that language's tab, with
-    // "Created!". Main admins only (auth.admin:man, perms).
+    // hours as 0, both columns being NOT NULL, and hours typed
+    // with a decimal comma as with a point (hours) — and the
+    // language is the form's hidden uid. The language and the
+    // category must exist, or the post goes back with the
+    // validation's error, where their foreign keys once
+    // answered a stale page with a 500; so does a title, body
+    // or hours sent as a list, which once reached the insert,
+    // a 500 too. Then back to the lessons page on that
+    // language's tab, with "Created!". Main admins only
+    // (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content_form.blade.php — the lesson
@@ -239,7 +242,9 @@ class LMController extends BaseController
     public function create(Request $request)
     {
         $validatedData = $request->validate([
-            'title' => [ 'required', 'min:1', 'max:255' ],
+            'title' => [ 'required', 'string', 'min:1', 'max:255' ],
+            'content' => [ 'nullable', 'string' ],
+            'hours' => [ 'nullable', LMController::single_value() ],
             'uid' => [ 'required', 'exists:bei_lang,id' ],
             'cat_id' => [ 'nullable', 'exists:bei_lm_category,id' ],
         ]);
@@ -266,17 +271,17 @@ class LMController extends BaseController
     //
     // POST /admin-panel/lm/content/update
     //
-    // Writes the lesson form over the lesson in the hidden
-    // uid — category, title (1 to 255 characters), body and
-    // hours, a decimal comma read as a point (hours) — and
-    // goes back with "Updated!". An emptied body or hours
-    // ends as in create, an empty body or 0 hours, but
-    // through MySQL rather than the code: strict mode is off
+    // Writes the lesson form over the lesson in the hidden uid
+    // — category, title (1 to 255 characters), body and hours,
+    // a decimal comma read as a point (hours) — and goes back
+    // with "Updated!". An emptied body or hours ends as in
+    // create, an empty body or 0 hours, but through MySQL
+    // rather than the code: strict mode is off
     // (config/database.php), so MySQL's UPDATE stores the
     // column's implicit default instead of the NULL. A
-    // category that is gone goes back with the validation's
-    // error, as in create. Main admins only (auth.admin:man,
-    // perms).
+    // category that is gone, or a field sent as a list, goes
+    // back with the validation's error, as in create. Main
+    // admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_content_form.blade.php — the lesson
@@ -286,7 +291,9 @@ class LMController extends BaseController
     public function update(Request $request)
     {
         $validatedData = $request->validate([
-            'title' => [ 'required', 'min:1', 'max:255' ],
+            'title' => [ 'required', 'string', 'min:1', 'max:255' ],
+            'content' => [ 'nullable', 'string' ],
+            'hours' => [ 'nullable', LMController::single_value() ],
             'cat_id' => [ 'nullable', 'exists:bei_lm_category,id' ],
         ]);
 
@@ -300,6 +307,32 @@ class LMController extends BaseController
         LMContent::where(['id' => $request->get('uid')])->update($update);
 
         return back()->withSuccess("Updated!");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // single_value
+    // -----------------------------------------------------------
+    //
+    // A validation rule that refuses a field posted as a list,
+    // for the fields no other rule types: a list once went on
+    // to the insert, a 500.
+    //
+    // Used by:
+    //   - create, update (above)
+    // -----------------------------------------------------------
+
+    private static function single_value()
+    {
+        return function ($attribute, $value, $fail) {
+            if (is_array($value)) {
+                $fail('The '.$attribute.' must be a single value.');
+            }
+        };
     }
 
 
@@ -491,7 +524,7 @@ class LMController extends BaseController
     public function categories_create(Request $request)
     {
         $validatedData = $request->validate([
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:255' ],
             'uid' => [ 'required', 'exists:bei_lang,id' ],
         ]);
 
@@ -528,7 +561,7 @@ class LMController extends BaseController
     {
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
-            'name' => [ 'required', 'min:1', 'max:255' ],
+            'name' => [ 'required', 'string', 'min:1', 'max:255' ],
         ]);
 
         LMCategory::where(['id' => $validatedData['uid']])->update(['name'=>$validatedData['name']]);
@@ -555,11 +588,14 @@ class LMController extends BaseController
     // with a message instead: they have no foreign key to it,
     // and would outlive it where no page lists them — the
     // knowledge test drawing them still. Lessons without a
-    // category are on no member page, so a member who has
-    // done every other lesson of the language gets its badge
-    // (award_lessons_badge). The route and the page that
-    // links to it share the "categores" spelling. Main admins
-    // only (auth.admin:man, perms).
+    // category are on no member page, so a member who has done
+    // every other lesson of the language gets its badge
+    // (award_lessons_badge). The members' self-evaluation
+    // attempts of the category, with their answers, go with
+    // it: no history lists them once it is gone, and their
+    // points once still counted in the ranking. The route and
+    // the page that links to it share the "categores"
+    // spelling. Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/lm_categories.blade.php — the delete
@@ -575,7 +611,13 @@ class LMController extends BaseController
             return Redirect::to(URL::previous() . "#a".$lang_id)->withErrors("Category still has questions! Delete them first.");
         }
 
-        LMCategory::destroy($uid);
+        // The members' self-evaluations of the category go with
+        // it, as a simulation's runs go with the simulation
+        DB::transaction(function () use ($uid) {
+            DB::table('bei_users_selfeval')->where('cat_id', $uid)->delete();
+            DB::table('bei_users_selfeval_test')->where('cat_id', $uid)->delete();
+            LMCategory::destroy($uid);
+        });
         LMController::award_lessons_badge($lang_id);
 
         return Redirect::to(URL::previous() . "#a".$lang_id)->withSuccess("Removed!");

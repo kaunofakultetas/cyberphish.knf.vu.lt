@@ -22,6 +22,7 @@ use App\Models\Members;
 use Dom\HTMLDocument;
 use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
+use Tests\Support\Flows;
 use Tests\Support\World;
 
 
@@ -43,6 +44,9 @@ use Tests\Support\World;
 
 class AdminUsersTest extends FeatureTestCase
 {
+
+    // Taking a self-evaluation the way a member does
+    use Flows;
 
     // The main admin of the test running now
     private $admin;
@@ -439,5 +443,151 @@ class AdminUsersTest extends FeatureTestCase
         $this->signInManager($this->admin)->get("/admin-panel/user/self_evaluation_history/$en/{$member->id}")
             ->assertOk()
             ->assertSee('2/3');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSelfEvaluationHistoryLeavesADeletedQuestionOut
+    // -----------------------------------------------------------
+    //
+    // A member answers both questions of a self-evaluation
+    // right, and the history reads 2/2; once one of the
+    // questions is deleted in the panel it reads 1/1, the
+    // deleted question left out of both counts, as the
+    // member's results page leaves it out. The history once
+    // compared the deleted question's answers with its options
+    // as they are now, none, and the same attempt, its points
+    // unchanged, read 1/2 (selfeval-history-deleted-question).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSelfEvaluationHistoryLeavesADeletedQuestionOut(): void
+    {
+        $en = $this->world->language('en');
+        $this->world->setting(2, 'self_eval_pertime', null, null, 2);
+        $category = $this->world->lmCategory($en);
+        $kept = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+        $doomed = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+        $member = $this->world->member();
+        $this->world->lessonDone($member->id, $this->world->lmContent($category, $en));
+        $publicId = $this->startSelfEvaluation($member, $category);
+        foreach ([$kept, $doomed] as $question) {
+            $this->answerSelfEvaluation($member, $publicId, $category, $question['question'], [$question['options'][0]]);
+        }
+        $this->signInMember($member)->get("/cp/se/$publicId/$category");
+        $this->assertSame(1, (int) DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('finished'));
+        $history = "/admin-panel/user/self_evaluation_history/$en/{$member->id}";
+        $before = $this->signInManager($this->admin)->get($history)->assertOk()->viewData('recordlist')->items()[0];
+        $this->assertSame([2, 2], [$before['correct'], $before['questions']]);
+
+        $this->signInManager($this->admin)->from("/admin-panel/lm/self_eval/$category")
+            ->post("/admin-panel/lm/self_eval/delete/{$doomed['question']}")->assertRedirect();
+        $after = $this->signInManager($this->admin)->get($history)->assertOk()->viewData('recordlist')->items()[0];
+
+        $this->assertSame([1, 1], [$after['correct'], $after['questions']], "the attempt reads {$after['correct']}/{$after['questions']} after the delete");
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedQuestionTurnsNoPartAnswerRight
+    // -----------------------------------------------------------
+    //
+    // A part answer — one of a question's two right options —
+    // reads as not right in the history, and stays so once
+    // the question is deleted: the question leaves both
+    // counts. The answers stored for it keep their correct
+    // flags but not how many options the question had right,
+    // so judged by those flags alone the part answer would
+    // read as a whole one.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedQuestionTurnsNoPartAnswerRight(): void
+    {
+        $en = $this->world->language('en');
+        $category = $this->world->lmCategory($en);
+        $question = $this->world->selfEvalQuestion($category, [['A', true, 50], ['B', true, 50], ['C', false, 0]]);
+        $member = $this->world->member();
+        $attempt = $this->world->selfEvalAttempt($member->id, $category, $en, ['points' => 50]);
+        DB::table('bei_users_selfeval')->insert([
+            'cat_id'      => $category,
+            'test_id'     => $attempt,
+            'public_id'   => DB::table('bei_users_selfeval_test')->where('id', $attempt)->value('public_id'),
+            'user_id'     => $member->id,
+            'question_id' => $question['question'],
+            'option_id'   => $question['options'][0],
+            'correct'     => 1,
+            'points'      => 50,
+        ]);
+        $history = "/admin-panel/user/self_evaluation_history/$en/{$member->id}";
+        $before = $this->signInManager($this->admin)->get($history)->assertOk()->viewData('recordlist')->items()[0];
+        $this->assertSame([0, 1], [$before['correct'], $before['questions']]);
+
+        $this->signInManager($this->admin)->from("/admin-panel/lm/self_eval/$category")
+            ->post("/admin-panel/lm/self_eval/delete/{$question['question']}")->assertRedirect();
+        $after = $this->signInManager($this->admin)->get($history)->assertOk()->viewData('recordlist')->items()[0];
+
+        $this->assertSame([0, 0], [$after['correct'], $after['questions']], 'the deleted question still counts, or counts as right');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSelfEvaluationHistoryCountsAnAnswerStoredTwiceOnce
+    // -----------------------------------------------------------
+    //
+    // An attempt that holds its right option twice — two
+    // answers to one question that arrived together were each
+    // stored before the attempt's row lock came in — reads 1/1
+    // in the history, as its points and the member's results
+    // page count the option once. The history once counted the
+    // option rows, two against the one correct option, and
+    // showed 0/1 for an attempt that scored full points
+    // (selfeval-history-duplicate-answer).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSelfEvaluationHistoryCountsAnAnswerStoredTwiceOnce(): void
+    {
+        $member = $this->world->member();
+        $en = $this->world->language('en');
+        $category = $this->world->lmCategory($en);
+        $attempt = $this->world->selfEvalAttempt($member->id, $category, $en, ['points' => 100]);
+        $publicId = DB::table('bei_users_selfeval_test')->where('id', $attempt)->value('public_id');
+        $question = $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
+        foreach ([1, 2] as $copy) {
+            DB::table('bei_users_selfeval')->insert([
+                'cat_id'      => $category,
+                'test_id'     => $attempt,
+                'public_id'   => $publicId,
+                'user_id'     => $member->id,
+                'question_id' => $question['question'],
+                'option_id'   => $question['options'][0],
+                'correct'     => 1,
+                'points'      => 100,
+            ]);
+        }
+
+        $row = $this->signInManager($this->admin)->get("/admin-panel/user/self_evaluation_history/$en/{$member->id}")
+            ->assertOk()->viewData('recordlist')->items()[0];
+
+        $this->assertSame([1, 1], [$row['correct'], $row['questions']], 'right answers out of the questions answered');
     }
 }

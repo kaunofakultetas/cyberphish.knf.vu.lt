@@ -217,6 +217,7 @@ abstract class TestCase extends LaravelTestCase
     // Used by:
     //   - AdminContentTest, AdminLearningTest,
     //     AdminSimulationsTest (Feature/Admin/)
+    //   - KnowledgeExamTest (Feature/Knowledge/)
     //   - Sheets::simulationSheet (Support/)
     // -----------------------------------------------------------
 

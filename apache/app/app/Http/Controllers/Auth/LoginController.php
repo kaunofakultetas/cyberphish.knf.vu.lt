@@ -56,6 +56,7 @@ use Carbon\Carbon;
 // throttling of the trait's login (ThrottlesLogins).
 //
 //   showLoginForm, login, logout — signing in and out
+//   throttleKey                  — where failures are counted
 //   ForgotPasswordForm,
 //   forgotpassword               — asking for a reset link
 //   reset_form, reset_pass       — the link: a new password
@@ -78,8 +79,9 @@ class LoginController extends BaseController
     protected $redirectTo = "/cp/dashboard";
 
     // ThrottlesLogins reads these: ten failed sign-ins for one
-    // email from one address lock that pair out until fifteen
-    // minutes after the first of them
+    // email, as its column compares it, from one address
+    // (throttleKey) lock that pair out until fifteen minutes
+    // after the first of them
     protected $maxAttempts = 10;
     protected $decayMinutes = 15;
 
@@ -236,6 +238,40 @@ class LoginController extends BaseController
 
 
     // -----------------------------------------------------------
+    // throttleKey
+    // -----------------------------------------------------------
+    //
+    // The key ThrottlesLogins counts a login's failures under:
+    // the email as its column compares it — the weight string
+    // of utf8mb4_general_ci, which folds case and accents, ß
+    // into s among them — hashed, with the address the post
+    // came from. Every spelling that finds an account counts
+    // under the account's one key, and an address no account
+    // has counts the same way, so the lockout tells no one
+    // which addresses have accounts; keying on the account,
+    // where there is one, would lock a known address under its
+    // other spellings and an unknown one not. The trait's own
+    // key was the email transliterated, which turns ß into ss,
+    // so a locked account once opened under such a spelling of
+    // its address.
+    //
+    // Used by:
+    //   - ThrottlesLogins, through login (above)
+    // -----------------------------------------------------------
+
+    protected function throttleKey(Request $request)
+    {
+        $email = DB::selectOne('SELECT SHA2(WEIGHT_STRING(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci), 256) AS folded', [$request->input($this->username())])->folded;
+
+        return 'member:'.$email.'|'.$request->ip();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // logout
     // -----------------------------------------------------------
     //
@@ -306,15 +342,19 @@ class LoginController extends BaseController
     // reCAPTCHA counts as unsolved (AppServiceProvider::boot).
     // When exactly one member has that email, a 50-character
     // token from random_string goes out in a SendRemindLink
-    // mail and is then stored in the member's reset_token — a
-    // column of its own, as remember_token belongs to
-    // Laravel's session guard, whose logout replaces a
-    // non-empty one: a member still signed in elsewhere who
-    // signs out there keeps the link. Every address gets the
-    // same forgot_pass_msg answer, mail or no mail, so the
-    // form does not tell who has an account — also when the
-    // mail cannot be sent: the failure is logged and no token
-    // is stored, where the registered address once got a 500.
+    // mail to the address the account holds — the lookup
+    // ignores case and accents, and the link once went to the
+    // address as typed, so a look-alike domain got a real
+    // account's link — and is then stored in the member's
+    // reset_token — a column of its own, as remember_token
+    // belongs to Laravel's session guard, whose logout
+    // replaces a non-empty one: a member still signed in
+    // elsewhere who signs out there keeps the link. Every
+    // address gets the same forgot_pass_msg answer, mail or no
+    // mail, so the form does not tell who has an account —
+    // also when the mail cannot be sent: the failure is logged
+    // and no token is stored, where the registered address
+    // once got a 500.
     //
     // Used by:
     //   - auth/forgot-password.blade.php — the form posts here
@@ -327,14 +367,19 @@ class LoginController extends BaseController
             'g-recaptcha-response' => 'required|captcha',
         ]);
 
-        if (Members::where(array('email' => $request->get('email')))->count() == 1) {
+        $members = Members::where(array('email' => $request->get('email')))->get();
+
+        if ($members->count() == 1) {
 
             $uid = SettingsController::random_string(50);
 
             try {
-                Mail::to($request->get('email'))->send(new SendRemindLink(['uid'=>$uid]));
+                // To the address the account holds: the lookup folds
+                // case and accents, so the typed string can name
+                // another mailbox
+                Mail::to($members[0]->email)->send(new SendRemindLink(['uid'=>$uid]));
 
-                Members::where(['email'=>$request->get('email')])->update(['reset_token'=>$uid]);
+                Members::where(['id'=>$members[0]->id])->update(['reset_token'=>$uid]);
             } catch (\Throwable $e) {
                 report($e);
             }

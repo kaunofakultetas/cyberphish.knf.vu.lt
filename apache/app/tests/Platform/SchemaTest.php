@@ -7,7 +7,8 @@
 //  the way the production stack's first start does. It
 //  must create every table the app uses, with a key on the
 //  columns the app finds rows by, the two ranking views,
-//  the course-progress function, and the seed rows:
+//  the course-progress function — whose body the app's user
+//  may read, as the backups dump it — and the seed rows:
 //  English, the three settings rows the settings page saves
 //  into, and the main admin — whose password nobody knows.
 //
@@ -258,6 +259,36 @@ class SchemaTest extends TestCase
 
         $functions = DB::table('information_schema.ROUTINES')->whereRaw('ROUTINE_SCHEMA = DATABASE()')->pluck('ROUTINE_NAME')->all();
         $this->assertSame(['bei_user_course_progress'], $functions);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAppUserCanReadTheProgressFunction
+    // -----------------------------------------------------------
+    //
+    // The app's database user, the one the backups dump as,
+    // reads the body of the progress function, which
+    // mysqldump --routines writes into every dump: init.sql
+    // lets the user granted on the database read mysql.proc.
+    // MySQL otherwise shows the body only to its definer,
+    // root, and to anyone else mysqldump stops at the function
+    // with an error, leaving the function and the views out of
+    // the dump.
+    //
+    // Used by:
+    //   - PHPUnit — the Platform suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAppUserCanReadTheProgressFunction(): void
+    {
+        $function = (array) DB::selectOne('SHOW CREATE FUNCTION bei_user_course_progress');
+
+        $this->assertNotNull($function['Create Function'], 'the app user sees no body of the function, so the backups would stop at it');
+        $this->assertStringContainsString('bei_users_selfeval_test', $function['Create Function']);
     }
 
 

@@ -240,6 +240,48 @@ class AdminAccessTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testReportsOfUnknownIdsAreNotFound
+    // -----------------------------------------------------------
+    //
+    // A main admin gets the 404 a country manager gets for the
+    // report of a run that no longer exists — its simulation
+    // deleted while the history page stood open — and for the
+    // two histories of a member id no member has, as the
+    // knowledge report answers an unknown public id
+    // (testUnknownKnowledgeReportIsNotFound, above). Such
+    // reports once opened for a main admin as blank pages
+    // (admin-report-unknown-ids).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testReportsOfUnknownIdsAreNotFound(): void
+    {
+        $en = $this->world->language('en');
+        $admin = $this->world->manager();
+        $nobody = $this->world->nextId('bei_users');
+
+        $statuses = [];
+        foreach ([
+            '/admin-panel/user/simulation/report/no-such-run',
+            "/admin-panel/user/self_evaluation_history/$en/$nobody",
+            "/admin-panel/user/simulations_history/$en/$nobody",
+        ] as $report) {
+            $statuses[$report] = $this->signInManager($admin)->get($report)->getStatusCode();
+        }
+
+        $this->assertSame([], array_keys(array_filter($statuses, function (int $status) {
+            return $status !== 404;
+        })), 'reports of unknown ids that open');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testMainAdminOpensThePanelPages
     // -----------------------------------------------------------
     //

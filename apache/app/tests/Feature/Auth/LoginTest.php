@@ -463,6 +463,84 @@ class LoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLockedAccountCannotBeReachedByAnEquivalentSpelling
+    // -----------------------------------------------------------
+    //
+    // An account locked by ten wrong passwords stays locked
+    // under every spelling of its address that reaches it: the
+    // right password typed with ß in place of an s — the email
+    // column's collation folds ß into s, so the spelling names
+    // the same account — gets the lockout message too. The
+    // failures once counted under the address transliterated,
+    // ß turned into ss, so that spelling counted apart and
+    // opened the locked account
+    // (login-throttle-collation-bypass).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLockedAccountCannotBeReachedByAnEquivalentSpelling(): void
+    {
+        $member = $this->world->member(['email' => 'throttle.victim@example.test']);
+        for ($guess = 1; $guess <= 10; $guess++) {
+            $this->signIn($member->email, 'Wrong-Guess-Nr-' . $guess);
+        }
+
+        $this->signIn('throttle.victim@example.teßt', World::PASSWORD)
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors('email');
+
+        // A refusal by the email rule would land on the same
+        // field; the lockout's message, up to its seconds, tells
+        // the two apart
+        $this->assertStringStartsWith(strstr(__('auth.throttle'), ':seconds', true), session('errors')->first('email'), 'the spelling was refused, but not by the lockout');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAddressNoAccountHasLocksAsAnAccountsDoes
+    // -----------------------------------------------------------
+    //
+    // Ten failed sign-ins for an address no account has lock
+    // that address from that IP under every spelling the email
+    // column folds together, exactly as they lock an account's
+    // address
+    // (testLockedAccountCannotBeReachedByAnEquivalentSpelling,
+    // above), so the lockout tells no one whether an address
+    // has an account. Keyed on the account where there is one,
+    // the ß spelling of an unknown address would be answered
+    // as a wrong password where a known one's is locked.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAddressNoAccountHasLocksAsAnAccountsDoes(): void
+    {
+        for ($guess = 1; $guess <= 10; $guess++) {
+            $this->signIn('nobody.locked@example.test', 'Wrong-Guess-' . $guess);
+        }
+
+        foreach (['nobody.locked@example.test', 'nobody.locked@example.teßt'] as $spelling) {
+            $this->signIn($spelling, 'Wrong-Guess-11')
+                ->assertRedirect('/login')
+                ->assertSessionHasErrors('email');
+            $this->assertStringStartsWith(strstr(__('auth.throttle'), ':seconds', true), session('errors')->first('email'), "$spelling was answered, but not by the lockout");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testSignedInMemberIsSentAwayFromTheLoginForm
     // -----------------------------------------------------------
     //

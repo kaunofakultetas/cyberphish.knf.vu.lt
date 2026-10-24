@@ -15,15 +15,20 @@
 //  points, and the self-evaluation import recognises a
 //  Greek question line; an option keeps every "=" and "~"
 //  after its marker, and a question without options still
-//  saves its text. A lesson goes with its file rows, its
-//  file gone from disk or not; a category with questions is
-//  refused. Deletes redirect to the row's language tab,
+//  saves its text; a file in another encoding is read as
+//  written or refused, and a byte order mark is no part of
+//  the text. A lesson goes with its file rows, its file
+//  gone from disk or not; a category with questions is
+//  refused, and a deleted one's attempts leave the ranking
+//  with it. Deletes redirect to the row's language tab,
 //  work on a read-only upload folder, and a file's delete
 //  link opened twice is harmless. A file posted without its
 //  Embed box is listed for download, and a post without a
 //  file, or a name, gets an error, as does an import
 //  without a file. Hours take a decimal comma. The id of a
-//  page's URL reaches its script only as a number.
+//  page's URL reaches its script only as a number, and the
+//  empty knowledge-question list speaks of knowledge
+//  questions.
 //
 //  Used by:
 //    - PHPUnit — the Feature suite (runTests.sh)
@@ -1075,6 +1080,185 @@ class AdminLearningTest extends FeatureTestCase
         $this->assertFalse(DB::table('bei_lm_content_files')->where('content_id', $gone)->exists());
         $this->assertFalse(DB::table('bei_lm_category')->where('lang_id', 999999)->exists());
         $this->assertFalse(DB::table('bei_lm_content')->where('title', 'Nowhere')->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFileInAnotherEncodingIsReadOrRefused
+    // -----------------------------------------------------------
+    //
+    // A question file in another encoding is read as written
+    // or goes back with a message and nothing stored, never
+    // stored cut short. The imports convert a UTF-16 file,
+    // Notepad's "Unicode", and refuse any other text that is
+    // not UTF-8 — a Lithuanian file saved as Windows-1257,
+    // the Baltic "ANSI" of Windows editors, cannot be told
+    // apart from the other code pages. They once stored the
+    // bytes as they came, and MySQL, its strict mode off,
+    // kept the Windows-1257 options only up to their first
+    // Lithuanian letter and nothing of the UTF-16 file, both
+    // under "Questions imported!" (question-import-encoding).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFileInAnotherEncodingIsReadOrRefused(): void
+    {
+        $question = "K\\: Kuri nuoroda saugi?\n=Ta, kurią įvedėte patys\n~Nuoroda iš laiško\n";
+        $files = [
+            'Windows-1257' => "K\\: Kuri nuoroda saugi?\n=Ta, kuri\xE0 \xE1ved\xEBte patys\n~Nuoroda i\xF0 lai\xF0ko\n",
+            'UTF-16'       => "\xFF\xFE" . mb_convert_encoding($question, 'UTF-16LE', 'UTF-8'),
+        ];
+        $outcomes = [];
+
+        foreach ($files as $encoding => $content) {
+            $category = $this->world->lmCategory($this->world->language('lt'));
+            $this->admin()->from("/admin-panel/lm/self_eval/$category")->post('/admin-panel/lm/self_eval/import', [
+                'cat_id' => $category,
+                'doc'    => $this->uploadedFile('klausimai.txt', $content),
+            ]);
+            $questions = DB::table('bei_selfeval_question')->where('cat_id', $category)->pluck('id');
+            $options = DB::table('bei_selfeval_option')->whereIn('question_id', $questions)->orderBy('id')->pluck('option')->all();
+
+            if (session()->has('errors') && count($questions) === 0) {
+                $outcomes[$encoding] = 'refused';
+            } elseif ($options === ['Ta, kurią įvedėte patys', 'Nuoroda iš laiško']) {
+                $outcomes[$encoding] = 'read as written';
+            } else {
+                $outcomes[$encoding] = count($questions) . ' question(s) stored, options ' . json_encode($options, JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        foreach ($outcomes as $encoding => $outcome) {
+            $this->assertContains($outcome, ['refused', 'read as written'], "the $encoding file: $outcome");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFileWithAByteOrderMarkKeepsItsFirstQuestion
+    // -----------------------------------------------------------
+    //
+    // A question file saved as UTF-8 with a byte order mark,
+    // the three bytes Windows editors write before the first
+    // line, keeps its first question in both imports: the
+    // mark is no part of the text. In a file that opens on
+    // its first question line the mark once hid the question
+    // marker, and both imports said "Questions imported!" one
+    // question short (question-import-bom).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFileWithAByteOrderMarkKeepsItsFirstQuestion(): void
+    {
+        $file = "\xEF\xBB\xBFQ\\: Who may ask for your password?\n=Nobody\n~Your bank\n"
+            . "::\nQ\\: Which link is safe to open?\n=The address you typed yourself\n~The link in an urgent mail\n";
+        $imported = [];
+
+        foreach (['self_eval' => 'bei_selfeval_question', 'knowledge_test' => 'bei_knowledge_test'] as $import => $table) {
+            $this->admin()->from("/admin-panel/lm/$import/{$this->category}")->post("/admin-panel/lm/$import/import", [
+                'cat_id' => $this->category,
+                'doc'    => $this->uploadedFile('questions.txt', $file),
+            ])->assertSessionHas('success');
+            $imported[$import] = DB::table($table)->where('cat_id', $this->category)->orderBy('id')->pluck('question')->all();
+        }
+
+        $both = ['Who may ask for your password?', 'Which link is safe to open?'];
+        $this->assertSame(['self_eval' => $both, 'knowledge_test' => $both], $imported, 'the first question of the file was lost');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEmptyKnowledgeQuestionListSpeaksOfKnowledgeQuestions
+    // -----------------------------------------------------------
+    //
+    // The knowledge questions page of a category without
+    // questions, titled "… - Knowledge Questions", says the
+    // category has no knowledge questions. It once carried
+    // the self-evaluation page's empty-list line word for
+    // word, and told an admin who opened a new category's
+    // knowledge questions that it had no self-evaluation
+    // questions (admin-knowledge-empty-label).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEmptyKnowledgeQuestionListSpeaksOfKnowledgeQuestions(): void
+    {
+        $html = $this->admin()->get("/admin-panel/lm/knowledge_test/{$this->category}")
+            ->assertOk()
+            ->assertSee('Phishing basics - Knowledge Questions')
+            ->getContent();
+
+        $this->assertStringNotContainsString('No self evaluation questions', $html, 'the empty knowledge-question list speaks of self-evaluation questions');
+        $this->assertStringContainsString('No knowledge questions for Phishing basics', $html);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRankingAgreesWithTheHistoryAfterACategoryIsDeleted
+    // -----------------------------------------------------------
+    //
+    // After a learning-material category is deleted, the
+    // public self-evaluation ranking agrees with the member's
+    // history: each member's total is the sum of the best
+    // finished attempt per category the history lists. The
+    // delete takes the category's attempts along, as no
+    // history lists them once it is gone. The ranking once
+    // went on adding their best points, read through
+    // view_max_points_per_selfeval_cat, which never looks at
+    // the category (category-delete-ranking).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRankingAgreesWithTheHistoryAfterACategoryIsDeleted(): void
+    {
+        $gone = $this->world->lmCategory($this->en);
+        $kept = $this->world->lmCategory($this->en);
+        $member = $this->world->member();
+        $this->world->selfEvalAttempt($member->id, $gone, $this->en, ['points' => 70]);
+        $this->world->selfEvalAttempt($member->id, $kept, $this->en, ['points' => 30]);
+
+        $this->admin()->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$gone");
+        $this->assertFalse(DB::table('bei_lm_category')->where('id', $gone)->exists());
+
+        $best = [];
+        foreach ($this->signInMember($member)->get('/cp/self-evaluation-history')->assertOk()->viewData('my_tests') as $attempt) {
+            if ((int) $attempt['finished'] === 1) {
+                $best[$attempt['cat_id']] = max($best[$attempt['cat_id']] ?? 0, (int) $attempt['points']);
+            }
+        }
+        $ranking = $this->get('/en/ranks/self-evaluation')->assertOk()->viewData('ranking_table');
+        $total = 0;
+        foreach ($ranking as $row) {
+            if ((int) $row['id'] === $member->id) {
+                $total = (int) $row['points'];
+            }
+        }
+
+        $this->assertSame(array_sum($best), $total, 'the ranking adds points the member\'s history does not list');
     }
 
 

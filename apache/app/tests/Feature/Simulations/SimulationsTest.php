@@ -28,6 +28,7 @@
 
 namespace Tests\Feature\Simulations;
 
+use App\Http\Controllers\SettingsController;
 use App\Mail\SimulationsResults;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -913,5 +914,131 @@ class SimulationsTest extends FeatureTestCase
 
         $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")
             ->assertSeeInOrder(['Check the sender', 'Good: the domain is wrong', 'Report it to IT', 'Right: IT can block the sender']);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testChoicePostedAsTrueIsNotRecorded
+    // -----------------------------------------------------------
+    //
+    // A choice posted as JSON true records nothing and leaves
+    // the run on its first step, as any id the step does not
+    // offer does, while a JSON number the step offers is
+    // recorded: save_choice takes a whole number only and
+    // matches it strictly against the step's ids. The loose
+    // check once let true equal every id of the step, so the
+    // run recorded option 1 — here none of the simulation's
+    // own — and closed at the next visit, scored on a choice
+    // it never offered (simulation-choice-json-true).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testChoicePostedAsTrueIsNotRecorded(): void
+    {
+        $quiz = $this->world->scenario($this->en, ['descr' => 'A parcel notice arrives'], [$this->category]);
+        $ignore = $this->world->scenarioOption($quiz, 0, 1, 50, ['situation' => 'Ignore the notice']);
+        $track = $this->world->scenarioOption($quiz, 0, 1, 0, ['situation' => 'Track the parcel']);
+        $publicId = $this->startSimulation($this->member, $quiz);
+
+        $this->signInMember($this->member)->postJson("/en/simulation/progress/$publicId", ['a' => true]);
+
+        $recorded = DB::table('bei_users_scenarios_options')->where('user_scenario_public_id', $publicId)->pluck('option_id')->map(function ($id) {
+            return (int) $id;
+        })->all();
+        $page = $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+        $finished = (int) DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('finished');
+
+        $this->assertNotContains(1, [$ignore, $track]);
+        $this->assertSame([], $recorded, 'a choice posted as true was recorded as option ' . implode(', ', $recorded));
+        $this->assertSame(0, $finished, 'the run closed after a choice posted as true');
+        $page->assertSee('Ignore the notice')->assertSee('Track the parcel');
+
+        // A choice the step offers, posted the same way as a
+        // number, is recorded
+        $this->signInMember($this->member)->postJson("/en/simulation/progress/$publicId", ['a' => $ignore]);
+
+        $this->assertEquals([$ignore], DB::table('bei_users_scenarios_options')->where('user_scenario_public_id', $publicId)->pluck('option_id')->all(), 'a choice posted as a JSON number the step offers was not recorded');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testEndPageShowsTheProgressItsRunCompletes
+    // -----------------------------------------------------------
+    //
+    // The end page of a run shows the course progress with its
+    // run counted: the only simulation of the language
+    // finished, the page that says so shows the member's 25
+    // per cent, as the next page does. BaseController once
+    // worked the progress out before the action closed the
+    // run, so the end page showed 0 per cent and only the next
+    // page 25 (progress-shown-before-the-close).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testEndPageShowsTheProgressItsRunCompletes(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $endPage = $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+        $nextPage = $this->signInMember($this->member)->get("/en/simulation/progress/$publicId");
+
+        $endPage->assertOk()->assertSee(__('main.simulation_finished'));
+        $nextPage->assertSee('style="width: 25%"', false);
+        preg_match('/style="width: ([0-9.]+)%"/', $endPage->getContent(), $shown);
+        $this->assertSame('25', $shown[1] ?? null, 'the end page shows the course progress from before its run counted: ' . ($shown[1] ?? 'none') . ' per cent');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSimulationsListShowsTheLatestEnd
+    // -----------------------------------------------------------
+    //
+    // A category's list of simulations takes each one's Last
+    // ended line from the member's finished run that ended
+    // last: a run begun three days ago and finished an hour
+    // ago, resumed from the history, outlasts one begun and
+    // finished two days ago. The list once took the finished
+    // run with the highest id, the one started last, and said
+    // the simulation last ended two days ago
+    // (simulations-list-last-ended).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationsListShowsTheLatestEnd(): void
+    {
+        $resumed = $this->world->scenarioAttempt($this->member->id, $this->scenario, $this->en, [
+            'started' => gmdate('Y-m-d H:i:s', time() - 3 * 86400),
+            'ended'   => gmdate('Y-m-d H:i:s', time() - 3600),
+        ]);
+        $this->world->scenarioAttempt($this->member->id, $this->scenario, $this->en, [
+            'started' => gmdate('Y-m-d H:i:s', time() - 2 * 86400),
+            'ended'   => gmdate('Y-m-d H:i:s', time() - 2 * 86400 + 600),
+        ]);
+        $lastEnded = SettingsController::local_time(DB::table('bei_users_scenarios')->where('id', $resumed)->value('ended'));
+
+        $page = $this->signInMember($this->member)->get("/en/simulations/credential-theft/{$this->category}")->assertOk();
+
+        preg_match('/' . preg_quote(__('main.last_ended'), '/') . ': ([0-9: -]+?) </', $page->getContent(), $shown);
+        $this->assertSame($lastEnded, $shown[1] ?? null, 'the simulation is said to have last ended at ' . ($shown[1] ?? 'no time') . ', not at ' . $lastEnded);
     }
 }

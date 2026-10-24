@@ -29,7 +29,7 @@
 						</tr>
 						<tr>
                           <td width="200" class="p-5">{{ Form::label('content', __('Content:')) }} </td>
-                          <td class="p-5" colspan="3"> {{ Form::textarea('content', $content ?? '', ['class' => 'form-control', 'required'=>'required', 'id'=>'summernote']) }} </td>
+                          <td class="p-5" colspan="3"> <textarea class="form-control" required="required" id="summernote" name="content" cols="50" rows="10">{{ is_string(old('content')) ? old('content') : ($content ?? '') }}</textarea> </td>
                         </tr>
 						<tr>
                           <td width="200" class="p-5">{{ Form::label('hours', __('Hours:')) }} </td>

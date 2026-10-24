@@ -24,7 +24,7 @@
 
 
  							<div class="card mb-4 border-left-info">
-                                  <div class="card-header"><b> {{ __('main.knowledge_test') }}</div>
+                                  <div class="card-header"><b> {{ __('main.knowledge_test') }}</b></div>
                                   <div class="card-body">
 										<b>{{ $question }}</b>
 										<br><br>

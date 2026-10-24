@@ -29,6 +29,7 @@
 
 namespace Tests\Feature\Knowledge;
 
+use Dom\HTMLDocument;
 use Illuminate\Support\Facades\DB;
 use Tests\FeatureTestCase;
 use Tests\Support\Flows;
@@ -972,6 +973,169 @@ class KnowledgeExamTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testQuestionWithoutACorrectOptionIsNeverDrawn
+    // -----------------------------------------------------------
+    //
+    // A question none of whose options is correct is never
+    // drawn into a member's test, however it came to be — here
+    // an import block whose correct option is indented by a
+    // space, a line the import skips, so the question is
+    // stored with its wrong options only; the test draws the
+    // setUp's three questions and leaves it out. The draw once
+    // took every question with options, so a member who got
+    // this one lost it whatever they chose, in a test passed
+    // at 75 (knowledge-question-without-correct).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionWithoutACorrectOptionIsNeverDrawn(): void
+    {
+        $category = $this->world->lmCategory($this->en);
+        $this->signInManager($this->world->manager())->from("/admin-panel/lm/knowledge_test/$category")->post('/admin-panel/lm/knowledge_test/import', [
+            'cat_id' => $category,
+            'doc'    => $this->uploadedFile('questions.txt', "::\nQ\\: Who may ask for your password?\n =Nobody\n~Your bank\n~The IT desk\n"),
+        ]);
+        $imported = DB::table('bei_knowledge_test')->where('cat_id', $category)->value('id');
+        $this->assertNotNull($imported, 'the import stored no question');
+        $this->assertFalse(DB::table('bei_knowledge_option')->where(['question_id' => $imported, 'correct' => 1])->exists());
+        $this->world->knowledgeLimits([$this->en => [$this->category => 3, $category => 1]]);
+
+        $drawn = array_keys(json_decode($this->attemptRow($this->startKnowledgeTest($this->member))->question_set, true));
+
+        $unanswerable = array_values(array_filter($drawn, function ($question) {
+            return !DB::table('bei_knowledge_option')->where(['question_id' => $question, 'correct' => 1])->exists();
+        }));
+        $this->assertSame([], $unanswerable, 'the test drew a question no option of which is correct');
+        $this->assertEqualsCanonicalizing(array_column($this->questions, 'question'), $drawn);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLanguageWithNothingToDrawOffersNoStart
+    // -----------------------------------------------------------
+    //
+    // A language none of whose questions has a correct option
+    // has nothing a test can draw, and its test page says so
+    // (main.no_questions) instead of offering a start. The
+    // page once counted every question, so a language whose
+    // questions offered nothing to answer right showed a start
+    // that drew none of them and came back without a word.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLanguageWithNothingToDrawOffersNoStart(): void
+    {
+        $lt = $this->world->language('lt');
+        $category = $this->world->lmCategory($lt);
+        $this->world->knowledgeQuestion($category, [['A', false], ['B', false]]);
+        $this->world->knowledgeLimits([$lt => [$category => 1]]);
+        $this->world->badge($this->member->id, $lt, 'badge_all_presentations');
+
+        $this->signInMember($this->member)->get('/lt/knowledge_test')->assertOk()
+            ->assertSee(__('main.no_questions', [], 'lt'))
+            ->assertDontSee('/lt/knowledge_start', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testClosingPageCountsThePassInTheCourseProgress
+    // -----------------------------------------------------------
+    //
+    // The page a member lands on after the last answer of a
+    // passed attempt, every redirect followed, announces the
+    // pass and the new badge beside a course progress that
+    // counts it: the 30 per cent the pass is worth, all this
+    // member has done, as the test page shows next.
+    // BaseController once worked the figure out before
+    // KnowledgeTestController::progress closed the attempt, so
+    // the page that said "You passed!" showed 0 per cent
+    // (progress-shown-before-the-close).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testClosingPageCountsThePassInTheCourseProgress(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+        list($first, $second, $last) = $this->questions;
+        foreach ([$first, $second] as $question) {
+            $this->answerKnowledgeQuestion($this->member, $publicId, $question['question'], [$question['options'][0]]);
+        }
+
+        $landing = $this->signInMember($this->member)->followingRedirects()
+            ->post("/en/knowledge_test/progress/$publicId", [
+                'pbid' => md5(md5($last['question'])),
+                'a'    => [$last['options'][0]],
+            ])
+            ->assertOk()
+            ->assertSee('You passed!')
+            ->assertSee(__('main.new_badge'), false)
+            ->getContent();
+        $this->signInMember($this->member)->get('/en/knowledge_test')
+            ->assertOk()
+            ->assertSee('<span class="float-right">30%</span>', false);
+
+        $this->assertStringNotContainsString('<span class="float-right">0%</span>', $landing, 'the page announcing the pass shows the course progress without it');
+        $this->assertStringContainsString('<span class="float-right">30%</span>', $landing);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testKnowledgeQuestionPageClosesItsBoldHeader
+    // -----------------------------------------------------------
+    //
+    // The card header of the question page closes its bold
+    // tag, so none of the options to choose from shows in
+    // bold. The header once left the tag open, and the browser
+    // carried the bold on through the card's body to the
+    // page's end, on every question of the test
+    // (knowledge-page-bold).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testKnowledgeQuestionPageClosesItsBoldHeader(): void
+    {
+        $publicId = $this->startKnowledgeTest($this->member);
+
+        $html = $this->signInMember($this->member)->get("/en/knowledge_test/progress/$publicId")->assertOk()->getContent();
+        $labels = HTMLDocument::createFromString($html, LIBXML_NOERROR)->querySelectorAll('.custom-control-label');
+
+        $bold = 0;
+        foreach ($labels as $label) {
+            if ($label->closest('b') !== null) {
+                $bold++;
+            }
+        }
+
+        $this->assertCount(3, $labels);
+        $this->assertSame(0, $bold, 'options of the question show in bold');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // answerEverythingRight
     // -----------------------------------------------------------
     //
@@ -1044,7 +1208,9 @@ class KnowledgeExamTest extends FeatureTestCase
     //     testRepeatedOptionCountsOnce,
     //     testFinishedAttemptStaysClosed,
     //     testUnknownLanguageClosingIsNoServerError,
-    //     testAnswerPostedAsAListIsNoServerError (above)
+    //     testAnswerPostedAsAListIsNoServerError,
+    //     testQuestionWithoutACorrectOptionIsNeverDrawn
+    //     (above)
     // -----------------------------------------------------------
 
     private function attemptRow(string $publicId): \stdClass

@@ -342,8 +342,8 @@ class LMController extends BaseController
     // True when the signed-in member has completed every
     // lesson of the given lesson's category (category_done) —
     // the moment the lesson page offers the category's
-    // self-evaluation and the category badge falls due.
-    // Always false for a visitor.
+    // self-evaluation and the category badge falls due. Always
+    // false for a visitor.
     //
     // Used by:
     //   - content, mark_completed,
@@ -365,11 +365,19 @@ class LMController extends BaseController
     // -----------------------------------------------------------
     //
     // True when the signed-in member has completed every
-    // lesson of the category — at once for a category without
-    // lessons — and always false for a visitor. One rule for
-    // the lesson page's self-evaluation button
-    // (show_self_eval), the start of an attempt and the
-    // results page's do-it-again button.
+    // lesson of the category, and always false for a visitor,
+    // for a category that is gone or no category at all, and
+    // for one without lessons. A category that is gone once
+    // counted as done, so a lesson left without its category
+    // earned badge_category and offered a self-evaluation that
+    // was a 404. One without lessons counted as done at once,
+    // and its address and the results page's do-it-again
+    // button still opened attempts, though no lesson page
+    // offers its self-evaluation and the course progress
+    // counts none (LMUsers::course_progress). One rule for the
+    // lesson page's self-evaluation button (show_self_eval),
+    // the start of an attempt and the results page's
+    // do-it-again button.
     //
     // Used by:
     //   - show_self_eval, self_evaluation_test,
@@ -379,6 +387,13 @@ class LMController extends BaseController
     public static function category_done($cat_id)
     {
         $user_id = Auth::guard('mem')->id();
+
+        // A category that is gone, or none at all, has no lesson
+        // left to do and still is not done; nor is one without
+        // lessons, whose self-evaluation the progress leaves out
+        if($cat_id === null || LMCategory::where(['id'=>$cat_id])->count() == 0 || LMContent::where(['cat_id'=>$cat_id])->count() == 0){
+            return false;
+        }
 
         if($user_id !== null){
 
@@ -424,9 +439,10 @@ class LMController extends BaseController
     // visit of the URL — a second click on the button, a
     // browser's prefetch — opens no new one. A new attempt
     // waits, as the button does, until the member has done
-    // every lesson of the category (category_done); before
-    // that the visit goes to the learning material. The
-    // address alone once started one, whose close earned
+    // every lesson of the category (category_done), and a
+    // category without lessons opens none; otherwise the visit
+    // goes to the learning material. The address alone once
+    // started one, whose close earned
     // badge_self_evaluation_test and counted in the progress
     // and the ranking.
     //
@@ -692,9 +708,12 @@ class LMController extends BaseController
     // The points, the answers and the category id behind the
     // do-it-again button come only from a finished attempt; an
     // open one shows its category's name and its dates, and
-    // nothing else. The button shows only where the start
-    // address opens an attempt (self_evaluation_test), as the
-    // lesson page's does: it once showed always, and since new
+    // nothing else. A question deleted since is left out, its
+    // text and options gone, where it once made an empty
+    // entry. The button shows only where the start address
+    // opens an attempt (self_evaluation_test) — never for a
+    // category that is gone or holds no lesson — as the lesson
+    // page's does: it once showed always, and since new
     // attempts wait for the lessons it led a member whose
     // category had gained one to the learning material with no
     // word why. Answers self_eval_results.blade.php.
@@ -720,6 +739,12 @@ class LMController extends BaseController
         $results = []; $i=0;
         foreach($question_ids as $k => $v){
 
+            // A question deleted since has no text or options left
+            // to show, and once made an empty entry
+            if(SelfEval::where(['id'=>$v])->count() == 0){
+                continue;
+            }
+
             $results[$i]['question'] = SelfEval::where(['id'=>$v])->get()->pluck('question')->first();
 
             $answ = SelfEvalOption::where(['question_id'=>$v])->get()->toArray();
@@ -740,7 +765,7 @@ class LMController extends BaseController
         // The start address resumes the member's open attempt of
         // the category, and opens a new one only once every
         // lesson of it is done
-        $offer_retake = $cat_id !== null && (SelfEvalUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id, 'finished'=>0])->exists() || LMController::category_done($cat_id));
+        $offer_retake = $cat_id !== null && LMCategory::where(['id'=>$cat_id])->count() > 0 && (SelfEvalUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id, 'finished'=>0])->exists() || LMController::category_done($cat_id));
 
         return view('self_eval_results', [
             'category_name'=>LMCategory::where(['id'=>SelfEvalUserTest::where(['public_id'=>$public_id])->get()->pluck('cat_id')->first()])->get()->pluck('name')->first(),

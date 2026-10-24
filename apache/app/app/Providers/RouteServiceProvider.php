@@ -65,10 +65,17 @@ class RouteServiceProvider extends ServiceProvider
     // boot
     // -----------------------------------------------------------
     //
-    // Laravel's own boot, which is empty in Laravel 13;
-    // nothing added. The routes load through map from the
-    // booted callback that Laravel's register method sets
-    // up, which runs right after this boot.
+    // Holds every route's {lang} to two letters of either
+    // case — a site code, or another pair, for which the page
+    // keeps the session's language; the lookups of a language
+    // by its locale ignore case, so an upper-case code still
+    // finds its rows — then runs Laravel's own boot, empty in
+    // Laravel 13. Any other segment once passed: api took the
+    // site's pages under /api/, and a line break reached a
+    // redirect's Location header, a 500. The routes load
+    // through map from the booted callback that Laravel's
+    // register method sets up, which runs right after this
+    // boot.
     //
     // Used by:
     //   - Laravel, once every provider is registered
@@ -76,6 +83,8 @@ class RouteServiceProvider extends ServiceProvider
 
     public function boot()
     {
+        Route::pattern('lang', '[A-Za-z]{2}');
+
         parent::boot();
     }
 
@@ -91,11 +100,12 @@ class RouteServiceProvider extends ServiceProvider
     // Loads the three route files in this order: api.php,
     // web_admin.php, web_user.php. The order counts, since
     // Laravel answers a request with the first route that
-    // matches it: web_user.php's {lang} takes any value, so
-    // its {lang}/news routes would answer the panel's news
-    // pages for a language called admin-panel. Every admin
-    // route starts with admin-panel/, so loaded first they
-    // can shadow no member page.
+    // matches it: web_user.php's {lang} took any value before
+    // boot held it to two letters, and its {lang}/news routes
+    // then answered the panel's news pages for a language
+    // called admin-panel. Every admin route starts with
+    // admin-panel/, so loaded first they can shadow no member
+    // page.
     //
     // Used by:
     //   - Laravel's RouteServiceProvider::loadRoutes, from the

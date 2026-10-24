@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ \App\Models\Langs::iso_code(Session::get('lang', 'en')) }}">
 
 <head>
 

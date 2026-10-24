@@ -153,44 +153,45 @@ class RegisterController extends BaseController
     // unsolved (AppServiceProvider::boot), after the package's
     // 30-second timeout when the connection hangs. Passwords
     // that differ go back with pass_dont_match, for any
-    // address. Then every sign-up gets the same answer,
-    // user_registered, so that the form tells no one which
-    // addresses have accounts, as forgot-password does not; it
-    // once answered email_already_exists. A new address gets
-    // its row first — the password's hash, a generated user
-    // name, a 50-character verify token from random_string and
-    // the country, inactive (status defaults to 0) — and then
-    // the token in a SendVerification mail. The row comes
-    // before the mail so that a sign-up racing this one meets
-    // the email's unique key instead of mailing a link no row
-    // holds; it once did, and then failed on the key with a
-    // 500. The loser answers as every sign-up does and mails
-    // nothing, the winner's mail carrying the account's link.
-    // An address in use keeps its row, its password included,
-    // and its owner hears of the sign-up by mail — one mail
-    // for every account, as for a new address. One still
-    // waiting for its verification gets SendActivationLink,
-    // the reset page's link (reset_pass), which mails a fresh
-    // password to the address and switches the account on, and
-    // its verification link is cancelled: that link would
-    // switch the account on with the password of whoever
-    // signed the address up first, maybe not the address's
-    // owner. An active account gets a SendAccountExists note,
-    // pointing to the login form, and one an admin switched
-    // off a SendAccountDeactivated note; that one once got no
-    // mail, and so answered sooner, and with user_registered
-    // where the others said mail_failed while mail could not
-    // go out. The password is hashed for every address too, so
-    // no address in use answers faster than a new one. When a
-    // mail cannot be sent, the failure is logged, a row
-    // written for it is deleted again and the form says so
-    // (mail_failed), where it once answered with a 500; the
-    // address can sign up once mail goes out again. Every
-    // refusal brings the form back with the email, the country
-    // and the terms box as they were sent, as a refused
-    // validation does, and never the passwords; these three
-    // once came back empty. The email compares without case
-    // (the column's case-insensitive collation).
+    // address, compared as strings: two numeric ones that read
+    // as the same number once passed. Then every sign-up gets
+    // the same answer, user_registered, so that the form tells
+    // no one which addresses have accounts, as forgot-password
+    // does not; it once answered email_already_exists. A new
+    // address gets its row first — the password's hash, a
+    // generated user name, a 50-character verify token from
+    // random_string and the country, inactive (status defaults
+    // to 0) — and then the token in a SendVerification mail.
+    // The row comes before the mail so that a sign-up racing
+    // this one meets the email's unique key instead of mailing
+    // a link no row holds; it once did, and then failed on the
+    // key with a 500. The loser answers as every sign-up does
+    // and mails nothing, the winner's mail carrying the
+    // account's link. An address in use keeps its row, its
+    // password included, and its owner hears of the sign-up by
+    // mail — one mail for every account, as for a new address.
+    // One still waiting for its verification gets
+    // SendActivationLink, the reset page's link (reset_pass),
+    // which mails a fresh password to the address and switches
+    // the account on, and its verification link is cancelled:
+    // that link would switch the account on with the password
+    // of whoever signed the address up first, maybe not the
+    // address's owner. An active account gets a
+    // SendAccountExists note, pointing to the login form, and
+    // one an admin switched off a SendAccountDeactivated note;
+    // that one once got no mail, and so answered sooner, and
+    // with user_registered where the others said mail_failed
+    // while mail could not go out. The password is hashed for
+    // every address too, so no address in use answers faster
+    // than a new one. When a mail cannot be sent, the failure
+    // is logged, a row written for it is deleted again and the
+    // form says so (mail_failed), where it once answered with
+    // a 500; the address can sign up once mail goes out again.
+    // Every refusal brings the form back with the email, the
+    // country and the terms box as they were sent, as a
+    // refused validation does, and never the passwords; these
+    // three once came back empty. The email compares without
+    // case (the column's case-insensitive collation).
     //
     // Used by:
     //   - auth/register.blade.php — the sign-up form posts here
@@ -210,7 +211,8 @@ class RegisterController extends BaseController
             'g-recaptcha-response' => 'required|captcha',
         ]);
 
-        if($request->get('password') != $request->get('password2')){
+        // Strictly: PHP's != reads two numeric strings as numbers
+        if($request->get('password') !== $request->get('password2')){
 
             return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.pass_dont_match'));
         }

@@ -12,6 +12,7 @@
 //  the attempt, read from its redirect.
 //
 //  Used by:
+//    - AdminUsersTest (Feature/Admin/)
 //    - CourseProgressTest, SelfEvaluationTest
 //      (Feature/Learning/)
 //    - KnowledgeExamTest (Feature/Knowledge/)
@@ -44,6 +45,7 @@ use Illuminate\Testing\TestResponse;
 //   startKnowledgeTest, answerKnowledgeQuestion
 //
 // Used by:
+//   - AdminUsersTest (Feature/Admin/)
 //   - CourseProgressTest, SelfEvaluationTest
 //     (Feature/Learning/)
 //   - KnowledgeExamTest (Feature/Knowledge/)
@@ -66,7 +68,8 @@ trait Flows
     // attempt's public id.
     //
     // Used by:
-    //   - SelfEvaluationTest, CourseProgressTest
+    //   - AdminUsersTest (Feature/Admin/)
+    //   - CourseProgressTest, SelfEvaluationTest
     //     (Feature/Learning/)
     // -----------------------------------------------------------
 
@@ -93,7 +96,8 @@ trait Flows
     // attempt.
     //
     // Used by:
-    //   - SelfEvaluationTest, CourseProgressTest
+    //   - AdminUsersTest (Feature/Admin/)
+    //   - CourseProgressTest, SelfEvaluationTest
     //     (Feature/Learning/)
     // -----------------------------------------------------------
 
