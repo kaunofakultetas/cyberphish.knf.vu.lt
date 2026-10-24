@@ -37,12 +37,12 @@ services:
   cyberphish-apache:
     container_name: cyberphish-apache
 
+    # Docker Hub Image
+    image: vuknf/cyberphish-apache:latest
+
     # # Self-Built Image
     # image: cyberphish-apache
     # build: ./apache
-
-    # Docker Hub Image
-    image: vuknf/cyberphish-apache:latest
 
     user: 1000:1000
     read_only: true
