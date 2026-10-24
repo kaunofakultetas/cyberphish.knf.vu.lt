@@ -101,11 +101,47 @@ Four files outside `tests/` belong to the suite:
 
 ## Pinned defects
 
-No defect is pinned at the moment. A second review of the whole app, on
-24 October 2026, found 31 defects, each pinned by a test that reproduced
-it. The 25 whose fixes no member or admin would notice in normal use were
-fixed that day, and the six whose fixes people see followed the same
-evening (see Fixed defects).
+A second review of the whole app, on 24 October 2026, found 31 defects,
+each pinned by a test that reproduced it. The 25 whose fixes no member or
+admin would notice in normal use were fixed that day, and the six whose
+fixes people see followed the same evening (see Fixed defects).
+
+A third review followed that night and found 18 more, each pinned by a
+test that reproduces it. Four are regressions from the day's own work:
+- `simulation-steps-order` comes from the keys of `lookups-unkeyed`, and
+  production shows it.
+- `new-manager-dialog-preselects-own-country` comes from the fix of
+  `manager-edit-country`.
+- `badge-note-outlives-the-member` comes from the fix of
+  `finished-course-message`.
+- `simulation-share-counts-unoffered` is the half of
+  `simulation-badge-unreachable` that the badge got and the progress did
+  not.
+
+In the table, the medium ones come first; the rest are low.
+
+| Id | Pinned in | What breaks |
+|---|---|---|
+| `simulation-steps-order` | `AdminDefectsTest` | Run reports, the simulation edit page and the printout list steps grouped by parent, out of sheet order |
+| `login-password-list` | `AuthDefectsTest` | A password posted as a list is a 500 for an active account and the usual refusal otherwise: account enumeration, uncounted by the lockout |
+| `simulation-share-counts-unoffered` | `LearningDefectsTest`, `AdminDefectsTest` | The progress and the dashboard count simulations no category offers |
+| `badge-note-outlives-the-member` | `LearningDefectsTest` | A waiting badge announcement greets the next member on the browser |
+| `selfeval-closed-attempt-reopens` | `LearningDefectsTest` | A closed self-evaluation takes answers again once attempts grow longer |
+| `selfeval-starts-without-lessons` | `LearningDefectsTest` | A self-evaluation starts by its address before the category's lessons |
+| `selfeval-nested-answer-500` | `LearningDefectsTest` | An answer of nested lists is a 500 |
+| `simulation-mode-session-only` | `SimulationDefectsTest` | A run's mode lives only in the session; resumed without it, it shows no feedback |
+| `new-manager-dialog-preselects-own-country` | `AdminDefectsTest` | The new-manager dialog opens on the signed-in admin's own country |
+| `question-import-partial` | `AdminDefectsTest` | A question line without its marker is a 500, part of the file stored |
+| `selfeval-import-carryover` | `AdminDefectsTest` | A self-evaluation block without a question line adds its options to the question before it |
+| `selfeval-points-comma` | `AdminDefectsTest` | Option points typed as `33,33` are stored as 33 |
+| `simulation-categories-clear` | `AdminDefectsTest` | Unticking every category of a simulation changes nothing |
+| `unchecked-hidden-ids` | `AdminDefectsTest` | Forms for a gone lesson or language are a 500, or store rows no tab lists |
+| `admin-change-pass-array-500` | `AdminDefectsTest` | The panel's password dialog posted with a list is a 500 |
+| `login-streak-counts-utc-days` | `AuthDefectsTest` | badge_login_10 counts days from UTC midnight, not the members' |
+| `register-terms-not-enforced` | `AuthDefectsTest` | A sign-up without the terms box ticked creates the account |
+| `news-empty-picture-broken-image` | `SiteDefectsTest` | A news article without a picture shows a broken image |
+
+The pins live in five `*DefectsTest.php` files, one per folder they touch.
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -463,8 +499,7 @@ see. Each test was again seen failing on the code before its fix.
 | `reset-unverified` | `PasswordResetTest::testResetGivesAnUnverifiedMemberAWorkingLogin`, with `testResetLeavesASwitchedOffAccountOff` |
 | `register-input-lost` | `RegistrationTest::testRefusedSignUpKeepsTheForm` |
 
-No `*DefectsTest.php` file is left. The next defect found starts one in
-its folder again.
+The third review's pins are listed under Pinned defects.
 
 ## Found but not pinned
 
@@ -491,6 +526,11 @@ production; others can't be tested deterministically.
 - **Dependencies.** Since the PHP 8.4 upgrade the imports use
   phpoffice/phpspreadsheet 5.10.0, and `composer audit` finds no
   advisory for any locked package.
+- **Two sign-ups at once.** Two sign-ups of one new address that arrive
+  together both pass the free-address check. The second then meets the
+  unique key on insert: a 500, after its verification mail went out. The
+  generated user name retries on a clash, so only such a race reaches the
+  key, and the suite runs its requests one at a time.
 
 ## Practical notes
 
