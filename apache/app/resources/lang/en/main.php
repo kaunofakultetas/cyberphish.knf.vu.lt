@@ -23,7 +23,9 @@
 //      KnowledgeTestController, BaseController, FinishedSe
 //      and LoginLog
 //    - the mailables, for their subjects — SendVerification,
-//      SendRemindLink, SendNewPass and SimulationsResults
+//      SendAccountExists, SendActivationLink,
+//      SendAccountDeactivated, SendRemindLink, SendNewPass and
+//      SimulationsResults
 //    - the Feature suite — compares flash messages with the
 //      same keys
 // -----------------------------------------------------------
@@ -83,6 +85,12 @@ return [
     'new_pass_email_subject'=>'Your new password',
     'pass_reset_subject'=>'Password reset link',
     'account_verification_subject'=>'Account verification',
+    'account_exists_subject'=>'You already have an account',
+    'account_exists_mail'=>'Someone tried to sign up with this email address, which already has an account. Sign in at the link below; if you have forgotten your password, you can ask for a new one there.',
+    'account_pending_subject'=>'Activate your account',
+    'account_pending_mail'=>'This email address was signed up more than once, and its account has not been activated yet. Open the link below and press the button there: we will email you a password to sign in with, which you can change once signed in.',
+    'account_off_subject'=>'Your account is deactivated',
+    'account_off_mail'=>'Someone tried to sign up with this email address, which already has an account, but the account has been deactivated. If you think this is a mistake, please contact the course organisers.',
     'curr_pass_wrong'=>'Current password is wrong',
     'curr_new_same'=>'Current and new password is the same',
     'new_pass_not_match'=>'New passwords do not match',
@@ -99,7 +107,7 @@ return [
     'new_pass_emailed'=>'We just emailed you new password',
     'mail_failed'=>'The email could not be sent right now. Please try again later.',
     'user_verified'=>'User verified! Now you can login.',
-    'user_registered'=>'User registered! Check your email for verification link.',
+    'user_registered'=>'Thank you for signing up! Please check your email for a message with the next step.',
     'pass_dont_match'=>'Passwords do not match!',
     'email_already_exists'=>'User with this email already exists!',
     'erasmus'=>'This project has been funded with support from the European Commission. This publication [communication] reflects the views only of the author, and the Commission cannot be held responsible for any use which may be made of the information contained therein.',

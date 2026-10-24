@@ -107,41 +107,9 @@ admin would notice in normal use were fixed that day, and the six whose
 fixes people see followed the same evening (see Fixed defects).
 
 A third review followed that night and found 18 more, each pinned by a
-test that reproduces it. Four are regressions from the day's own work:
-- `simulation-steps-order` comes from the keys of `lookups-unkeyed`, and
-  production shows it.
-- `new-manager-dialog-preselects-own-country` comes from the fix of
-  `manager-edit-country`.
-- `badge-note-outlives-the-member` comes from the fix of
-  `finished-course-message`.
-- `simulation-share-counts-unoffered` is the half of
-  `simulation-badge-unreachable` that the badge got and the progress did
-  not.
-
-In the table, the medium ones come first; the rest are low.
-
-| Id | Pinned in | What breaks |
-|---|---|---|
-| `simulation-steps-order` | `AdminDefectsTest` | Run reports, the simulation edit page and the printout list steps grouped by parent, out of sheet order |
-| `login-password-list` | `AuthDefectsTest` | A password posted as a list is a 500 for an active account and the usual refusal otherwise: account enumeration, uncounted by the lockout |
-| `simulation-share-counts-unoffered` | `LearningDefectsTest`, `AdminDefectsTest` | The progress and the dashboard count simulations no category offers |
-| `badge-note-outlives-the-member` | `LearningDefectsTest` | A waiting badge announcement greets the next member on the browser |
-| `selfeval-closed-attempt-reopens` | `LearningDefectsTest` | A closed self-evaluation takes answers again once attempts grow longer |
-| `selfeval-starts-without-lessons` | `LearningDefectsTest` | A self-evaluation starts by its address before the category's lessons |
-| `selfeval-nested-answer-500` | `LearningDefectsTest` | An answer of nested lists is a 500 |
-| `simulation-mode-session-only` | `SimulationDefectsTest` | A run's mode lives only in the session; resumed without it, it shows no feedback |
-| `new-manager-dialog-preselects-own-country` | `AdminDefectsTest` | The new-manager dialog opens on the signed-in admin's own country |
-| `question-import-partial` | `AdminDefectsTest` | A question line without its marker is a 500, part of the file stored |
-| `selfeval-import-carryover` | `AdminDefectsTest` | A self-evaluation block without a question line adds its options to the question before it |
-| `selfeval-points-comma` | `AdminDefectsTest` | Option points typed as `33,33` are stored as 33 |
-| `simulation-categories-clear` | `AdminDefectsTest` | Unticking every category of a simulation changes nothing |
-| `unchecked-hidden-ids` | `AdminDefectsTest` | Forms for a gone lesson or language are a 500, or store rows no tab lists |
-| `admin-change-pass-array-500` | `AdminDefectsTest` | The panel's password dialog posted with a list is a 500 |
-| `login-streak-counts-utc-days` | `AuthDefectsTest` | badge_login_10 counts days from UTC midnight, not the members' |
-| `register-terms-not-enforced` | `AuthDefectsTest` | A sign-up without the terms box ticked creates the account |
-| `news-empty-picture-broken-image` | `SiteDefectsTest` | A news article without a picture shows a broken image |
-
-The pins live in five `*DefectsTest.php` files, one per folder they touch.
+test that reproduced it. All 18 were fixed the same night (see Fixed
+defects), so no defect is pinned now. The next one found is pinned in its
+folder's `*DefectsTest.php`, as the rules above describe.
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -499,12 +467,180 @@ see. Each test was again seen failing on the code before its fix.
 | `reset-unverified` | `PasswordResetTest::testResetGivesAnUnverifiedMemberAWorkingLogin`, with `testResetLeavesASwitchedOffAccountOff` |
 | `register-input-lost` | `RegistrationTest::testRefusedSignUpKeepsTheForm` |
 
-The third review's pins are listed under Pinned defects.
+The third review's 17 followed the same night. Four were regressions of
+the day's own fixes:
+- `simulation-steps-order` came from the keys of `lookups-unkeyed`, and
+  production showed it.
+- `new-manager-dialog-preselects-own-country` came from the fix of
+  `manager-edit-country`.
+- `badge-note-outlives-the-member` came from the fix of
+  `finished-course-message`.
+- `simulation-share-counts-unoffered` was the half of
+  `simulation-badge-unreachable` that the badge got and the progress did
+  not.
+
+The other 13 are the low ones whose fixes no member or admin would
+notice in normal use. Each test was seen failing on the code before its
+fix, then moved to its home file. Guard tests beside them hold the
+behaviour next to each fix in place. An independent review of the whole
+change, hunting only for regressions, found one more, from the new start
+gate: `selfeval-retake-button`, fixed with them.
+
+What changed:
+
+- Run reports, the simulation edit page and the printout list the steps
+  in sheet order again.
+- The simulations quarter of the progress, and the dashboard's
+  simulations figure, count only the simulations a category of the
+  language offers, on both sides of the division. The stored function
+  `bei_user_course_progress` in `mysql/init.sql` changed with
+  `LMUsers::country_progress`, so a production database needs the
+  function replaced.
+- A run keeps its mode in a new column, `bei_users_scenarios.simulation_type`.
+  A production database needs the column before the new code runs. A run
+  with no mode stored falls back on its session, as every run did before.
+- A new self-evaluation waits until the category's lessons are done, as
+  the lesson page's button always did. An open attempt still resumes. The
+  results page shows its do-it-again button only where the start opens
+  an attempt.
+- A closed self-evaluation stays closed when attempts grow longer.
+- A question file with a question line lacking its `\:` is refused whole,
+  with a message naming the line.
+- Unticking every category of a simulation takes it off them all.
+- Forms for a lesson or a language that is gone are refused, and nothing
+  is stored or left on disk.
+- The announcement of badge_finished_course belongs to the member who
+  earned it. Signing out drops it.
+- The server, too, requires the sign-up's terms box.
+
+| Id | Home test |
+|---|---|
+| `simulation-steps-order` | `AdminSimulationsTest::testStepsAreListedInSheetOrder`, which covers the printout too |
+| `new-manager-dialog-preselects-own-country` | `AdminManagersTest::testNewManagerDialogOpensOnNoCountry` |
+| `badge-note-outlives-the-member` | `LearningMaterialTest::testBadgeAnnouncementStaysWithItsMember`, which also hands the session to another member without a sign-out |
+| `simulation-share-counts-unoffered` | `CourseProgressTest::testSimulationsMembersCannotReachDoNotCount`, `AdminDashboardTest::testSimulationsFigureCountsTheSimulationsOnOffer` |
+| `selfeval-closed-attempt-reopens` | `SelfEvaluationTest::testClosedAttemptStaysClosed` |
+| `selfeval-starts-without-lessons` | `SelfEvaluationTest::testNewAttemptWaitsForTheCategorysLessons`, with `testOpenAttemptResumesAfterALessonIsAdded` |
+| `selfeval-nested-answer-500` | `SelfEvaluationTest::testAnswerOfNestedListsIsRefused` |
+| `selfeval-retake-button` | `SelfEvaluationTest::testResultsOfferAnotherAttemptOnlyWhereOneWouldStart`. The button always showed, and after the gate it led a member whose category had gained a lesson to the learning material with no word why |
+| `simulation-mode-session-only` | `SimulationsTest::testModeOutlivesTheSession`, with `testRunWithoutAKeptModeFallsBackOnTheSession` for runs started before the column |
+| `question-import-partial` | `AdminLearningTest::testQuestionImportWithABadLineStoresNothing` |
+| `selfeval-import-carryover` | `AdminLearningTest::testSelfEvaluationBlockWithoutAQuestionStoresNoOptions` |
+| `selfeval-points-comma` | `AdminLearningTest::testOptionPointsWithADecimalCommaAreNotCut` |
+| `simulation-categories-clear` | `AdminSimulationsTest::testCategoriesDialogStoresTheTickedCategoriesOfItsLanguage`, which also refuses another language's category |
+| `unchecked-hidden-ids` | `AdminLearningTest::testFormsForAGoneLessonOrLanguageStoreNothing`, `AdminSimulationsTest::testFormsForAGoneLanguageStoreNothing` |
+| `admin-change-pass-array-500` | `AdminLoginTest::testPasswordDialogTakesNoLists` |
+| `login-streak-counts-utc-days` | `LoginTest::testStreakCountsTheMembersDays`. With `testTenDaysInARowEarnTheBadge`, it catches a return to UTC days at any hour |
+| `register-terms-not-enforced` | the "terms not ticked" case of `RegistrationTest::testIncompleteFormIsRefused` |
+| `news-empty-picture-broken-image` | `PublicPagesTest::testNewsPictureShowsOnlyWhenThereIsOne` |
+
+The last pin, `login-password-list`, followed. A password posted as a
+list was a 500 for an active account and the usual refusal for an
+unknown address, so the answer told accounts apart. Every password field
+now refuses a list the way it refuses a password too short, before any
+account is looked at: the member and panel logins, the sign-up and the
+manager dialog. The sign-up used to mail its link before failing. The
+manager dialog's country takes a whole number or nothing. A probe posted
+every field of the sign-in, sign-up, reset and manager forms as a list;
+only these answered with a 500. The independent review of the fix found
+a sibling: a new password with a NUL byte, which bcrypt refuses, was a
+500 wherever a password is set. That covers the sign-up (after it had
+mailed its link), the manager dialog and both password-change forms. All
+of them refuse it now, and so do both logins. bcrypt reads a password
+only up to a NUL byte, so the real password followed by one and more
+signed in. With a stored hash of another cost than the configured 10, as
+`init.sql`'s `password_hash` command makes, the rehash on sign-in failed
+on it with a 500.
+
+| Id | Home test |
+|---|---|
+| `login-password-list` | `LoginTest::testPasswordPostedAsAListIsRefused`, `AdminLoginTest::testPasswordPostedAsAListIsRefused`, the "password as a list" and "repetition as a list" cases of `RegistrationTest::testIncompleteFormIsRefused`, and `AdminManagersTest::testFieldsPostedAsListsAreRefused` for the manager dialog. The NUL byte: the "password with a NUL" case of `RegistrationTest::testIncompleteFormIsRefused`, the "new with a NUL byte" case of `AccountSettingsTest::testPasswordChangeIsRefused`, `AdminLoginTest::testPasswordDialogRefusesANulByte`, `AdminManagersTest::testPasswordWithANulByteIsRefused`, and `LoginTest::testPasswordWithANulByteIsRefused` and `AdminLoginTest::testPasswordWithANulByteIsRefused` for the logins |
+
+The five open questions from the reviews followed, at the user's request.
+Each test was again seen failing on the code before its fix.
+
+- Every manager can change their own password. The menu always offered
+  it, but the route was kept to main admins, so a country manager's
+  dialog opened empty.
+- badge_login_10 belongs to the member, not to a language. It was filed
+  under the language of the session at sign-in, which a fresh session
+  gives as English, and the badges page showed it only in that language.
+  Now one is filed, a later streak earns no second one, and the badges
+  page shows it in every language. Production's seven holders needed no
+  change.
+- The sign-up form no longer tells which addresses have accounts. Every
+  sign-up with matching passwords gets the same answer, and the address's
+  owner hears of it by mail.
+  - An account still waiting for its verification gets a reset link,
+    whose page mails a fresh password and switches the account on. Its
+    old verification link is cancelled. Production had 171 such accounts,
+    whose owners used to be told only that the address was taken.
+  - A first version resent that old link instead. The independent review
+    caught it before it shipped: the link switches the account on with the
+    password of whoever signed the address up first, who may not be the
+    address's owner.
+  - An active account gets a new note, `SendAccountExists`, which points
+    to the login form. Its strings, `main.account_exists_subject` and
+    `main.account_exists_mail`, are new in all five languages.
+  - An account an admin switched off got nothing at first (see the two
+    follow-ups below).
+  - The password is hashed for every address, so an address in use
+    answers no faster.
+- Two sign-ups of one new address that arrive together no longer end in a
+  500. The row is written before its mail. The sign-up that loses the race
+  to the email's unique key answers as every sign-up does and mails
+  nothing; the winner's mail carries the link. A mail that fails takes its
+  new row with it.
+- A new manager's message says to switch the manager on in the list. It
+  used to ask for permissions the panel has no page for.
+
+| Id | Home test |
+|---|---|
+| `country-manager-password` | `AdminLoginTest::testCountryManagerChangesItsOwnPassword` |
+| `login-badge-session-language` | `LoginTest::testLoginBadgeIsTheMembersWhateverTheLanguage`, with `testTenDaysInARowEarnTheBadge` still filing a first badge under the session's language |
+| `register-reveals-registered-emails` | `RegistrationTest::testAddressInUseIsAnsweredAsANewOne`, `testAddressInUseIsFoundWhateverItsCase`, `testPendingAccountSignedUpAgainOpensOnlyToItsMailbox` for the review's case from start to finish, `testAddressInUseCostsTheHashOfANewOne`, with `testRefusedSignUpKeepsTheForm` keeping the real refusals as they were |
+| `register-signup-race` | `RegistrationTest::testSignUpThatLosesARaceAnswersAsAnAddressInUse`, which writes the rival row the moment the sign-up's own is about to be, and `testMailOutageCreatesNoAccount` for the row a failed mail takes with it |
+| `manager-created-permissions` | `AdminManagersTest::testNewManagerStartsSwitchedOff` |
+
+Two follow-ups to the sign-up came next, also at the user's request:
+
+- An owner whose account was still waiting, and who signed up again, got
+  a plain "Password reset link" mail, while the page spoke of a
+  verification link. That case now gets its own mail,
+  `SendActivationLink`. It says the address was signed up more than once
+  and the account never activated, and that its link mails a password to
+  sign in with, which can be changed once signed in. The link and the
+  reset page behind it are unchanged. The message on the page now says
+  only to check the email for the next step, which is true in every case.
+  `main.user_registered` was reworded in all five languages.
+- An account an admin switched off sent no mail, so its sign-up answered
+  sooner. While mail could not go out, it also answered `user_registered`
+  where every other address answered `mail_failed`. It now gets a note,
+  `SendAccountDeactivated`, which says the account is deactivated and
+  whom to ask. Every address in use now sends exactly one mail, as a new
+  one does.
+- The new strings `main.account_pending_subject`,
+  `main.account_pending_mail`, `main.account_off_subject` and
+  `main.account_off_mail` are in all five languages.
+
+| Id | Home test |
+|---|---|
+| `signup-pending-friction` | `RegistrationTest::testMailsToAnAddressInUseSayWhatToDo`, which renders both mails in all five languages, and `testAddressInUseIsAnsweredAsANewOne`, `testPendingAccountSignedUpAgainOpensOnlyToItsMailbox` |
+| `signup-switched-off-timing` | `RegistrationTest::testAddressInUseIsAnsweredAsANewOne`, where every address in use gets one mail, and `testMailOutageAnswersAlikeForEveryAddress` |
 
 ## Found but not pinned
 
 These were found during review but not pinned. Some have no impact in
 production; others can't be tested deterministically.
+
+- **Signing up someone else's address.** Anyone can sign up an address
+  that is not theirs, with a password of their own. The verification
+  mail goes to the address. If its owner clicks that unsolicited link
+  without signing up themselves, the account opens with the other
+  person's password. Once the owner signs up too, that link is cancelled
+  (`testPendingAccountSignedUpAgainOpensOnlyToItsMailbox`). Closing the
+  case fully would mean choosing the password after the click, not at
+  sign-up.
 
 - **Races closed with row locks.** Posts that arrive at the same moment
   each passed the app's check before either stored its row. This held
@@ -526,11 +662,6 @@ production; others can't be tested deterministically.
 - **Dependencies.** Since the PHP 8.4 upgrade the imports use
   phpoffice/phpspreadsheet 5.10.0, and `composer audit` finds no
   advisory for any locked package.
-- **Two sign-ups at once.** Two sign-ups of one new address that arrive
-  together both pass the free-address check. The second then meets the
-  unique key on insert: a 500, after its verification mail went out. The
-  generated user name retries on a clash, so only such a race reaches the
-  key, and the suite runs its requests one at a time.
 
 ## Practical notes
 

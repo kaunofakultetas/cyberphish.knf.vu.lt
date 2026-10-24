@@ -41,7 +41,8 @@ use Tests\Support\Flows;
 //
 // English material with two one-hour lessons, a category
 // with one self-evaluation question (a self-evaluation one
-// question long), and one simulation, for every test.
+// question long), and one simulation on offer, in a
+// category, for every test.
 //
 // Used by:
 //   - PHPUnit — the Feature suite (runTests.sh)
@@ -89,7 +90,7 @@ class CourseProgressTest extends FeatureTestCase
             $this->world->lmContent($this->category, $this->en),
         ];
         $this->question = $this->world->selfEvalQuestion($this->category, [['Right', true, 100], ['Wrong', false, 0]]);
-        $this->scenario = $this->world->scenario($this->en);
+        $this->scenario = $this->world->scenario($this->en, [], [$this->world->scenarioCategory($this->en)]);
         $this->member = $this->world->member();
     }
 
@@ -298,7 +299,7 @@ class CourseProgressTest extends FeatureTestCase
         $ltCategory = $this->world->lmCategory($lt);
         $this->world->lmContent($ltCategory, $lt);
         $this->world->selfEvalQuestion($ltCategory, [['Taip', true, 100]]);
-        $this->world->scenario($lt);
+        $this->world->scenario($lt, [], [$this->world->scenarioCategory($lt)]);
         $this->completeLessons();
 
         $this->assertEquals(0, LMUsers::course_progress($this->member->id, $lt));
@@ -391,6 +392,41 @@ class CourseProgressTest extends FeatureTestCase
         $this->signInManager($this->world->manager())->from('/admin-panel/lm/categories')->post("/admin-panel/lm/categores/delete/$doomed");
 
         $this->assertFalse(DB::table('bei_lm_category')->where('id', $doomed)->exists());
+        $this->assertEquals(25, $this->progress());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSimulationsMembersCannotReachDoNotCount
+    // -----------------------------------------------------------
+    //
+    // The simulations quarter counts the simulations a
+    // category of the language offers — the ones
+    // badge_all_simulations waits for — on both sides of the
+    // division: a finished run of a simulation filed under no
+    // category adds nothing, and finishing every simulation
+    // on offer gives the whole quarter. The stored function
+    // and LMUsers::country_progress once divided by every
+    // simulation of the language, and one out of reach held
+    // every member below the quarter for good
+    // (simulation-share-counts-unoffered).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationsMembersCannotReachDoNotCount(): void
+    {
+        $unoffered = $this->world->scenario($this->en, ['descr' => 'Filed under no category']);
+        $this->world->scenarioAttempt($this->member->id, $unoffered, $this->en);
+        $this->assertEquals(0, $this->progress(), 'a run of a simulation no member page offers counted');
+
+        $this->world->scenarioAttempt($this->member->id, $this->scenario, $this->en);
+
         $this->assertEquals(25, $this->progress());
     }
 

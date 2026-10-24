@@ -47,7 +47,9 @@
 
                             <div class="col-md-4">
                               <div class="card mb-4 box-shadow column">
+                                @if(!empty($value['feat_img']))
                                 <img class="card-img-top" src="{{ env('APP_URL') }}/upload/{{ $value['feat_img'] }}" alt="{{ $value['title'] }}">
+                                @endif
                                 <div class="card-body">
                                   <p class="card-text">{{ $value['title'] }}</p>
                                   <div class="d-flex justify-content-between align-items-center">

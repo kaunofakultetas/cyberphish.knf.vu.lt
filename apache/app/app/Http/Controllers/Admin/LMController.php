@@ -224,7 +224,10 @@ class LMController extends BaseController
     // (ConvertEmptyStringsToNull), as an empty body and empty
     // hours as 0, both columns being NOT NULL, and hours
     // typed with a decimal comma as with a point (hours) —
-    // and the language is the form's hidden uid. Then back to
+    // and the language is the form's hidden uid. The language
+    // and the category must exist, or the post goes back with
+    // the validation's error, where their foreign keys once
+    // answered a stale page with a 500. Then back to
     // the lessons page on that language's tab, with
     // "Created!". Main admins only (auth.admin:man, perms).
     //
@@ -237,6 +240,8 @@ class LMController extends BaseController
     {
         $validatedData = $request->validate([
             'title' => [ 'required', 'min:1', 'max:255' ],
+            'uid' => [ 'required', 'exists:bei_lang,id' ],
+            'cat_id' => [ 'nullable', 'exists:bei_lm_category,id' ],
         ]);
 
         $addRecord = new LMContent;
@@ -268,8 +273,10 @@ class LMController extends BaseController
     // ends as in create, an empty body or 0 hours, but
     // through MySQL rather than the code: strict mode is off
     // (config/database.php), so MySQL's UPDATE stores the
-    // column's implicit default instead of the NULL. Main
-    // admins only (auth.admin:man, perms).
+    // column's implicit default instead of the NULL. A
+    // category that is gone goes back with the validation's
+    // error, as in create. Main admins only (auth.admin:man,
+    // perms).
     //
     // Used by:
     //   - admin-panel/lm_content_form.blade.php — the lesson
@@ -280,6 +287,7 @@ class LMController extends BaseController
     {
         $validatedData = $request->validate([
             'title' => [ 'required', 'min:1', 'max:255' ],
+            'cat_id' => [ 'nullable', 'exists:bei_lm_category,id' ],
         ]);
 
         $update = array(
@@ -469,8 +477,10 @@ class LMController extends BaseController
     // POST /admin-panel/dialog/lm/categories/create
     //
     // Stores a new category — its name 1 to 255 characters,
-    // its language the dialog's hidden uid — and goes back to
-    // the previous page on that language's tab, with
+    // its language the dialog's hidden uid, which must exist,
+    // or the post goes back with the validation's error where
+    // its foreign key once answered with a 500 — and goes back
+    // to the previous page on that language's tab, with
     // "Created!". Main admins only (auth.admin:man, perms).
     //
     // Used by:
@@ -482,6 +492,7 @@ class LMController extends BaseController
     {
         $validatedData = $request->validate([
             'name' => [ 'required', 'min:1', 'max:255' ],
+            'uid' => [ 'required', 'exists:bei_lang,id' ],
         ]);
 
         $addRecord = new LMCategory;
@@ -761,7 +772,9 @@ class LMController extends BaseController
     // stores nothing; so does one whose name is blank,
     // or spaces only, which once reached the NOT NULL
     // column after the file had moved in: a 500, and a
-    // file left on disk with no row. Main admins only
+    // file left on disk with no row — and one for a lesson
+    // deleted meanwhile, whose row's foreign key once refused
+    // it only after the move, the same way. Main admins only
     // (auth.admin:man, perms).
     //
     // Used by:
@@ -775,6 +788,10 @@ class LMController extends BaseController
         // ConvertEmptyStringsToNull)
         if (!is_string($request->get('name'))) {
             return back()->withErrors("The file needs a name!");
+        }
+
+        if (LMContent::where(['id'=>$request->get('uid')])->count() == 0) {
+            return back()->withErrors("The lesson does not exist!");
         }
 
         if ($request->hasFile('doc')) {

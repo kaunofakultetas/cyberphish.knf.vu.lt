@@ -125,15 +125,17 @@ class ManagerMainController extends BaseController
     // POST /cp/change-pass
     //
     // Changes the member's password, behind auth:mem. The
-    // current password must match the stored hash, the new
-    // one must differ from it and equal its repetition, and
-    // it must be 12 to 50 characters long — the login's rule,
-    // so no member can pick a password the login then
-    // refuses; each refusal comes back with its own message,
-    // and success stores the new hash. A field posted as a
-    // list is refused at the check it would have failed —
+    // current password must match the stored hash, the new one
+    // must differ from it and equal its repetition, and it
+    // must be 12 to 50 characters long — the login's rule, so
+    // no member can pick a password the login then refuses;
+    // each refusal comes back with its own message, and
+    // success stores the new hash. A field posted as a list is
+    // refused at the check it would have failed —
     // password_verify and strcmp take one string, and a list
-    // reaching them was a TypeError, a 500.
+    // reaching them was a TypeError, a 500. A new password
+    // with a NUL byte gets the list's refusal: bcrypt refuses
+    // the byte, and Hash::make failed on it with a 500.
     //
     // Used by:
     //   - parts/change_password.blade.php — the password form
@@ -147,7 +149,7 @@ class ManagerMainController extends BaseController
             return redirect()->back()->withErrors(__('main.curr_pass_wrong'));
         }
 
-        if(is_array($request->get('newpass')) || is_array($request->get('renewpass'))){
+        if(is_array($request->get('newpass')) || is_array($request->get('renewpass')) || strpos((string) $request->get('newpass'), "\0") !== false){
 
             return redirect()->back()->withErrors(__('main.new_pass_not_match'));
         }

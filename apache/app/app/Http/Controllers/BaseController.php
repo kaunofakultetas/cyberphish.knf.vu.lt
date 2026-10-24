@@ -91,7 +91,10 @@ class BaseController extends Controller
     // in the session, new_badge_waiting, for the first page
     // that does (parts/notif.blade.php, through
     // AppServiceProvider::boot); announced with the page that
-    // earned it, it was lost on all of those. All of it, with
+    // earned it, it was lost on all of those. The note holds
+    // the member's id, so it is announced to that member
+    // alone — the session outlives a sign-out, and a bare flag
+    // once greeted the next member on the browser. All of it, with
     // the learning-material menu and the questionnaire link of
     // the member's country, is shared with every view.
     //
@@ -150,7 +153,7 @@ class BaseController extends Controller
                     $bx = Badges::save_badge(Langs::getLangId(Session::get('lang')), 'badge_finished_course');
 
                     if($bx == true){
-                        $request->session()->put('new_badge_waiting', true);
+                        $request->session()->put('new_badge_waiting', Auth::guard('mem')->id());
                     } else {
                         // Already held — nothing to announce
                     }

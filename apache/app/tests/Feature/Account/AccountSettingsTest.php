@@ -136,9 +136,11 @@ class AccountSettingsTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // A wrong current password, a new password equal to the
-    // current one, a repetition that differs, and a new
-    // password outside the login's 12 to 50 characters each
-    // get their message, and the password stays.
+    // current one, a repetition that differs, a new password
+    // outside the login's 12 to 50 characters, and one with a
+    // NUL byte — which bcrypt refuses, a 500 at Hash::make
+    // once (login-password-list) — each get their message, and
+    // the password stays.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -177,6 +179,7 @@ class AccountSettingsTest extends FeatureTestCase
             'repetition differs'     => [World::PASSWORD, self::NEW_PASSWORD, 'Something-Else-8', 'main.new_pass_not_match'],
             'new under 12 characters' => [World::PASSWORD, 'Eleven-Char', 'Eleven-Char', 'main.pass_too_short'],
             'new over 50 characters'  => [World::PASSWORD, str_repeat('Long-', 10) . 'x', str_repeat('Long-', 10) . 'x', 'main.pass_too_long'],
+            'new with a NUL byte'     => [World::PASSWORD, "New-Pass\0word-12", "New-Pass\0word-12", 'main.new_pass_not_match'],
         ];
     }
 

@@ -70,28 +70,32 @@ class FinishedSe
     //
     // Checks that exactly one attempt of the signed-in member
     // has the URL's public id and category; anything else is a
-    // 404. Then counts the distinct questions answered in the
-    // attempt against the self-evaluation length (val3 of
-    // bei_settings row 2), or against the category's
-    // answerable questions (SelfEval::scopeUsable) when it has
-    // fewer. Fewer answered, and the request goes on to the
-    // page or the save. As many or more, and an open attempt
-    // is closed — finished set, ended stamped, the points of
+    // 404. An attempt closed before leads to its results
+    // straight away, its end date and points as they were,
+    // however long attempts are now — the check once waited
+    // until the answers reached the length, so an attempt
+    // closed before the length grew opened again and took
+    // answers no score counted. Then counts the distinct
+    // questions answered in the attempt against the
+    // self-evaluation length (val3 of bei_settings row 2), or
+    // against the category's answerable questions
+    // (SelfEval::scopeUsable) when it has fewer. Fewer
+    // answered, and the request goes on to the page or the
+    // save. As many or more, and an open attempt is closed —
+    // finished set, ended stamped, the points of
     // calucate_points stored — and the member is redirected to
     // the results page; more can be answered when the length
     // was lowered, or questions deleted, after the attempt
     // began. Every close saves badge_self_evaluation_test in
     // the attempt's language — its category's, stored when it
-    // began — whichever language the session shows by then,
-    // in another tab or after signing in again; the close
-    // that earns it carries the new-badge message, translated
-    // into the session's language, the one the member reads —
-    // this runs before BaseController sets the request's
-    // locale. An attempt closed before keeps its end date and
-    // points and only leads to its results. The answer to the
-    // last question passes here before the controller saves
-    // it: the controller's redirect back to the test page is
-    // what closes the attempt.
+    // began — whichever language the session shows by then, in
+    // another tab or after signing in again; the close that
+    // earns it carries the new-badge message, translated into
+    // the session's language, the one the member reads — this
+    // runs before BaseController sets the request's locale.
+    // The answer to the last question passes here before the
+    // controller saves it: the controller's redirect back to
+    // the test page is what closes the attempt.
     //
     // Used by:
     //   - Laravel's router, on the routes in the class banner
@@ -110,6 +114,12 @@ class FinishedSe
 
             $test_id = SelfEvalUserTest::select('id')->where(['public_id'=>$public_id])->get()->pluck('id')->first();
 
+            // Closed before: its end date and points stay, and it
+            // takes no more answers
+            if(SelfEvalUserTest::select('finished')->where(['id'=>$test_id])->get()->pluck('finished')->first() == 1){
+                return redirect('/cp/se_r/'.$public_id);
+            }
+
 
             // STEP 2: how many answered questions close the
             // attempt — val3 of settings row 2, or the category's
@@ -125,11 +135,6 @@ class FinishedSe
             $answered = SelfEvalUser::select("question_id")->where(['test_id'=>$test_id, 'user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id])->groupby('question_id')->get()->toArray();
 
             if(count($answered) >= $total_questions){
-
-                // Closed before: its end date and points stay
-                if(SelfEvalUserTest::select('finished')->where(['id'=>$test_id])->get()->pluck('finished')->first() == 1){
-                    return redirect('/cp/se_r/'.$public_id);
-                }
 
                 SelfEvalUserTest::where(['public_id'=>$public_id, 'user_id'=>Auth::guard('mem')->id()])->update(['finished'=>1, 'ended'=>date("Y-m-d H:i:s"), 'points'=>$this->calucate_points($public_id)]);
 

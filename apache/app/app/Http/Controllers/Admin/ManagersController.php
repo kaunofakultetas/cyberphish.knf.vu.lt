@@ -127,6 +127,11 @@ class ManagersController extends BaseController
     // country select is required, and it once opened on its
     // placeholder: the main admin had to pick a country to
     // save a new password, and the pick replaced the stored
+    // one. The country goes to the dialog as manager_country,
+    // in both branches — null for a new manager, so the
+    // select opens on its placeholder: as country, the name
+    // Admin\BaseController shares the signed-in admin's own
+    // country under, the new-manager dialog fell back to that
     // one.
     //
     // Used by:
@@ -139,7 +144,7 @@ class ManagersController extends BaseController
     {
         if($uid == null){
 
-            return view('admin-panel.dialog.managers_form', ['url'=>env('APP_URL').'/admin-panel/manager/create']);
+            return view('admin-panel.dialog.managers_form', ['url'=>env('APP_URL').'/admin-panel/manager/create', 'manager_country'=>null]);
 
         } else {
 
@@ -148,7 +153,7 @@ class ManagersController extends BaseController
                     'url'=>env('APP_URL').'/admin-panel/manager/update',
                     'uid'=>$uid,
                     'email'=>Managers::where(['id'=>$uid])->where('main','!=', 1)->get()->pluck('email')->first(),
-                    'country'=>Managers::where(['id'=>$uid])->where('main','!=', 1)->get()->pluck('country')->first()
+                    'manager_country'=>Managers::where(['id'=>$uid])->where('main','!=', 1)->get()->pluck('country')->first()
                 ]);
 
         }
@@ -196,10 +201,15 @@ class ManagersController extends BaseController
     // Creates a country manager: a valid address no manager
     // has yet, a password of 6 to 50 characters typed twice
     // and stored hashed, and the country as posted — the
-    // dialog offers 1 to 5, and 0 for any other. The manager
-    // starts switched off (status 0). Answers a redirect back
-    // with the result; the success message asks to add
-    // permissions, though the panel has no page for them.
+    // dialog offers 1 to 5, and 0 for any other. The password
+    // is one string with no NUL byte, which bcrypt refuses,
+    // and the country a whole number or none: a list of
+    // either, or the byte, once reached Hash::make or the
+    // insert, a 500. The manager starts switched off (status
+    // 0). Answers a redirect back with the result; the success
+    // message says to switch the manager on in the list, where
+    // it once asked to add permissions, though the panel has
+    // no page for them.
     //
     // Used by:
     //   - admin-panel/dialog/managers_form.blade.php — the
@@ -210,8 +220,9 @@ class ManagersController extends BaseController
     {
         $validatedData = $request->validate([
             'email' => [ 'required', 'email' ],
-            'pass' => [ 'required', 'min:6', 'max:50' ],
-            'repass' => [ 'required', 'min:6', 'max:50' ],
+            'pass' => [ 'required', 'string', 'min:6', 'max:50', 'not_regex:/\x00/' ],
+            'repass' => [ 'required', 'string', 'min:6', 'max:50' ],
+            'country' => [ 'nullable', 'integer' ],
         ]);
 
         if($validatedData['pass'] == $validatedData['repass']){
@@ -226,7 +237,7 @@ class ManagersController extends BaseController
                 $addAdmin->country = $request->get('country');
                 $addAdmin->save();
 
-                return back()->withSuccess("Manager created! Don't forget to add permissions.");
+                return back()->withSuccess("Manager created! Switch it on in the list to let it sign in.");
 
             } else {
 
@@ -255,11 +266,14 @@ class ManagersController extends BaseController
     // Gives the manager named by uid a new address, one no
     // other manager has, and a new password typed twice; both
     // are required on every save. The country the dialog asks
-    // for is saved too, when it is posted. Like manager_status
-    // and manager_delete it passes over main admins, which
-    // the page never lists: a post with a main admin's id
-    // changes nothing. Answers a redirect back with the
-    // result.
+    // for is saved too, when it is posted. The password is one
+    // string with no NUL byte and the country a whole number
+    // or none, as on manager_create: a password list or the
+    // byte once reached Hash::make, a 500, and a country list
+    // was stored as its first item. Like manager_status and
+    // manager_delete it passes over main admins, which the
+    // page never lists: a post with a main admin's id changes
+    // nothing. Answers a redirect back with the result.
     //
     // Used by:
     //   - admin-panel/dialog/managers_form.blade.php — the
@@ -271,8 +285,9 @@ class ManagersController extends BaseController
         $validatedData = $request->validate([
             'uid' => [ 'required', 'integer' ],
             'email' => [ 'required', 'email' ],
-            'pass' => [ 'required', 'min:6', 'max:50' ],
-            'repass' => [ 'required', 'min:6', 'max:50' ],
+            'pass' => [ 'required', 'string', 'min:6', 'max:50', 'not_regex:/\x00/' ],
+            'repass' => [ 'required', 'string', 'min:6', 'max:50' ],
+            'country' => [ 'nullable', 'integer' ],
         ]);
 
         if($validatedData['pass'] == $validatedData['repass']){

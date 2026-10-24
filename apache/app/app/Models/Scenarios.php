@@ -39,6 +39,8 @@ use Illuminate\Database\Eloquent\Model;
 // story), image, and choose_type and attack_type — free
 // text out of the import spreadsheet, shown as labels.
 //
+//   scopeOffered — only the simulations a member page offers
+//
 // Used by:
 //   - SimulationsController — simulation_start (the start
 //     page), check_if_all_simulations_finished (the
@@ -51,7 +53,8 @@ use Illuminate\Database\Eloquent\Model;
 //     the printable page of every simulation, HTML despite
 //     the name
 //   - Admin\ManagerMainController::dashboard,
-//     simulation_report — the members' runs
+//     simulation_report — the members' runs, and the offered
+//     simulations of the dashboard's figures
 // -----------------------------------------------------------
 
 class Scenarios extends Model
@@ -75,4 +78,41 @@ class Scenarios extends Model
     // Empty: every column comes back uncast
     protected $casts = [
     ];
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // scopeOffered
+    // -----------------------------------------------------------
+    //
+    // Only the simulations a member page offers: those a
+    // category of their own language lists, as the category
+    // pages list them (SimulationsController::
+    // simulations_list). One filed under no category of its
+    // language — an import whose sheet marked none, a
+    // category deleted — is out of every member's reach, so
+    // neither the badge, the progress nor the dashboard counts
+    // it. The stored function bei_user_course_progress and
+    // LMUsers::country_progress repeat this rule in SQL, and
+    // must keep step with it.
+    //
+    // Used by:
+    //   - SimulationsController::check_if_all_simulations_finished
+    //   - Admin\ManagerMainController::dashboard
+    // -----------------------------------------------------------
+
+    public function scopeOffered($query)
+    {
+        return $query->whereExists(function ($in) {
+            $in->select(DB::raw(1))
+                ->from('bei_scenarios_in_category')
+                ->join('bei_scenarios_category', 'bei_scenarios_category.id', '=', 'bei_scenarios_in_category.cat_id')
+                ->whereColumn('bei_scenarios_in_category.scenario_id', 'bei_scenarios.id')
+                ->whereColumn('bei_scenarios_in_category.lang_id', 'bei_scenarios.lang_id')
+                ->whereColumn('bei_scenarios_category.lang_id', 'bei_scenarios.lang_id');
+        });
+    }
 }

@@ -153,34 +153,43 @@ class LoginController extends BaseController
     // POST /login
     //
     // Signs a member in on the mem guard. The form needs an
-    // email and a password of 12 to 50 characters; the guard
-    // then looks for an active account (status 1) with that
-    // email and checks the password against its hash, so a
-    // wrong password, an unknown address and an account not
-    // yet verified all get the same auth_failed refusal. On
+    // email and a password of 12 to 50 characters, one string:
+    // a list goes back with the validation's error, before any
+    // account is looked at, where its twelve items once passed
+    // the rule's count and reached password_verify — a 500 for
+    // an active account alone, which told those apart. So does
+    // a password with a NUL byte: bcrypt reads a password only
+    // up to one, so the real password followed by the byte and
+    // more signed the member in, and where the stored hash had
+    // another cost than the configured 10, the rehash on
+    // sign-in failed on it with a 500. The guard then looks
+    // for an active account (status 1) with that email and
+    // checks the password against its hash, so a wrong
+    // password, an unknown address and an account not yet
+    // verified all get the same auth_failed refusal. On
     // success it records the visit — last_login, last_ip
     // (SettingsController::getUserIP), a bei_users_loginlog
     // row, badge_login_10 after ten days in a row — empties
-    // reset_token, and sends the member to the page that
-    // asked for a sign-in, or to the dashboard — never to a
-    // page of the panel, whose sign-in redirect parks its
-    // pages in the session under the same key
+    // reset_token, and sends the member to the page that asked
+    // for a sign-in, or to the dashboard — never to a page of
+    // the panel, whose sign-in redirect parks its pages in the
+    // session under the same key
     // (SettingsController::is_panel_url). The form has no
     // reCAPTCHA, so the guesses are limited the way the
     // trait's login limits them: every refusal counts against
     // the email and the address it came from, and once the
     // pair has ten (the properties above), every post of it —
-    // the right password included — goes back to the form
-    // with auth.throttle in the session's language until
-    // fifteen minutes after the first refusal. A sign-in
-    // clears the count. A refusal goes straight back to the
-    // form with its error and the email typed, so only the
-    // password needs typing again; the page that asked for a
-    // sign-in stays parked in the session for the next try.
-    // The password itself never goes into the session — not
-    // here, where only the email is passed back, nor in the
-    // validation and lockout refusals Laravel answers itself,
-    // which keep the email too and leave out every field of
+    // the right password included — goes back to the form with
+    // auth.throttle in the session's language until fifteen
+    // minutes after the first refusal. A sign-in clears the
+    // count. A refusal goes straight back to the form with its
+    // error and the email typed, so only the password needs
+    // typing again; the page that asked for a sign-in stays
+    // parked in the session for the next try. The password
+    // itself never goes into the session — not here, where
+    // only the email is passed back, nor in the validation and
+    // lockout refusals Laravel answers itself, which keep the
+    // email too and leave out every field of
     // Handler::$dontFlash.
     //
     // Used by:
@@ -191,7 +200,7 @@ class LoginController extends BaseController
     {
         $this->validate($request, [
             'email'   => 'required|email',
-            'password' => 'required|min:12|max:50'
+            'password' => 'required|string|min:12|max:50|not_regex:/\x00/'
         ]);
 
         if ($this->hasTooManyLoginAttempts($request)) {
@@ -235,12 +244,14 @@ class LoginController extends BaseController
     // Signs the member out of the mem guard and goes to the
     // home page. A POST with the session's token, so no link
     // or image of another site can sign a member out. Unlike
-    // the trait's logout it leaves the
-    // session alive, so the language choice survives — and so
-    // does a manager signed in on the same browser. On the way
-    // out the guard replaces a non-empty remember_token with a
-    // random one; a pending password reset waits in
-    // reset_token, out of its reach (see forgotpassword).
+    // the trait's logout it leaves the session alive, so the
+    // language choice survives — and so does a manager signed
+    // in on the same browser. On the way out the guard
+    // replaces a non-empty remember_token with a random one; a
+    // pending password reset waits in reset_token, out of its
+    // reach (see forgotpassword). A badge announcement still
+    // waiting (new_badge_waiting, see BaseController) goes
+    // with the member.
     //
     // Used by:
     //   - layouts/main.blade.php — the logout entry of the
@@ -250,6 +261,7 @@ class LoginController extends BaseController
     public function logout()
     {
         Auth::guard('mem')->logout();
+        Session::forget('new_badge_waiting');
         return redirect('/');
     }
 
@@ -355,6 +367,9 @@ class LoginController extends BaseController
     // Used by:
     //   - SendRemindLink — the link in the password-reset mail
     //     (emails/userpassreset.blade.php)
+    //   - SendActivationLink — the link in the mail a sign-up
+    //     of an address still waiting for its verification
+    //     sends (emails/useractivation.blade.php)
     // -----------------------------------------------------------
 
     public function reset_form($reset_token)

@@ -27,6 +27,8 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\Members;
+use DateTime;
+use DateTimeZone;
 use Dom\HTMLDocument;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -257,6 +259,80 @@ class LoginTest extends FeatureTestCase
         $member = $this->world->member();
 
         $this->signIn($member->email, 'short')->assertSessionHasErrors('password');
+
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordPostedAsAListIsRefused
+    // -----------------------------------------------------------
+    //
+    // A password posted as a list goes back to the form with a
+    // validation error on the password, the same for an active
+    // account as for an unknown address, and signs nobody in:
+    // like a password too short, it is refused before any
+    // account is looked at. The rule's min once counted the
+    // list's twelve items, and for an active account the guard
+    // handed the list to password_verify — a 500 an unknown
+    // address never got, so the answer told active accounts
+    // apart (login-password-list).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordPostedAsAListIsRefused(): void
+    {
+        $member = $this->world->member();
+
+        foreach ([$member->email, 'nobody.here@example.test'] as $email) {
+            $this->from('/login')->post('/login', ['email' => $email, 'password' => array_fill(0, 12, 'x')])
+                ->assertRedirect('/login')
+                ->assertSessionHasErrors('password');
+        }
+
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordWithANulByteIsRefused
+    // -----------------------------------------------------------
+    //
+    // A password with a NUL byte goes back to the form with a
+    // validation error before any account is looked at, even
+    // the member's real password followed by the byte and
+    // more. bcrypt reads a password only up to such a byte, so
+    // that password once signed the member in. Where the
+    // stored hash had another cost than the configured 10 — the
+    // 12 of PHP 8.4's password_hash — the rehash on sign-in
+    // failed on it with a 500 (login-password-list).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordWithANulByteIsRefused(): void
+    {
+        $members = [
+            $this->world->member(),
+            $this->world->member(['password' => password_hash(World::PASSWORD, PASSWORD_BCRYPT, ['cost' => 12])]),
+        ];
+
+        foreach ($members as $member) {
+            $this->from('/login')->post('/login', ['email' => $member->email, 'password' => World::PASSWORD . "\0anything"])
+                ->assertRedirect('/login')
+                ->assertSessionHasErrors('password');
+        }
 
         $this->assertGuest('mem');
     }
@@ -570,7 +646,7 @@ class LoginTest extends FeatureTestCase
     {
         $member = $this->world->member();
         for ($day = 1; $day <= 9; $day++) {
-            $this->world->loginLog($member->id, date('Y-m-d 12:00:00', strtotime("-$day days")));
+            $this->world->loginLog($member->id, $this->localNoon($day));
         }
 
         $this->signIn($member->email, World::PASSWORD);
@@ -601,7 +677,7 @@ class LoginTest extends FeatureTestCase
     {
         $member = $this->world->member();
         for ($day = 1; $day <= 9; $day++) {
-            $this->world->loginLog($member->id, date('Y-m-d 12:00:00', strtotime("-$day days")));
+            $this->world->loginLog($member->id, $this->localNoon($day));
         }
 
         $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
@@ -629,12 +705,116 @@ class LoginTest extends FeatureTestCase
     {
         $member = $this->world->member();
         foreach ([1, 3, 4, 5, 6, 7, 8, 9] as $day) {
-            $this->world->loginLog($member->id, date('Y-m-d 12:00:00', strtotime("-$day days")));
+            $this->world->loginLog($member->id, $this->localNoon($day));
         }
 
         $this->signIn($member->email, World::PASSWORD);
 
         $this->assertFalse(DB::table('bei_users_badges')->where('user_id', $member->id)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testStreakCountsTheMembersDays
+    // -----------------------------------------------------------
+    //
+    // The ten days of badge_login_10 are the members' days
+    // (config app.display_timezone), not UTC's: a sign-in at
+    // half past midnight on each of the nine days before
+    // today — stored under the UTC date before it — and
+    // today's earn the badge. The days once ended at UTC
+    // midnight, two or three at night in the members'
+    // countries, and such a streak earned nothing
+    // (login-streak-counts-utc-days). This test and
+    // testTenDaysInARowEarnTheBadge, whose sign-ins are at
+    // noon, pass at any hour, and a return to UTC days fails
+    // one of the two whatever the hour.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testStreakCountsTheMembersDays(): void
+    {
+        $local = new DateTimeZone(config('app.display_timezone'));
+        $member = $this->world->member();
+        for ($day = 1; $day <= 9; $day++) {
+            $at = (new DateTime("today -$day days 00:30", $local))->setTimezone(new DateTimeZone('UTC'));
+            $this->world->loginLog($member->id, $at->format('Y-m-d H:i:s'));
+        }
+
+        $this->signIn($member->email, World::PASSWORD);
+
+        $this->assertTrue(DB::table('bei_users_badges')
+            ->where(['user_id' => $member->id, 'name' => 'badge_login_10'])->exists(), 'ten local days in a row earned no badge');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLoginBadgeIsTheMembersWhateverTheLanguage
+    // -----------------------------------------------------------
+    //
+    // badge_login_10 belongs to the member, not to a language:
+    // the badges page shows it in every language, and a member
+    // who holds it — here filed under English — earns no
+    // second one, and hears of no new badge, with another
+    // streak signed in from a session in Lithuanian. It was
+    // filed under the language of the session at sign-in,
+    // which a fresh session gives as English, and showed only
+    // on the badges page of that language.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLoginBadgeIsTheMembersWhateverTheLanguage(): void
+    {
+        $member = $this->world->member();
+        $this->world->badge($member->id, $this->world->language('en'), 'badge_login_10');
+        $this->world->language('lt');
+        for ($day = 1; $day <= 9; $day++) {
+            $this->world->loginLog($member->id, $this->localNoon($day));
+        }
+        $this->get('/lang/lt');
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard')->assertSessionMissing('success');
+
+        $this->assertSame(1, DB::table('bei_users_badges')->where(['user_id' => $member->id, 'name' => 'badge_login_10'])->count());
+        $this->get('/cp/badges')->assertOk()->assertSee('/badges/badge_login_10.png', false);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // localNoon
+    // -----------------------------------------------------------
+    //
+    // Noon on the members' clock (config app.display_timezone)
+    // the given number of days before today, as the UTC the
+    // login log stores — so the streak tests hold whatever the
+    // hour they run at.
+    //
+    // Used by:
+    //   - testTenDaysInARowEarnTheBadge,
+    //     testLoginThatEarnsTheBadgeAnnouncesIt,
+    //     testNineDaysAreNotEnoughForTheBadge (above)
+    // -----------------------------------------------------------
+
+    private function localNoon(int $daysAgo): string
+    {
+        $noon = new DateTime("today -$daysAgo days 12:00", new DateTimeZone(config('app.display_timezone')));
+        return $noon->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
     }
 
 

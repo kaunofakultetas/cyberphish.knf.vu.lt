@@ -655,6 +655,48 @@ class PublicPagesTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testNewsPictureShowsOnlyWhenThereIsOne
+    // -----------------------------------------------------------
+    //
+    // An article's picture shows on its page and on the news
+    // list when it has one, and neither draws an image for an
+    // article without — an empty feat_img, as the panel's
+    // remove-picture link leaves it, or none at all. Both once
+    // drew one anyway, pointing at the upload folder itself:
+    // a broken image (news-empty-picture-broken-image). The
+    // home page keeps its news inside a Blade comment, so it
+    // shows no picture either way.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewsPictureShowsOnlyWhenThereIsOne(): void
+    {
+        $removed = $this->world->news($this->en, ['title' => 'Its picture removed', 'feat_img' => '']);
+        $this->world->news($this->en, ['title' => 'Never had a picture', 'feat_img' => null]);
+        $pictured = $this->world->news($this->en, ['title' => 'With a picture', 'feat_img' => 'news-picture.jpg']);
+
+        $pages = [
+            'article without a picture' => $this->get("/en/news/its-picture-removed/$removed")->assertOk()->getContent(),
+            'article with a picture'    => $this->get("/en/news/with-a-picture/$pictured")->assertOk()->getContent(),
+            'news list'                 => $this->get('/en/news')->assertOk()->getContent(),
+        ];
+
+        foreach ($pages as $page => $html) {
+            $this->assertStringNotContainsString('/upload/"', $html, "the $page shows a broken image");
+        }
+        foreach (['article with a picture', 'news list'] as $page) {
+            $this->assertStringContainsString('/upload/news-picture.jpg"', $pages[$page], "the $page lost the picture");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // rankMembers
     // -----------------------------------------------------------
     //

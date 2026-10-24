@@ -330,6 +330,7 @@ CREATE TABLE IF NOT EXISTS `bei_users_scenarios` (
   `started` datetime DEFAULT NULL,
   `ended` datetime DEFAULT NULL,
   `points` int(11) DEFAULT '0',
+  `simulation_type` tinyint(4) DEFAULT NULL COMMENT 'the mode chosen at the start: 1 - feedback after every choice, 2 - feedback listed at the end; NULL for runs started before it was kept',
   PRIMARY KEY (`id`),
   KEY `user_lang_idx` (`user_id`,`lang_id`),
   KEY `public_id_idx` (`public_id`)
@@ -383,9 +384,13 @@ BEGIN
 
 	SELECT IF(COUNT(*)>0, 30, 0) INTO @knowledge_test FROM bei_users_knowledge_test WHERE bei_users_knowledge_test.finished=1 AND bei_users_knowledge_test.results >=75 AND bei_users_knowledge_test.user_id = userid AND lang_id = langid;
 
-	SELECT COUNT(*) INTO @all_scenarios FROM bei_scenarios WHERE bei_scenarios.lang_id = langid;
+	-- The simulations the course offers: those of the language a
+	-- category of the language lists, the only ones a member page
+	-- offers (Scenarios::scopeOffered)
+	SELECT COUNT(*) INTO @all_scenarios FROM bei_scenarios WHERE bei_scenarios.lang_id = langid AND EXISTS (SELECT 1 FROM bei_scenarios_in_category ic JOIN bei_scenarios_category c ON c.id = ic.cat_id WHERE ic.scenario_id = bei_scenarios.id AND ic.lang_id = langid AND c.lang_id = langid);
 
-	SELECT COUNT(DISTINCT bei_users_scenarios.scenario_id) INTO @user_scenarios FROM bei_users_scenarios WHERE bei_users_scenarios.lang_id = langid AND bei_users_scenarios.finished=1 AND bei_users_scenarios.user_id = userid;
+	-- The member's finished ones among them, each once
+	SELECT COUNT(DISTINCT bei_users_scenarios.scenario_id) INTO @user_scenarios FROM bei_users_scenarios WHERE bei_users_scenarios.lang_id = langid AND bei_users_scenarios.finished=1 AND bei_users_scenarios.user_id = userid AND EXISTS (SELECT 1 FROM bei_scenarios s JOIN bei_scenarios_in_category ic ON ic.scenario_id = s.id JOIN bei_scenarios_category c ON c.id = ic.cat_id WHERE s.id = bei_users_scenarios.scenario_id AND s.lang_id = langid AND ic.lang_id = langid AND c.lang_id = langid);
 
 	-- A share the language does not offer, or the member has not
 	-- begun, is 0 rather than NULL, which would null the sum

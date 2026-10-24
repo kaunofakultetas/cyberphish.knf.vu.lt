@@ -20,18 +20,19 @@
 //    GET|POST  /admin-panel
 //    POST      /admin-panel/logout
 //
-//  Every manager — the dashboard and the member reports:
+//  Every manager — the dashboard, the member reports and
+//  their own password:
 //
 //    GET       /admin-panel/dashboard
 //    GET       /admin-panel/user/self_evaluation_history/…
 //    GET       /admin-panel/user/simulations_history/…
 //    GET       /admin-panel/user/simulation/report/{public_id}
 //    GET       /admin-panel/user/knowledge_results/{public_id}
-//
-//  Main admins — their own password, the members, the site
-//  languages, the managers and the other settings:
-//
 //    GET|POST  /admin-panel/change-pass
+//
+//  Main admins — the members, the site languages, the
+//  managers and the other settings:
+//
 //    GET       /admin-panel/users
 //    POST      /admin-panel/user/delete/{user_id}
 //    POST      /admin-panel/user/status/{status_id}/{user_id}
@@ -82,11 +83,12 @@ Route::post('admin-panel/logout', 'Auth\AdminLoginController@logout')->name('adm
 // The dashboard, for every manager
 Route::get('admin-panel/dashboard', 'Admin\ManagerMainController@dashboard')->name('admin_dashboard')->middleware(['auth.admin:man']);
 
-// The signed-in admin's own password: the closure returns
-// the dialog, whose form posts back to the same path
-Route::get('admin-panel/change-pass', function () { return view('admin-panel.dialog.changepass'); })->middleware(['auth.admin:man', 'perms']);
+// The signed-in manager's own password, for every manager:
+// the closure returns the dialog, whose form posts back to
+// the same path
+Route::get('admin-panel/change-pass', function () { return view('admin-panel.dialog.changepass'); })->middleware(['auth.admin:man']);
 
-Route::post('admin-panel/change-pass', array('before' => 'csrf', 'uses' => 'Admin\ManagerMainController@change_pass'))->middleware(['auth.admin:man', 'perms']);
+Route::post('admin-panel/change-pass', array('before' => 'csrf', 'uses' => 'Admin\ManagerMainController@change_pass'))->middleware(['auth.admin:man']);
 
 // The members: the list, deleting one, switching one on or
 // off

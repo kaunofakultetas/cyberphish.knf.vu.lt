@@ -74,6 +74,7 @@ use App\Models\ScenariosUsersOptions;
 //   simulation_do_stuff_save,
 //   save_choice                    — one step of a run
 //   step_options                   — the choices of a step
+//   run_mode                       — the mode of a run
 //   simulation_total_points        — the score of a run
 //   history                        — every run of the member
 //   check_if_all_simulations_finished
@@ -290,13 +291,14 @@ class SimulationsController extends BaseController
     // no points, under a fresh public id; then a redirect to
     // its first step. A simulation of another language is a
     // 404, as on the start page, so a forged post files no
-    // run under a language it does not belong to. The mode chosen on the start page — 1
-    // "for learning purposes", the feedback after every
-    // choice, or 2 "for knowledge testing purposes", the
-    // feedback listed at the end — is kept only in the
-    // session, under simulation_type_ and the public id, so a
-    // run resumed in another session shows no feedback at
-    // all.
+    // run under a language it does not belong to. The mode
+    // chosen on the start page — 1 "for learning purposes",
+    // the feedback after every choice, or 2 "for knowledge
+    // testing purposes", the feedback listed at the end — is
+    // kept on the run, in simulation_type (run_mode): kept in
+    // the session alone, as it once was, it went with the
+    // session, and a run resumed after one ended — 120 idle
+    // minutes, any restart — showed no feedback at all.
     //
     // Used by:
     //   - simulation_start.blade.php — the start form
@@ -318,9 +320,10 @@ class SimulationsController extends BaseController
         $add->finished = 0;
         $add->started = date("Y-m-d H:i:s");
         $add->points = 0;
+        // 1 or 2, the two modes the start page offers; anything
+        // else keeps no mode, which shows no feedback
+        $add->simulation_type = !is_array($request->get('simulation_type')) && in_array($request->get('simulation_type'), [1, 2]) ? (int) $request->get('simulation_type') : null;
         $add->save();
-
-        Session::put('simulation_type_'.$public_id, $request->get('simulation_type'));
 
         return redirect('/'.$lang.'/simulation/progress/'.$public_id);
     }
@@ -461,7 +464,7 @@ class SimulationsController extends BaseController
             // STEP 4: mode 2 lists every choice that has
             // feedback on the end page
             // ==========================================
-            if(Session::get('simulation_type_'.$public_id) == 2){
+            if(SimulationsController::run_mode($public_id) == 2){
 
                 $feedback_list = ScenariosUsersOptions::selectraw('bei_users_scenarios_options.*, bei_scenarios_options.feedback, bei_scenarios_options.situation')
                 ->leftJoin('bei_scenarios_options', 'bei_users_scenarios_options.option_id', 'bei_scenarios_options.id')
@@ -583,7 +586,7 @@ class SimulationsController extends BaseController
         // STEP 3: mode 1 shows this choice's feedback at the
         // next step; any other mode empties it
         // ==================================================
-        if(Session::get('simulation_type_'.$public_id) == 1){
+        if(SimulationsController::run_mode($public_id) == 1){
 
             Session::put('feedback_'.$public_id, $feedback);
 
@@ -635,6 +638,29 @@ class SimulationsController extends BaseController
         $new_level = $level+1;
 
         return ScenariosOptions::where(['scenario_id'=>$scenario_id, 'parent_option_id'=>$parent_option_id, 'level'=>$new_level])->get()->toArray();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // run_mode
+    // -----------------------------------------------------------
+    //
+    // The mode a run was started in, 1 or 2, from its own row;
+    // a run started before the row kept it falls back on the
+    // session, which held the mode alone until then, and has
+    // no mode once that session is gone.
+    //
+    // Used by:
+    //   - simulation_do_stuff, save_choice (above)
+    // -----------------------------------------------------------
+
+    private static function run_mode($public_id)
+    {
+        return ScenariosUsers::where(['public_id'=>$public_id])->value('simulation_type') ?? Session::get('simulation_type_'.$public_id);
     }
 
 
@@ -707,11 +733,11 @@ class SimulationsController extends BaseController
     // check_if_all_simulations_finished
     // -----------------------------------------------------------
     //
-    // One entry per simulation the language offers: 1 when
-    // the member has finished a run of it, else 0 — so every
+    // One entry per simulation the language offers: 1 when the
+    // member has finished a run of it, else 0 — so every
     // simulation is done when no 0 is left. A simulation is
-    // offered when a category of its language lists it, as
-    // the category pages do (simulations_list); one filed
+    // offered (Scenarios::scopeOffered) when a category of its
+    // language lists it, as the category pages do; one filed
     // under no category of its language is out of every
     // member's reach, and once kept the badge, and with it
     // badge_finished_course, out of reach too — six of
@@ -724,10 +750,7 @@ class SimulationsController extends BaseController
 
     public static function check_if_all_simulations_finished($lang_id)
     {
-        $offered = ScenariosInCategory::select('scenario_id')->where(['lang_id'=>$lang_id])
-            ->whereIn('cat_id', ScenariosCategory::select('id')->where(['lang_id'=>$lang_id]));
-
-        $get_scenarios = Scenarios::where(['lang_id'=>$lang_id])->whereIn('id', $offered)->get()->toArray();
+        $get_scenarios = Scenarios::where(['lang_id'=>$lang_id])->offered()->get()->toArray();
 
         $return = [];
 

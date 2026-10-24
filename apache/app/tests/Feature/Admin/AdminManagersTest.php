@@ -108,7 +108,9 @@ class AdminManagersTest extends FeatureTestCase
     // -----------------------------------------------------------
     //
     // A created manager is a country manager of the chosen
-    // country, with the password hashed, and switched off.
+    // country, with the password hashed, and switched off, and
+    // the message says how to switch it on. It once asked to
+    // add permissions, though the panel has no page for them.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -116,7 +118,7 @@ class AdminManagersTest extends FeatureTestCase
 
     public function testNewManagerStartsSwitchedOff(): void
     {
-        $this->create(['email' => 'latvia@example.test', 'country' => 2])->assertSessionHas('success');
+        $this->create(['email' => 'latvia@example.test', 'country' => 2])->assertSessionHas('success', 'Manager created! Switch it on in the list to let it sign in.');
 
         $manager = Managers::where('email', 'latvia@example.test')->first();
         $this->assertSame(0, $manager->main);
@@ -152,6 +154,86 @@ class AdminManagersTest extends FeatureTestCase
         $this->create(['pass' => 'abc', 'repass' => 'abc'])->assertSessionHasErrors('pass');
 
         $this->assertSame($before, Managers::count());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFieldsPostedAsListsAreRefused
+    // -----------------------------------------------------------
+    //
+    // The manager dialog refuses a password or a country
+    // posted as a list, creating and editing alike, and stores
+    // nothing. The password rule's min once counted a list's
+    // items and Hash::make took the list, a 500, as did a
+    // country list on a new manager; on an edit the country
+    // list was stored as its first item (login-password-list,
+    // whose sibling this is).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFieldsPostedAsListsAreRefused(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $before = Managers::count();
+        $row = (array) DB::table('bei_managers')->where('id', $manager->id)->first();
+
+        $this->create(['pass' => array_fill(0, 6, 'x'), 'repass' => array_fill(0, 6, 'x')])->assertSessionHasErrors('pass');
+        $this->create(['country' => [2]])->assertSessionHasErrors('country');
+        foreach (['pass' => ['pass' => array_fill(0, 6, 'x'), 'repass' => array_fill(0, 6, 'x')], 'country' => ['country' => [3]]] as $field => $list) {
+            $this->signInManager($this->admin)->from('/admin-panel/settings/managers')->post('/admin-panel/manager/update', array_merge([
+                'uid'     => $manager->id,
+                'email'   => $manager->email,
+                'pass'    => 'Manager-Pass-1',
+                'repass'  => 'Manager-Pass-1',
+                'country' => 2,
+            ], $list))->assertRedirect('/admin-panel/settings/managers')->assertSessionHasErrors($field);
+        }
+
+        $this->assertSame($before, Managers::count());
+        $this->assertSame($row, (array) DB::table('bei_managers')->where('id', $manager->id)->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordWithANulByteIsRefused
+    // -----------------------------------------------------------
+    //
+    // The manager dialog refuses a password with a NUL byte,
+    // which bcrypt refuses, creating and editing alike, and
+    // stores nothing. It once reached Hash::make, a 500
+    // (login-password-list).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordWithANulByteIsRefused(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $before = Managers::count();
+        $row = (array) DB::table('bei_managers')->where('id', $manager->id)->first();
+
+        $this->create(['pass' => "Manager\0Pass-1", 'repass' => "Manager\0Pass-1"])->assertSessionHasErrors('pass');
+        $this->signInManager($this->admin)->from('/admin-panel/settings/managers')->post('/admin-panel/manager/update', [
+            'uid'     => $manager->id,
+            'email'   => $manager->email,
+            'pass'    => "Manager\0Pass-1",
+            'repass'  => "Manager\0Pass-1",
+            'country' => 2,
+        ])->assertRedirect('/admin-panel/settings/managers')->assertSessionHasErrors('pass');
+
+        $this->assertSame($before, Managers::count());
+        $this->assertSame($row, (array) DB::table('bei_managers')->where('id', $manager->id)->first());
     }
 
 
@@ -422,6 +504,35 @@ class AdminManagersTest extends FeatureTestCase
             $this->assertMatchesRegularExpression("#<option value=\"$country\" selected=\"selected\">#", $html, "country $country");
             $this->assertSame(1, substr_count($html, 'selected="selected"'), "country $country");
         }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewManagerDialogOpensOnNoCountry
+    // -----------------------------------------------------------
+    //
+    // The new-manager dialog opens on the country select's
+    // placeholder, whatever the signed-in admin's own country.
+    // It once fell back on the country the panel shares under
+    // the same name — the admin's — and the required select no
+    // longer asked for a choice (new-manager-dialog-preselects-
+    // own-country).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewManagerDialogOpensOnNoCountry(): void
+    {
+        $greekAdmin = $this->world->manager(['country' => 3]);
+
+        $html = $this->signInManager($greekAdmin)->get('/admin-panel/dialog/manager/new')->assertOk()->getContent();
+
+        $this->assertDoesNotMatchRegularExpression('#<option value="\d+" selected="selected">#', $html, 'the new-manager dialog opens on a country');
     }
 
 

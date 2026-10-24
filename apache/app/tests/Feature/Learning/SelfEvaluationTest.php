@@ -948,4 +948,179 @@ class SelfEvaluationTest extends FeatureTestCase
             $this->assertEquals($points, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('points'), $case);
         }
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testClosedAttemptStaysClosed
+    // -----------------------------------------------------------
+    //
+    // An attempt closed before leads to its results and takes
+    // no more answers, its end date and points as they were,
+    // when attempts grow longer after it closed — here a
+    // question added to a category that had fewer than the
+    // length. The middleware once looked at the attempt's
+    // closing only when its answers reached the length, and
+    // the closed attempt's question page opened again and
+    // took answers no score counted
+    // (selfeval-closed-attempt-reopens).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testClosedAttemptStaysClosed(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 5);
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+        $closed = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->first();
+        $third = $this->world->selfEvalQuestion($this->category, [['Lock the screen', true, 100], ['Leave it open', false, 0]]);
+
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $third['question'], [$third['options'][0]]);
+
+        $this->assertSame(2, DB::table('bei_users_selfeval')->where('public_id', $publicId)->count(), 'the closed attempt took another answer');
+        $after = DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->first();
+        $this->assertEquals([1, $closed->ended, $closed->points], [$after->finished, $after->ended, $after->points]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewAttemptWaitsForTheCategorysLessons
+    // -----------------------------------------------------------
+    //
+    // A new attempt starts only once the member has done every
+    // lesson of the category, as the lesson page's button
+    // offers it: before that the start address leads to the
+    // learning material and stores nothing. The address alone
+    // once started an attempt, whose close earned
+    // badge_self_evaluation_test and counted in the progress
+    // and the ranking (selfeval-starts-without-lessons).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewAttemptWaitsForTheCategorysLessons(): void
+    {
+        $lesson = $this->world->lmContent($this->category, $this->en);
+
+        $this->signInMember($this->member)->get("/en/self-evaluation-test/{$this->category}")
+            ->assertRedirect('/en/cp/learning-material');
+        $this->assertFalse(DB::table('bei_users_selfeval_test')->where(['user_id' => $this->member->id, 'cat_id' => $this->category])->exists(), 'an attempt started before the lessons');
+
+        $this->world->lessonDone($this->member->id, $lesson);
+
+        $this->startSelfEvaluation($this->member, $this->category);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testOpenAttemptResumesAfterALessonIsAdded
+    // -----------------------------------------------------------
+    //
+    // The lessons gate only a new attempt: one the member has
+    // open still resumes from the start address, and its
+    // questions still open, when the category got a lesson
+    // after it began.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOpenAttemptResumesAfterALessonIsAdded(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->world->lmContent($this->category, $this->en);
+
+        $this->assertSame($publicId, $this->startSelfEvaluation($this->member, $this->category));
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertOk();
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAnswerOfNestedListsIsRefused
+    // -----------------------------------------------------------
+    //
+    // An answer whose options hold a list — beside another
+    // option or alone — goes back to the question, nothing
+    // stored, as an answer with no option does. Such a list
+    // once reached array_unique or whereIn, a 500
+    // (selfeval-nested-answer-500).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAnswerOfNestedListsIsRefused(): void
+    {
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        list($right, $wrong) = $this->first['options'];
+
+        foreach (['two options, one a list' => [[$right], $wrong], 'one option, a list' => [[$right, $wrong]]] as $case => $answer) {
+            $this->signInMember($this->member)->post("/cp/se/$publicId/{$this->category}", [
+                'pbid' => md5(md5($this->first['question'])),
+                'a'    => $answer,
+            ])->assertRedirect("/cp/se/$publicId/{$this->category}");
+        }
+
+        $this->assertFalse(DB::table('bei_users_selfeval')->where('public_id', $publicId)->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testResultsOfferAnotherAttemptOnlyWhereOneWouldStart
+    // -----------------------------------------------------------
+    //
+    // The results page's do-it-again button follows the start
+    // address: it shows once every lesson of the category is
+    // done, and while the member has an attempt of the
+    // category open, which the address resumes; when the
+    // category gained a lesson the member has not done, it is
+    // gone, as the lesson page's button is. It showed always,
+    // and since new attempts wait for the lessons it led such
+    // a member to the learning material with no word why.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResultsOfferAnotherAttemptOnlyWhereOneWouldStart(): void
+    {
+        $attempt = $this->world->selfEvalAttempt($this->member->id, $this->category, $this->en);
+        $publicId = DB::table('bei_users_selfeval_test')->where('id', $attempt)->value('public_id');
+        $button = "/self-evaluation-test/{$this->category}\"";
+
+        $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertOk()->assertSee($button, false);
+
+        $this->world->lmContent($this->category, $this->en);
+
+        $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertOk()->assertDontSee($button, false);
+
+        $this->world->selfEvalAttempt($this->member->id, $this->category, $this->en, ['finished' => 0, 'ended' => null]);
+
+        $this->signInMember($this->member)->get("/cp/se_r/$publicId")->assertOk()->assertSee($button, false);
+    }
 }

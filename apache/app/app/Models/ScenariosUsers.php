@@ -33,9 +33,11 @@ use Illuminate\Database\Eloquent\Model;
 // -----------------------------------------------------------
 //
 // Columns: public_id, user_id, scenario_id, lang_id,
-// finished (0 or 1), started, ended and points — the sum of
+// finished (0 or 1), started, ended, points — the sum of
 // the run's choices (ScenariosUsersOptions), written when
-// the run ends. The best finished run per member and
+// the run ends — and simulation_type, the mode chosen at
+// the start (NULL for runs started before it was kept on
+// the run). The best finished run per member and
 // simulation feeds the ranking (ViewMaxPointsScenario).
 //
 // Used by:

@@ -37,9 +37,10 @@ use Illuminate\Queue\SerializesModels;
 // main.account_verification_subject, and link_url, the
 // verification link, as the view's variable. APP_URL comes
 // straight from the environment, which the container sets.
-// The mail goes out at once, before the sender writes the
-// account: the class imports ShouldQueue without
-// implementing it.
+// The mail goes out at once, after the sender writes the
+// account, which the sender deletes again when the mail
+// fails: the class imports ShouldQueue without implementing
+// it.
 //
 // Used by:
 //   - RegisterController::register (Auth/) — POST

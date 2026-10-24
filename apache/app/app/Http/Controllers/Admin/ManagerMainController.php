@@ -11,8 +11,9 @@
 //  knowledge-test report nothing links to. The dashboard
 //  and the reports are open to country managers
 //  (auth.admin:man alone) — the reports for the members of
-//  their own country only; the password change carries
-//  perms too. The members' own dashboard is the other
+//  their own country only — and so is the password change,
+//  which changes only the signed-in manager's own. The
+//  members' own dashboard is the other
 //  ManagerMainController, in App\Http\Controllers.
 //
 //  Used by:
@@ -127,9 +128,9 @@ class ManagerMainController extends BaseController
     // some of them have begun (begun), busiest first and
     // counted in its label, lists those members, newest first,
     // with that language's course progress, the simulations
-    // count (the language's simulations, then the distinct
-    // ones the member started, finished or not) and the
-    // knowledge results; a last tab, always there, lists the
+    // count (the simulations the language offers, then the
+    // distinct ones of them the member started, finished or
+    // not) and the knowledge results; a last tab, always there, lists the
     // members who have begun no language yet. Every member
     // stands in at least one tab, and no figure but a 0 or an
     // empty one is left out, since each comes from a row the
@@ -182,10 +183,12 @@ class ManagerMainController extends BaseController
         $in_scope = DB::table('bei_users')->select('id')->when(!$every_country, $scope);
         $begun = ManagerMainController::begun($country, $every_country);
         $progress = LMUsers::country_progress($country, $every_country);
-        $simulations = Scenarios::selectRaw('lang_id, COUNT(*) AS total')->groupBy('lang_id')->pluck('total', 'lang_id')->toArray();
+        // The simulations on offer, as the badge and the progress
+        // count them (Scenarios::scopeOffered)
+        $simulations = Scenarios::offered()->selectRaw('lang_id, COUNT(*) AS total')->groupBy('lang_id')->pluck('total', 'lang_id')->toArray();
 
         $started = array();
-        foreach(DB::table('bei_users_scenarios')->selectRaw('user_id, lang_id, COUNT(DISTINCT scenario_id) AS tried')->whereIn('user_id', $in_scope)->groupBy('user_id', 'lang_id')->get() as $row){
+        foreach(DB::table('bei_users_scenarios')->selectRaw('user_id, lang_id, COUNT(DISTINCT scenario_id) AS tried')->whereIn('user_id', $in_scope)->whereIn('scenario_id', Scenarios::offered()->select('id'))->groupBy('user_id', 'lang_id')->get() as $row){
             $started[$row->lang_id][$row->user_id] = $row->tried;
         }
 
@@ -253,15 +256,21 @@ class ManagerMainController extends BaseController
     // each time with the member side's message for it —
     // curr_pass_wrong, curr_new_same, new_pass_not_match,
     // pass_too_short — a wrong current password, a new one
-    // equal to it, a repeat that differs and a new one under
-    // 6 characters — the minimum the admin login asks for
-    // too; then it stores the new hash and answers back with
-    // pass_changed.
-    // Auth::user() and Auth::id() are the manager because man
-    // is the default guard. perms keeps the route to main
-    // admins: for a country manager the dialog and this route
-    // both answer 404, so a country manager cannot change
-    // their password here.
+    // equal to it, a repeat that differs and a new one under 6
+    // characters — the minimum the admin login asks for too;
+    // then it stores the new hash and answers back with
+    // pass_changed. A field posted as a list is refused at the
+    // check it would have failed, as on the member's password
+    // form: password_verify and strcmp take one string, and a
+    // list reaching them was a TypeError, a 500. A new
+    // password with a NUL byte gets the list's refusal: bcrypt
+    // refuses the byte, and Hash::make failed on it with a
+    // 500. Auth::user() and Auth::id() are the manager because
+    // man is the default guard. Every signed-in manager
+    // reaches it (auth.admin:man), and it changes only that
+    // manager's own password; perms once kept it to main
+    // admins, so a country manager's dialog opened empty, a
+    // 404.
     //
     // Used by:
     //   - admin-panel/dialog/changepass.blade.php — the
@@ -271,9 +280,14 @@ class ManagerMainController extends BaseController
 
     public function change_pass(Request $request)
     {
-        if (!(Hash::check($request->get('password'), Auth::user()->password))) {
+        if (!is_string($request->get('password')) || !(Hash::check($request->get('password'), Auth::user()->password))) {
 
             return redirect()->back()->withErrors(__('main.curr_pass_wrong'));
+        }
+
+        if(is_array($request->get('newpass')) || is_array($request->get('renewpass')) || strpos((string) $request->get('newpass'), "\0") !== false){
+
+            return redirect()->back()->withErrors(__('main.new_pass_not_match'));
         }
 
         if(strcmp($request->get('password'), $request->get('newpass')) == 0){
@@ -612,10 +626,14 @@ class ManagerMainController extends BaseController
     // GET /admin-panel/user/simulation/report/{public_id}
     //
     // One simulation run, found by its public id: the
-    // simulation's description and all its steps, the points
-    // the run scored, the steps the member picked, and the
-    // member's address and the language's name — four
-    // separate lookups of the same run row. Answers with
+    // simulation's description and all its steps in sheet
+    // order — by id, as the import stored them; the page
+    // indents each by its level, and without the order MySQL
+    // returns them by scenario_step_idx, every first step
+    // ahead of the steps under it — the points the run scored,
+    // the steps the member picked, and the member's address
+    // and the language's name — four separate lookups of the
+    // same run row. Answers with
     // admin-panel/simulation_report.blade.php. Open to every
     // signed-in manager (auth.admin:man, no perms), for a run
     // of a member it may read (member_in_scope) — any other
@@ -638,7 +656,7 @@ class ManagerMainController extends BaseController
         $points = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('points')->first();
         $scenario_id = ScenariosUsers::where(['public_id'=>$public_id])->get()->pluck('scenario_id')->first();
 
-        $options = ScenariosOptions::where(['scenario_id'=>$scenario_id])->get()->toArray();
+        $options = ScenariosOptions::where(['scenario_id'=>$scenario_id])->orderBy('id')->get()->toArray();
 
         $descr = Scenarios::where(['id'=>$scenario_id])->get()->pluck('descr')->first();
 

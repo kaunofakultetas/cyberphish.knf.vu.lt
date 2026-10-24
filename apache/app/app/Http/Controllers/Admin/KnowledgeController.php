@@ -25,6 +25,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -209,10 +210,12 @@ class KnowledgeController extends BaseController
     // question, so a block without a question line stores none
     // of its options, where they once went under an earlier
     // block's question or, in the first block, ended in a 500.
-    // Nothing runs in a transaction, and a question line
-    // without a backslash-colon still ends in a 500 — an
-    // undefined array key — with the blocks before it already
-    // stored.
+    // A category that is gone, or a question line without a
+    // backslash-colon (SelfevalController::line_without_marker),
+    // refuses the whole file with a message before anything is
+    // stored, and the blocks are stored in one transaction:
+    // such a line once broke the import halfway — a 500, the
+    // blocks before it kept.
     //
     // Used by:
     //   - admin-panel/dialog/knowledge.blade.php — the import
@@ -233,93 +236,111 @@ class KnowledgeController extends BaseController
 
         $content = explode("::", $content);
 
-        foreach($content as $k => $v){
 
-            if(!empty(trim($v))){
+        // STEP 2: refuse the file, before anything is stored, for
+        // a category that is gone or a question line without the
+        // backslash-colon its text follows
+        // =======================================================
+        if (LMCategory::where(['id'=>$cat_id])->count() == 0) {
+            return back()->withErrors("The category does not exist!");
+        }
 
-                $q = explode("\n", $v);
+        $broken = SelfevalController::line_without_marker($content);
+        if ($broken !== null) {
+            return back()->withErrors("A question line has no \\: before its text: ".$broken);
+        }
 
-                // No question yet: the block's own question line,
-                // if it has one, sets it
-                $addQ = null;
+        // Stored in one transaction: a failure halfway leaves
+        // none of the file behind
+        DB::transaction(function () use ($content, $cat_id) {
+            foreach($content as $k => $v){
 
-                // Counted in the first pass and reset after the
-                // block, but nothing reads it — dead code
-                $correct_answers = 0;
+                if(!empty(trim($v))){
 
+                    $q = explode("\n", $v);
 
-                // STEP 2: first pass over the block's lines — the
-                // question is stored
-                // ===============================================
-                foreach($q as $kk => $vv){
+                    // No question yet: the block's own question line,
+                    // if it has one, sets it
+                    $addQ = null;
 
-                    if(!empty($vv)){
-
-                        if($vv[0] == 'Q' || $vv[0] == 'K' || mb_substr($vv, 0, 1) == 'Ε' || trim($vv[0]) == 'J'){
-
-                            $addQ = new KnowledgeTest;
-                            $question = explode('\:', $vv);
-                            $question = trim($question[1]);
-
-                            $addQ->cat_id = $cat_id;
-                            $addQ->question = $question;
-                            $addQ->save();
-
-                        }
-
-                        if($vv[0] == '='){
-
-                            // "=" opens a correct option
-                            $correct_answers++;
-                        }
-
-                    }
-
-                }
+                    // Counted in the first pass and reset after the
+                    // block, but nothing reads it — dead code
+                    $correct_answers = 0;
 
 
-                // STEP 3: second pass — the options, correct or not,
-                // of the block's question; a block without one stores none
-                // ========================================================
-                foreach($q as $kk1 => $vv1){
+                    // STEP 3: first pass over the block's lines — the
+                    // question is stored
+                    // ===============================================
+                    foreach($q as $kk => $vv){
 
-                    if(!empty($vv1) && $addQ != null){
+                        if(!empty($vv)){
 
-                        if($vv1[0] == '='){
+                            if(SelfevalController::is_question_line($vv)){
 
-                            // A correct option: the text after the marker
-                            $answer = trim(substr($vv1, 1));
+                                $addQ = new KnowledgeTest;
+                                $question = explode('\:', $vv);
+                                $question = trim($question[1]);
 
-                            $addOption = new KnowledgeOption;
-                            $addOption->question_id = $addQ->id;
-                            $addOption->option = $answer;
-                            $addOption->correct = 1;
-                            $addOption->save();
+                                $addQ->cat_id = $cat_id;
+                                $addQ->question = $question;
+                                $addQ->save();
 
-                        }
+                            }
 
-                        if($vv1[0] == '~'){
+                            if($vv[0] == '='){
 
-                            // A wrong option, the same way
-                            $answer = trim(substr($vv1, 1));
-
-                            $addOption = new KnowledgeOption;
-                            $addOption->question_id = $addQ->id;
-                            $addOption->option = $answer;
-                            $addOption->correct = 0;
-                            $addOption->save();
+                                // "=" opens a correct option
+                                $correct_answers++;
+                            }
 
                         }
 
                     }
 
-                }
 
-                $correct_answers = 0;
+                    // STEP 4: second pass — the options, correct or not,
+                    // of the block's question; a block without one stores none
+                    // ========================================================
+                    foreach($q as $kk1 => $vv1){
+
+                        if(!empty($vv1) && $addQ != null){
+
+                            if($vv1[0] == '='){
+
+                                // A correct option: the text after the marker
+                                $answer = trim(substr($vv1, 1));
+
+                                $addOption = new KnowledgeOption;
+                                $addOption->question_id = $addQ->id;
+                                $addOption->option = $answer;
+                                $addOption->correct = 1;
+                                $addOption->save();
+
+                            }
+
+                            if($vv1[0] == '~'){
+
+                                // A wrong option, the same way
+                                $answer = trim(substr($vv1, 1));
+
+                                $addOption = new KnowledgeOption;
+                                $addOption->question_id = $addQ->id;
+                                $addOption->option = $answer;
+                                $addOption->correct = 0;
+                                $addOption->save();
+
+                            }
+
+                        }
+
+                    }
+
+                    $correct_answers = 0;
+
+                }
 
             }
-
-        }
+        });
 
         return back()->withSuccess("Questions imported!");
     }

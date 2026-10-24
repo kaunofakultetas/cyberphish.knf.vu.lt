@@ -7,9 +7,10 @@
 //  form creates an unverified member — status 0, a generated
 //  User<number> name, a 50-character verify token — and
 //  mails the verification link; a mismatched password, an
-//  email already in use, an incomplete form — a country
-//  outside the form's 0 to 5 among them — or an unsolved
-//  reCAPTCHA creates nothing and mails nothing. Both
+//  incomplete form — a country outside the form's 0 to 5
+//  among them — or an unsolved reCAPTCHA creates nothing and
+//  mails nothing. An email already in use gets the answer a
+//  new one gets, and its owner a mail of its own. Both
 //  password fields keep the blanks at their ends, and a form
 //  sent back keeps neither in the session. The verification
 //  link is built from APP_URL, so a forged Host or
@@ -29,7 +30,12 @@ namespace Tests\Feature\Auth;
 
 use Anhskohbo\NoCaptcha\Facades\NoCaptcha;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Mail\SendAccountDeactivated;
+use App\Mail\SendAccountExists;
+use App\Mail\SendActivationLink;
+use App\Mail\SendNewPass;
 use App\Mail\SendVerification;
+use Illuminate\Support\Facades\App;
 use App\Models\Members;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -214,25 +220,152 @@ class RegistrationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // testEmailInUseIsRefused
+    // testAddressInUseIsAnsweredAsANewOne
     // -----------------------------------------------------------
     //
-    // A second account for an address already registered is
-    // refused, and the existing account is left as it was.
+    // A sign-up of an address that already has an account gets
+    // the very answer a new address gets — the redirect back
+    // with user_registered, no error, no form kept — so the
+    // form tells no one which addresses have accounts; it once
+    // answered email_already_exists. The account stays as it
+    // was, its password included, and its owner hears of the
+    // sign-up by mail — one mail for every account, as for a
+    // new address, so that no address answers sooner: an
+    // active account gets SendAccountExists, which points to
+    // the login form; one still waiting for its verification
+    // gets SendActivationLink, and its earlier verification
+    // link is cancelled
+    // (testPendingAccountSignedUpAgainOpensOnlyToItsMailbox);
+    // one an admin switched off gets SendAccountDeactivated,
+    // where it once got nothing and answered sooner. Passwords
+    // that differ are refused first, for any address.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
     // -----------------------------------------------------------
 
-    public function testEmailInUseIsRefused(): void
+    public function testAddressInUseIsAnsweredAsANewOne(): void
     {
-        $existing = $this->world->member(['email' => self::EMAIL]);
+        $active = $this->world->member(['email' => 'active.student@example.test']);
+        $waiting = $this->world->member(['email' => 'waiting.student@example.test', 'status' => 0, 'verify_token' => str_repeat('w', 50)]);
+        $off = $this->world->member(['email' => 'off.student@example.test', 'status' => 2]);
         $this->solveCaptcha();
-        $this->from('/register')->post('/register', $this->form())->assertSessionHasErrors();
 
-        $this->assertSame(__('main.email_already_exists'), session('errors')->first());
+        foreach ([self::EMAIL, $active->email, $waiting->email, $off->email] as $email) {
+            $this->from('/register')->post('/register', $this->form(['email' => $email]))
+                ->assertRedirect('/register')
+                ->assertSessionHasNoErrors()
+                ->assertSessionHas('success', __('main.user_registered'));
+
+            $this->assertSame([], session()->getOldInput(), $email);
+            $this->assertSame(1, Members::where('email', $email)->count(), $email);
+        }
+
+        foreach ([$active, $waiting, $off] as $member) {
+            $this->assertEquals([$member->password, $member->status], [Members::find($member->id)->password, Members::find($member->id)->status]);
+        }
+        $this->assertSame([$active->verify_token, $off->verify_token], [Members::find($active->id)->verify_token, Members::find($off->id)->verify_token]);
+        $reset = Members::find($waiting->id)->reset_token;
+        $this->assertSame(50, strlen($reset));
+        $this->assertSame('', Members::find($waiting->id)->verify_token);
+        Mail::assertSent(SendAccountExists::class, 1);
+        Mail::assertSent(SendAccountExists::class, function (SendAccountExists $mail) use ($active) {
+            return $mail->hasTo($active->email) && $this->mailLink($mail) === 'https://cyberphish.knf.vu.lt/login';
+        });
+        Mail::assertSent(SendActivationLink::class, 1);
+        Mail::assertSent(SendActivationLink::class, function (SendActivationLink $mail) use ($waiting, $reset) {
+            return $mail->hasTo($waiting->email) && $this->mailLink($mail) === "https://cyberphish.knf.vu.lt/reset/$reset";
+        });
+        Mail::assertSent(SendAccountDeactivated::class, 1);
+        Mail::assertSent(SendAccountDeactivated::class, function (SendAccountDeactivated $mail) use ($off) {
+            return $mail->hasTo($off->email);
+        });
+        Mail::assertSent(SendVerification::class, 1);
+        Mail::assertSent(SendVerification::class, function (SendVerification $mail) {
+            return $mail->hasTo(self::EMAIL);
+        });
+
+        $this->from('/register')->post('/register', $this->form(['email' => $active->email, 'password2' => 'Another-Long-Password-2']))
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors();
+
+        $this->assertSame(__('main.pass_dont_match'), session('errors')->first());
+        Mail::assertSent(SendAccountExists::class, 1);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAddressInUseIsFoundWhateverItsCase
+    // -----------------------------------------------------------
+    //
+    // The email column compares without case (its
+    // case-insensitive collation), so the same address in
+    // capitals opens no second account: it is answered as the
+    // address in use, and the mail goes to the address the
+    // account holds.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAddressInUseIsFoundWhateverItsCase(): void
+    {
+        $this->world->member(['email' => self::EMAIL]);
+        $this->solveCaptcha();
+
+        $this->from('/register')->post('/register', $this->form(['email' => strtoupper(self::EMAIL)]))
+            ->assertSessionHas('success', __('main.user_registered'));
+
         $this->assertSame(1, Members::where('email', self::EMAIL)->count());
-        $this->assertSame($existing->password, Members::find($existing->id)->password);
+        Mail::assertSent(SendAccountExists::class, function (SendAccountExists $mail) {
+            return $mail->hasTo(self::EMAIL);
+        });
+        Mail::assertNotSent(SendVerification::class);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSignUpThatLosesARaceAnswersAsAnAddressInUse
+    // -----------------------------------------------------------
+    //
+    // Two sign-ups of one new address that arrive together both
+    // find it free, and the one that writes its row second
+    // meets the email's unique key. That one gives the answer
+    // every sign-up gets and mails nothing — the winner's mail
+    // carries the account's link — and leaves the account as
+    // the winner wrote it. It was a 500, after a mail whose
+    // link no account held. Here a rival row is written the
+    // moment this sign-up's row is about to be.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSignUpThatLosesARaceAnswersAsAnAddressInUse(): void
+    {
+        $this->solveCaptcha();
+        $rival = str_repeat('r', 50);
+        Members::creating(function () use ($rival) {
+            if (!Members::where('email', self::EMAIL)->exists()) {
+                $this->world->member(['email' => self::EMAIL, 'status' => 0, 'verify_token' => $rival]);
+            }
+        });
+
+        $this->from('/register')->post('/register', $this->form())
+            ->assertRedirect('/register')
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', __('main.user_registered'));
+
+        $this->assertSame(1, Members::where('email', self::EMAIL)->count());
+        $this->assertSame([$rival, ''], [Members::where('email', self::EMAIL)->value('verify_token'), Members::where('email', self::EMAIL)->value('reset_token')]);
         Mail::assertNothingSent();
     }
 
@@ -242,26 +375,164 @@ class RegistrationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
-    // testEmailInUseIsFoundWhateverItsCase
+    // testPendingAccountSignedUpAgainOpensOnlyToItsMailbox
     // -----------------------------------------------------------
     //
-    // The email column compares without case (its
-    // case-insensitive collation), so the same address in
-    // capitals cannot open a second account.
+    // Once its address is signed up again, an account waiting
+    // for its verification opens only with a password its
+    // mailbox receives: the second sign-up mails an activation
+    // link — the reset page, which mails a fresh password and
+    // switches the account on — and cancels the first sign-up's
+    // verification link, so whoever signed the address up
+    // first, with a password of their own, is not let in by
+    // the owner's clicks. That second sign-up once mailed the
+    // first link again, and the owner's click switched the
+    // account on with the first sign-up's password. The first
+    // link clicked before any second sign-up still does, as it
+    // always did (tests/README.md, Found but not pinned).
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
     // -----------------------------------------------------------
 
-    public function testEmailInUseIsFoundWhateverItsCase(): void
+    public function testPendingAccountSignedUpAgainOpensOnlyToItsMailbox(): void
+    {
+        $this->solveCaptcha();
+        $this->from('/register')->post('/register', $this->form(['password' => 'Squatter-Password-1', 'password2' => 'Squatter-Password-1']));
+        $first = Members::where('email', self::EMAIL)->value('verify_token');
+
+        $this->from('/register')->post('/register', $this->form(['password' => 'Owner-Password-12', 'password2' => 'Owner-Password-12']))
+            ->assertSessionHas('success', __('main.user_registered'));
+        $reset = Members::where('email', self::EMAIL)->value('reset_token');
+        Mail::assertSent(SendActivationLink::class, function (SendActivationLink $mail) use ($reset) {
+            return $mail->hasTo(self::EMAIL) && $mail->data['uid'] === $reset;
+        });
+
+        $this->get("/verify/$first");
+        $this->assertEquals(0, Members::where('email', self::EMAIL)->value('status'), 'the first sign-up\'s link switched the account on');
+
+        $this->post("/reset/$reset")->assertSessionHas('success', __('main.new_pass_emailed'));
+        $mailed = null;
+        Mail::assertSent(SendNewPass::class, function (SendNewPass $mail) use (&$mailed) {
+            $mailed = $mail->data['new_pass'];
+            return $mail->hasTo(self::EMAIL);
+        });
+
+        $member = Members::where('email', self::EMAIL)->first();
+        $this->assertEquals(1, $member->status);
+        $this->assertTrue(Hash::check($mailed, $member->password));
+        $this->assertFalse(Hash::check('Squatter-Password-1', $member->password));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testAddressInUseCostsTheHashOfANewOne
+    // -----------------------------------------------------------
+    //
+    // A sign-up hashes its password whatever the address, so
+    // that one for an address in use takes as long as one for
+    // a new address, which stores the hash: bcrypt's tenth of
+    // a second would otherwise tell the two apart.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testAddressInUseCostsTheHashOfANewOne(): void
     {
         $this->world->member(['email' => self::EMAIL]);
         $this->solveCaptcha();
-        $this->from('/register')->post('/register', $this->form(['email' => strtoupper(self::EMAIL)]))
-            ->assertSessionHasErrors();
+        Hash::spy();
 
-        $this->assertSame(__('main.email_already_exists'), session('errors')->first());
-        Mail::assertNothingSent();
+        $this->from('/register')->post('/register', $this->form())->assertSessionHas('success', __('main.user_registered'));
+
+        Hash::shouldHaveReceived('make')->once()->with(self::PASSWORD);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMailsToAnAddressInUseSayWhatToDo
+    // -----------------------------------------------------------
+    //
+    // The two mails an address in use can get besides
+    // SendAccountExists say what happened in the owner's own
+    // words, in each of the five languages: SendActivationLink
+    // that the account was never activated and how its link —
+    // the reset page — mails a password to sign in with, where
+    // a plain password-reset mail once arrived instead;
+    // SendAccountDeactivated that the account is switched off.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMailsToAnAddressInUseSayWhatToDo(): void
+    {
+        foreach (['en', 'lt', 'lv', 'ee', 'gr'] as $locale) {
+            App::setLocale($locale);
+            foreach (['account_pending_subject', 'account_pending_mail', 'account_off_subject', 'account_off_mail'] as $key) {
+                $this->assertNotSame("main.$key", __("main.$key"), "$locale lacks $key");
+            }
+
+            $activation = new SendActivationLink(['uid' => str_repeat('a', 50)]);
+            $this->assertSame('https://cyberphish.knf.vu.lt/reset/' . str_repeat('a', 50), $this->mailLink($activation));
+            $this->assertSame(__('main.account_pending_subject'), $activation->subject);
+            $this->assertStringContainsString(e(__('main.account_pending_mail')), view($activation->view, $activation->viewData)->render());
+
+            $deactivated = new SendAccountDeactivated();
+            $deactivated->build();
+            $this->assertSame(__('main.account_off_subject'), $deactivated->subject);
+            $this->assertStringContainsString(e(__('main.account_off_mail')), view($deactivated->view, $deactivated->viewData)->render());
+        }
+        App::setLocale('en');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMailOutageAnswersAlikeForEveryAddress
+    // -----------------------------------------------------------
+    //
+    // While no mail can go out, a sign-up says so
+    // (mail_failed) for every address — new, active, waiting
+    // for its verification or switched off — and changes
+    // nothing: an account an admin switched off once answered
+    // user_registered there, as it sent no mail, and so stood
+    // out from the rest.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMailOutageAnswersAlikeForEveryAddress(): void
+    {
+        $active = $this->world->member(['email' => 'active.student@example.test']);
+        $waiting = $this->world->member(['email' => 'waiting.student@example.test', 'status' => 0, 'verify_token' => str_repeat('w', 50)]);
+        $off = $this->world->member(['email' => 'off.student@example.test', 'status' => 2]);
+        Mail::shouldReceive('to')->andThrow(new TransportException('Connection to the mail relay refused'));
+        $this->solveCaptcha();
+
+        foreach ([self::EMAIL, $active->email, $waiting->email, $off->email] as $email) {
+            $this->from('/register')->post('/register', $this->form(['email' => $email]))
+                ->assertRedirect('/register')
+                ->assertSessionHasErrors();
+
+            $this->assertSame(__('main.mail_failed'), session('errors')->first(), $email);
+        }
+
+        $this->assertFalse(Members::where('email', self::EMAIL)->exists());
+        $this->assertSame([str_repeat('w', 50), ''], [Members::find($waiting->id)->verify_token, Members::find($waiting->id)->reset_token]);
     }
 
 
@@ -303,8 +574,15 @@ class RegistrationTest extends FeatureTestCase
     //
     // The fields to break and the field the error lands on:
     // the email, the password (12 to 50 characters), its
-    // repetition, the country (one of the form's ids, 0 to 5)
-    // and the reCAPTCHA token.
+    // repetition, the country (one of the form's ids, 0 to 5),
+    // the reCAPTCHA token and the privacy policy's box, which
+    // the server once let a post leave unticked
+    // (register-terms-not-enforced). Either password posted as
+    // a list is refused too, and so is a password with a NUL
+    // byte, which bcrypt refuses: the rule's min once counted
+    // the list's items, and the sign-up mailed its link before
+    // Hash::make failed on the list or the byte with a 500
+    // (login-password-list).
     //
     // Used by:
     //   - testIncompleteFormIsRefused (above)
@@ -321,6 +599,10 @@ class RegistrationTest extends FeatureTestCase
             'country not a number' => [['country' => 'Lithuania'], 'country'],
             'country out of range' => [['country' => 9], 'country'],
             'no reCAPTCHA token'   => [['g-recaptcha-response' => ''], 'g-recaptcha-response'],
+            'terms not ticked'     => [['terms' => ''], 'terms'],
+            'password as a list'   => [['password' => array_fill(0, 12, 'x'), 'password2' => array_fill(0, 12, 'x')], 'password'],
+            'repetition as a list' => [['password2' => array_fill(0, 12, 'x')], 'password2'],
+            'password with a NUL'  => [['password' => "Long-Enough\0Password-1", 'password2' => "Long-Enough\0Password-1"], 'password'],
         ];
     }
 
@@ -600,12 +882,13 @@ class RegistrationTest extends FeatureTestCase
     // testRefusedSignUpKeepsTheForm
     // -----------------------------------------------------------
     //
-    // A sign-up refused for passwords that differ, or for an
-    // address already in use, comes back with the email, the
-    // country and the terms box as they were sent — as a
+    // A sign-up refused for passwords that differ, or because
+    // its mail could not go out, comes back with the email,
+    // the country and the terms box as they were sent — as a
     // refused validation does — and without the passwords. It
     // once came back empty, the address and the country to be
-    // typed again.
+    // typed again. An address in use is no longer refused
+    // (testAddressInUseIsAnsweredAsANewOne).
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -613,11 +896,11 @@ class RegistrationTest extends FeatureTestCase
 
     public function testRefusedSignUpKeepsTheForm(): void
     {
-        $this->world->member(['email' => 'taken.student@example.test']);
+        Mail::shouldReceive('to')->andThrow(new TransportException('Connection to the mail relay refused'));
         $this->solveCaptcha();
         $refusals = [
             'passwords that differ'  => ['email' => 'kept.student@example.test', 'password2' => 'Another-Long-Password-2'],
-            'an address in use'      => ['email' => 'taken.student@example.test'],
+            'a mail outage'          => ['email' => 'outage.student@example.test'],
         ];
 
         foreach ($refusals as $case => $fields) {
@@ -634,7 +917,7 @@ class RegistrationTest extends FeatureTestCase
         // The double solveCaptcha put in place draws no widget
         NoCaptcha::shouldReceive('display', 'renderJs')->andReturn('');
         $html = $this->get('/register')->assertOk()->getContent();
-        $this->assertStringContainsString('value="taken.student@example.test"', $html);
+        $this->assertStringContainsString('value="outage.student@example.test"', $html);
         $this->assertMatchesRegularExpression('#<option value="3" selected="selected">#', $html);
     }
 
@@ -661,6 +944,7 @@ class RegistrationTest extends FeatureTestCase
             'password'             => self::PASSWORD,
             'password2'            => self::PASSWORD,
             'country'              => 1,
+            'terms'                => 1,
             'g-recaptcha-response' => 'token-from-the-widget',
         ], $fields);
     }

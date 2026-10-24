@@ -27,6 +27,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Managers;
 use Dom\HTMLDocument;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
@@ -154,6 +155,76 @@ class AdminLoginTest extends FeatureTestCase
             ->assertSessionHasErrors();
 
         $this->assertSame(__('auth.failed'), session('errors')->first());
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordPostedAsAListIsRefused
+    // -----------------------------------------------------------
+    //
+    // A password posted as a list goes back to the form with a
+    // validation error on the password, the same for an active
+    // manager as for an unknown address, and opens nothing. The
+    // rule's min once counted the list's six items, and for an
+    // active manager the guard handed the list to
+    // password_verify, a 500 (login-password-list).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordPostedAsAListIsRefused(): void
+    {
+        $manager = $this->world->manager();
+
+        foreach ([$manager->email, 'nobody.here@example.test'] as $email) {
+            $this->from('/admin-panel')->post('/admin-panel', ['email' => $email, 'password' => array_fill(0, 6, 'x')])
+                ->assertRedirect('/admin-panel')
+                ->assertSessionHasErrors('password');
+        }
+
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordWithANulByteIsRefused
+    // -----------------------------------------------------------
+    //
+    // A password with a NUL byte goes back to the form with a
+    // validation error, even the manager's real password
+    // followed by the byte and more, which bcrypt — reading
+    // only up to the byte — once took for the password. With a
+    // stored hash of another cost than the configured 10, as
+    // init.sql's password_hash command makes, the rehash on
+    // sign-in failed on it with a 500 (login-password-list).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordWithANulByteIsRefused(): void
+    {
+        $managers = [
+            $this->world->manager(),
+            $this->world->manager(['password' => password_hash(World::PASSWORD, PASSWORD_BCRYPT, ['cost' => 12])]),
+        ];
+
+        foreach ($managers as $manager) {
+            $this->from('/admin-panel')->post('/admin-panel', ['email' => $manager->email, 'password' => World::PASSWORD . "\0anything"])
+                ->assertRedirect('/admin-panel')
+                ->assertSessionHasErrors('password');
+        }
+
         $this->assertGuest('man');
     }
 
@@ -399,6 +470,73 @@ class AdminLoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testPasswordDialogRefusesANulByte
+    // -----------------------------------------------------------
+    //
+    // A new password with a NUL byte, which bcrypt refuses, is
+    // turned away like a list, and the password stays. It once
+    // reached Hash::make, a 500 (login-password-list).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordDialogRefusesANulByte(): void
+    {
+        $admin = $this->world->manager();
+
+        $this->signInManager($admin)->from('/admin-panel/dashboard')->post('/admin-panel/change-pass', [
+            'password'  => World::PASSWORD,
+            'newpass'   => "Fresh-Admin\0Pass-1",
+            'renewpass' => "Fresh-Admin\0Pass-1",
+        ])->assertRedirect('/admin-panel/dashboard')->assertSessionHasErrors();
+
+        $this->assertSame(__('main.new_pass_not_match'), session('errors')->first());
+        $this->assertTrue(Hash::check(World::PASSWORD, Managers::find($admin->id)->password));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCountryManagerChangesItsOwnPassword
+    // -----------------------------------------------------------
+    //
+    // The menu's Change password works for a country manager as
+    // for a main admin: the dialog opens, and the change sets
+    // the signed-in manager's own password and no one else's.
+    // The route was kept to main admins, so a country
+    // manager's dialog opened empty — a 404 — and no country
+    // manager could change their password.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCountryManagerChangesItsOwnPassword(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $other = $this->world->manager(['main' => 0, 'country' => 3]);
+
+        $this->signInManager($manager)->get('/admin-panel/change-pass')->assertOk()->assertSee('name="newpass"', false);
+        $this->signInManager($manager)->from('/admin-panel/dashboard')->post('/admin-panel/change-pass', [
+            'password'  => World::PASSWORD,
+            'newpass'   => 'Fresh-Country-Pass-1',
+            'renewpass' => 'Fresh-Country-Pass-1',
+        ])->assertRedirect('/admin-panel/dashboard')->assertSessionHas('success', __('main.pass_changed'));
+
+        $this->assertTrue(Hash::check('Fresh-Country-Pass-1', Managers::find($manager->id)->password));
+        $this->assertTrue(Hash::check(World::PASSWORD, Managers::find($other->id)->password));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testAdminLoginIgnoresAMemberPagesParking
     // -----------------------------------------------------------
     //
@@ -449,6 +587,42 @@ class AdminLoginTest extends FeatureTestCase
         $this->signIn($manager->email, World::PASSWORD)->assertRedirect('/admin-panel/dashboard');
 
         $this->assertAuthenticated('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordDialogTakesNoLists
+    // -----------------------------------------------------------
+    //
+    // The panel's password dialog refuses a field posted as a
+    // list at the check it would have failed, and the password
+    // stays. Such a list once reached password_verify or
+    // strcmp — a TypeError, a 500 (admin-change-pass-array-500).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordDialogTakesNoLists(): void
+    {
+        $admin = $this->world->manager();
+        $posts = [
+            'main.curr_pass_wrong'     => ['password' => [World::PASSWORD], 'newpass' => 'Fresh-Admin-Pass-1', 'renewpass' => 'Fresh-Admin-Pass-1'],
+            'main.new_pass_not_match'  => ['password' => World::PASSWORD, 'newpass' => ['Fresh-Admin-Pass-1'], 'renewpass' => 'Fresh-Admin-Pass-1'],
+        ];
+
+        foreach ($posts as $message => $fields) {
+            $this->signInManager($admin)->from('/admin-panel/dashboard')->post('/admin-panel/change-pass', $fields)
+                ->assertRedirect('/admin-panel/dashboard')
+                ->assertSessionHasErrors();
+
+            $this->assertSame(__($message), session('errors')->first());
+        }
+        $this->assertTrue(Hash::check(World::PASSWORD, Managers::find($admin->id)->password));
     }
 
 

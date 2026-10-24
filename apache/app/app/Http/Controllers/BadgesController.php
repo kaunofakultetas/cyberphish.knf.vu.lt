@@ -92,10 +92,12 @@ class BadgesController extends BaseController
     // The member's badges page, behind auth:mem:
     // badges.blade.php with, for each badge name, how many
     // rows of it the member holds in the session language —
-    // nine counts, one query each. Its values replace the
-    // badge flags BaseController shares under the same names.
-    // The count of badge_self_evaluation is dead code: nothing
-    // awards that badge and the page does not show it.
+    // badge_login_10 in any language, being the member's own
+    // rather than a course's — nine counts, one query each.
+    // Its values replace the badge flags BaseController shares
+    // under the same names. The count of badge_self_evaluation
+    // is dead code: nothing awards that badge and the page
+    // does not show it.
     //
     // Used by:
     //   - layouts/main.blade.php — "my badges" in the member
@@ -119,7 +121,8 @@ class BadgesController extends BaseController
             'badge_all_simulations'=>Badges::where(['lang_id'=>Langs::getLangId(Session::get('lang')), 'user_id'=>Auth::guard('mem')->id(), 'name'=>'badge_all_simulations'])->count(),
             'badge_self_evaluation_test'=>Badges::where(['lang_id'=>Langs::getLangId(Session::get('lang')), 'user_id'=>Auth::guard('mem')->id(), 'name'=>'badge_self_evaluation_test'])->count(),
             'badge_final_test'=>Badges::where(['lang_id'=>Langs::getLangId(Session::get('lang')), 'user_id'=>Auth::guard('mem')->id(), 'name'=>'badge_final_test'])->count(),
-            'badge_login_10'=>Badges::where(['lang_id'=>Langs::getLangId(Session::get('lang')), 'user_id'=>Auth::guard('mem')->id(), 'name'=>'badge_login_10'])->count()
+            // The member's own in any language (LoginLog::if_login_10)
+            'badge_login_10'=>Badges::where(['user_id'=>Auth::guard('mem')->id(), 'name'=>'badge_login_10'])->count()
         ]);
     }
 }

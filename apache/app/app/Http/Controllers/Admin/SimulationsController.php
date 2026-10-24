@@ -194,30 +194,31 @@ class SimulationsController extends BaseController
     // Turns one filled-in copy of the project's simulation
     // spreadsheet into a simulation of the posted language. A
     // post without a file goes back with "No file was
-    // uploaded!", as the lesson-file form does, and only a
-    // file whose name ends in .xlsx passes; it is kept in
-    // public/upload/simulations under a random name. From the
-    // active sheet it reads the texts in column C —
-    // description C19, goal C20, actors C21, source C22,
-    // choose type C26, attack type C27, main image C30 — the
-    // categories marked Yes in B34:B40 (named in C), the
+    // uploaded!", as the lesson-file form does, one for a
+    // language that is gone with "The language does not
+    // exist!", and only a file whose name ends in .xlsx
+    // passes; it is kept in public/upload/simulations under a
+    // random name. From the active sheet it reads the texts in
+    // column C — description C19, goal C20, actors C21, source
+    // C22, choose type C26, attack type C27, main image C30 —
+    // the categories marked Yes in B34:B40 (named in C), the
     // attributes marked Yes in D34:D53 (named in E) and the
-    // steps in rows 58 to 141, saves it all and redirects
-    // back to the page it came from, on the language's tab,
-    // with "Imported!". Main admins only (auth.admin:man,
-    // perms). The categories and attributes are looked up by
-    // name in the posted language only. A sheet that marks a
-    // category or attribute the language has no row of, or
-    // whose first step is deeper than level 1, goes back with
-    // an error before anything is saved, and the saves run in
-    // one transaction, so no import leaves half a simulation
-    // behind. So does a sheet without a description, which
-    // its NOT NULL column refuses, and one with a step whose
-    // level is no whole number from 1, lies more than a level
-    // below the step before it, or whose answer type is none
-    // of the four: each once stopped the saves with a 500, a
-    // blank level when the step's parent was looked up, and
-    // the message now names the step's row.
+    // steps in rows 58 to 141, saves it all and redirects back
+    // to the page it came from, on the language's tab, with
+    // "Imported!". Main admins only (auth.admin:man, perms).
+    // The categories and attributes are looked up by name in
+    // the posted language only. A sheet that marks a category
+    // or attribute the language has no row of, or whose first
+    // step is deeper than level 1, goes back with an error
+    // before anything is saved, and the saves run in one
+    // transaction, so no import leaves half a simulation
+    // behind. So does a sheet without a description, which its
+    // NOT NULL column refuses, and one with a step whose level
+    // is no whole number from 1, lies more than a level below
+    // the step before it, or whose answer type is none of the
+    // four: each once stopped the saves with a 500, a blank
+    // level when the step's parent was looked up, and the
+    // message now names the step's row.
     //
     // Used by:
     //   - admin-panel/dialog/simulation_import.blade.php — the
@@ -234,6 +235,10 @@ class SimulationsController extends BaseController
 
         if (!$request->hasFile('doc')) {
             return back()->withErrors("No file was uploaded!");
+        }
+
+        if (Langs::where(['id'=>$lang_id])->count() == 0) {
+            return back()->withErrors("The language does not exist!");
         }
 
         $extension = strtolower($request->file('doc')->getClientOriginalExtension());
@@ -506,10 +511,12 @@ class SimulationsController extends BaseController
     // POST /admin-panel/dialog/simulations/categories/create
     //
     // Adds a category with the posted name (1 to 255
-    // characters) to the language the form's uid carries, and
-    // redirects back to the page the form came from, on that
-    // language's tab, with "Created!". Main admins only
-    // (auth.admin:man, perms).
+    // characters) to the language the form's uid carries — a
+    // language that exists, or the post goes back with the
+    // validation's error, where it once stored the category
+    // under no language, on no tab — and redirects back to the
+    // page the form came from, on that language's tab, with
+    // "Created!". Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/simulations_category_form.blade.php
@@ -520,6 +527,7 @@ class SimulationsController extends BaseController
     {
         $validatedData = $request->validate([
             'name' => [ 'required', 'min:1', 'max:255' ],
+            'uid' => [ 'required', 'exists:bei_lang,id' ],
         ]);
 
         $addRecord = new ScenariosCategory;
@@ -699,10 +707,12 @@ class SimulationsController extends BaseController
     // POST /admin-panel/dialog/simulations/attributes/create
     //
     // Adds an attribute with the posted name (1 to 255
-    // characters) to the language the form's uid carries, and
-    // redirects back to the page the form came from, on that
-    // language's tab, with "Created!". Main admins only
-    // (auth.admin:man, perms).
+    // characters) to the language the form's uid carries — a
+    // language that exists, or the post goes back with the
+    // validation's error, where it once stored the attribute
+    // under no language, on no tab — and redirects back to the
+    // page the form came from, on that language's tab, with
+    // "Created!". Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/simulations_attributes_form.blade.php
@@ -713,6 +723,7 @@ class SimulationsController extends BaseController
     {
         $validatedData = $request->validate([
             'name' => [ 'required', 'min:1', 'max:255' ],
+            'uid' => [ 'required', 'exists:bei_lang,id' ],
         ]);
 
         $addRecord = new ScenariosAttributes;
@@ -988,7 +999,11 @@ class SimulationsController extends BaseController
     //
     // The edit page of one simulation: its description and
     // every step's situation and feedback, in fields keyed by
-    // the step ids. Main admins only (auth.admin:man, perms).
+    // the step ids, in sheet order — the order the import
+    // stored them in, by id. The page indents each step by its
+    // level, and without the order MySQL returns them by
+    // scenario_step_idx, every first step ahead of the steps
+    // under it. Main admins only (auth.admin:man, perms).
     // Answers with admin-panel/simulations_edit.blade.php.
     //
     // Used by:
@@ -1000,7 +1015,7 @@ class SimulationsController extends BaseController
     {
         $situation = Scenarios::where(['id'=>$uid])->get()->pluck('descr')->first();
 
-        $options = ScenariosOptions::where(['scenario_id'=>$uid])->get()->toArray();
+        $options = ScenariosOptions::where(['scenario_id'=>$uid])->orderBy('id')->get()->toArray();
 
         return view('admin-panel.simulations_edit', [
             'uid'=>$uid,
@@ -1100,9 +1115,14 @@ class SimulationsController extends BaseController
     // Replaces the simulation's categories in that language
     // with the ticked ones and redirects back to the page the
     // form came from, on the language's tab, with "Updated!".
-    // With nothing ticked nothing changes: the simulation
-    // keeps the categories it had. Main admins only
-    // (auth.admin:man, perms).
+    // With nothing ticked the simulation leaves every category
+    // of the language, so no member page offers it — once
+    // nothing changed, and a simulation could not be taken off
+    // its categories. Only categories of the language are
+    // stored: a posted id of another language's category, as
+    // the old import once filed six Latvian simulations under
+    // English categories, would offer the simulation nowhere.
+    // Main admins only (auth.admin:man, perms).
     //
     // Used by:
     //   - admin-panel/dialog/simulation_categories.blade.php —
@@ -1113,11 +1133,11 @@ class SimulationsController extends BaseController
     {
         $cats = $request->get('cat');
 
+        ScenariosInCategory::where(['lang_id'=>$lang_id, 'scenario_id'=>$simulation_id])->delete();
+
         if(is_array($cats) && count($cats)>0){
 
-            ScenariosInCategory::where(['lang_id'=>$lang_id, 'scenario_id'=>$simulation_id])->delete();
-
-            foreach($cats as $k => $v){
+            foreach(ScenariosCategory::where(['lang_id'=>$lang_id])->whereIn('id', array_filter($cats, 'is_scalar'))->pluck('id')->toArray() as $k => $v){
 
                 $a = new ScenariosInCategory;
                 $a->lang_id = $lang_id;

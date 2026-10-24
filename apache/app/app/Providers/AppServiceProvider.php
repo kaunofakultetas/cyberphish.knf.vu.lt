@@ -20,6 +20,7 @@ namespace App\Providers;
 
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\View;
@@ -96,10 +97,13 @@ class AppServiceProvider extends ServiceProvider
     // Last, parts/notif.blade.php — the messages of the member
     // pages that show any — gets badge_waiting: whether a
     // badge awarded on an earlier page that shows no messages
-    // still waits to be announced (BaseController sets
+    // still waits to be announced to the member signed in now
+    // (BaseController notes the member's id in
     // new_badge_waiting). The note is taken from the session
     // as the partial renders, so the announcement comes once,
-    // on the first page that can show it.
+    // on the first page that can show it; a note of another
+    // member — signed out since, the session kept — goes
+    // unannounced.
     //
     // Used by:
     //   - Laravel, once every provider is registered
@@ -119,7 +123,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('parts.notif', function ($view) {
-            $view->with('badge_waiting', Session::pull('new_badge_waiting', false));
+            $waiting = Session::pull('new_badge_waiting');
+            $view->with('badge_waiting', $waiting !== null && Auth::guard('mem')->check() && $waiting == Auth::guard('mem')->id());
         });
     }
 }

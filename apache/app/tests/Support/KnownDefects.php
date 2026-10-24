@@ -62,8 +62,9 @@ trait KnownDefects
     // first line of the failure; a passing one fails the test.
     //
     // Used by:
-    //   - the *DefectsTest classes of Feature/Admin, Auth,
-    //     Learning, Simulations and Site
+    //   - no test at the moment: every defect pinned so far is
+    //     fixed, and the next one found is pinned with it in
+    //     its folder's *DefectsTest.php (tests/README.md)
     // -----------------------------------------------------------
 
     protected function pinDefect(string $id, callable $check): void

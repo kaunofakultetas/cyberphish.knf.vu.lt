@@ -271,6 +271,7 @@ class ProductionModeTest extends ApacheTestCase
             'password'             => World::PASSWORD,
             'password2'            => World::PASSWORD,
             'country'              => 1,
+            'terms'                => 1,
             'g-recaptcha-response' => 'a-token-google-never-sees',
         ]);
     }

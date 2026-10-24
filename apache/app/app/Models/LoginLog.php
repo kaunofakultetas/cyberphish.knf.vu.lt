@@ -15,9 +15,7 @@
 namespace App\Models;
 
 use Session;
-use DatePeriod;
-use DateTime;
-use DateInterval;
+use Carbon\Carbon;
 use App\Models\Badges;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
@@ -101,11 +99,21 @@ class LoginLog extends Model
     // -----------------------------------------------------------
     //
     // Awards badge_login_10 when the member has logged in on
-    // each of the last ten days, today included — one count
-    // query per day, ten on every login. The badge goes to
-    // the language the session shows, and the login that
-    // earns it flashes the new-badge message for the page the
-    // login redirects to.
+    // each of the last ten days, today included, the days
+    // counted on the members' clock (config
+    // app.display_timezone), from one query of the member's
+    // logins. The days once ended at UTC midnight — two or
+    // three at night for the members — so half-past-midnight
+    // logins on ten days in a row could leave a day empty and
+    // earn nothing. The badge is the member's, whatever the
+    // language: it is filed under the language the session
+    // shows when it is first earned, another streak earns no
+    // second one, and the badges page shows it in every
+    // language (BadgesController::index). It was once earned
+    // per language — a fresh session, English, took most of
+    // them — and showed only in the language it was filed
+    // under. The login that earns it flashes the new-badge
+    // message for the page the login redirects to.
     //
     // Used by:
     //   - Auth\LoginController::login — every successful member
@@ -114,20 +122,34 @@ class LoginLog extends Model
 
     public static function if_login_10($user_id)
     {
-        // The number of logins on each of the ten days that end
-        // today, by date — DatePeriod leaves out its end date,
-        // tomorrow
-        $period = new DatePeriod(
-            new DateTime(date("Y-m-d", strtotime("-9 days", strtotime(date("Y-m-d"))))),
-            new DateInterval('P1D'),
-            new DateTime(date("Y-m-d", strtotime("+1 day", strtotime(date("Y-m-d")))))
-            );
+        // The ten days that end today on the members' clock, and
+        // the dates of the member's logins since the first of
+        // them began, read on that clock from the UTC they are
+        // stored in
+        $zone = config('app.display_timezone');
+        $today = Carbon::now($zone)->startOfDay();
+        $first = $today->copy()->subDays(9);
+
+        $dates = LoginLog::where('user_id', $user_id)
+            ->where('login_date', '>=', $first->copy()->setTimezone('UTC')->format('Y-m-d H:i:s'))
+            ->pluck('login_date')
+            ->map(function ($at) use ($zone) {
+                return Carbon::parse($at, 'UTC')->setTimezone($zone)->format('Y-m-d');
+            })
+            ->all();
+
         $gavno = [];
-        foreach ($period as $key => $value) {
-            $gavno[$value->format('Y-m-d')] = LoginLog::whereraw("user_id = ? AND DATE(login_date) = ?", [$user_id, $value->format('Y-m-d')])->count();
+        for ($day = $first->copy(); $day->lte($today); $day->addDay()) {
+            $gavno[$day->format('Y-m-d')] = in_array($day->format('Y-m-d'), $dates) ? 1 : 0;
         }
 
         if(!in_array(0, $gavno)){
+
+            // The member's badge, held under whichever language it
+            // was first earned in: another streak earns no second
+            if(Badges::where(['user_id'=>$user_id, 'name'=>'badge_login_10'])->exists()){
+                return;
+            }
 
             $ba = Badges::save_badge(Langs::getLangId(Session::get('lang')), 'badge_login_10');
 

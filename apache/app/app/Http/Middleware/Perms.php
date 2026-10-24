@@ -45,8 +45,8 @@ use Illuminate\Support\Facades\Auth;
 // Used by:
 //   - Kernel::$routeMiddleware — the alias perms
 //   - routes/web_admin.php — after auth.admin:man on every
-//     panel route but the dashboard and the four member
-//     reports a country manager may open
+//     panel route but the dashboard, the four member reports
+//     and the password change a country manager may open
 // -----------------------------------------------------------
 
 class Perms

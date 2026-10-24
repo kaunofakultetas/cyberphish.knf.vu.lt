@@ -927,6 +927,162 @@ class AdminLearningTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testQuestionImportWithABadLineStoresNothing
+    // -----------------------------------------------------------
+    //
+    // A question line without the backslash-colon its text
+    // follows refuses the whole file with a message naming the
+    // line, and nothing of it is stored, in both imports. Such
+    // a line once broke the import halfway — a 500, the blocks
+    // before it kept — and the corrected file then stored them
+    // twice (question-import-partial).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testQuestionImportWithABadLineStoresNothing(): void
+    {
+        $file = "::\nQ\\: First question?\n=Yes\n~No\n::\nQ: Second question, without its marker?\n=Yes\n~No\n";
+
+        foreach (['self_eval' => 'bei_selfeval_question', 'knowledge_test' => 'bei_knowledge_test'] as $import => $table) {
+            $this->admin()->from("/admin-panel/lm/$import/{$this->category}")->post("/admin-panel/lm/$import/import", [
+                'cat_id' => $this->category,
+                'doc'    => $this->uploadedFile('questions.txt', $file),
+            ])->assertRedirect("/admin-panel/lm/$import/{$this->category}")->assertSessionHasErrors();
+
+            $this->assertSame('A question line has no \\: before its text: Q: Second question, without its marker?', session('errors')->first(), $import);
+            $this->assertSame(0, DB::table($table)->where('cat_id', $this->category)->count(), "the $import import stored part of the file");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testSelfEvaluationBlockWithoutAQuestionStoresNoOptions
+    // -----------------------------------------------------------
+    //
+    // A self-evaluation block whose question line the import
+    // does not recognise — here a Latin E where the Greek
+    // epsilon belongs — stores none of its options, as the
+    // knowledge import does: they once went to the question
+    // before it, whose type turned to multiple choice
+    // (selfeval-import-carryover).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSelfEvaluationBlockWithoutAQuestionStoresNoOptions(): void
+    {
+        $file = "::\nQ\\: First question?\n=Right\n~Wrong\n::\nE\\: Second question, with a Latin E?\n=Right too\n=Also right\n~Wrong too\n";
+
+        $this->admin()->from("/admin-panel/lm/self_eval/{$this->category}")->post('/admin-panel/lm/self_eval/import', [
+            'cat_id' => $this->category,
+            'doc'    => $this->uploadedFile('questions.txt', $file),
+        ])->assertSessionHas('success');
+
+        $questions = DB::table('bei_selfeval_question')->where('cat_id', $this->category)->get();
+        $this->assertCount(1, $questions);
+        $this->assertEquals(1, $questions[0]->q_type);
+        $this->assertSame([['Right', 1, 100.0], ['Wrong', 0, 0.0]], $this->optionRows('bei_selfeval_option', $questions[0]->id, true));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testOptionPointsWithADecimalCommaAreNotCut
+    // -----------------------------------------------------------
+    //
+    // Option points typed with a decimal comma are read as
+    // with a point. MySQL, its strict mode off, once took
+    // "33,33" for 33, and three such right options scored 99
+    // (selfeval-points-comma).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOptionPointsWithADecimalCommaAreNotCut(): void
+    {
+        $question = $this->world->selfEvalQuestion($this->category, [
+            ['First', true, 33.33], ['Second', true, 33.33], ['Third', true, 33.33], ['Wrong', false, 0],
+        ]);
+        list($first, $second, $third, $wrong) = $question['options'];
+
+        $this->admin()->from("/admin-panel/lm/self_eval/edit/{$question['question']}")->post("/admin-panel/lm/self_eval/update/{$question['question']}", [
+            'q'       => 'Which three are right?',
+            'q_type'  => 2,
+            'option'  => [$first => 'First', $second => 'Second', $third => 'Third', $wrong => 'Wrong'],
+            'correct' => [$first => 1, $second => 1, $third => 1, $wrong => 0],
+            'points'  => [$first => '33,33', $second => '33,33', $third => '33.34', $wrong => '0'],
+        ])->assertSessionHas('success');
+
+        $this->assertSame([
+            ['First', 1, 33.33], ['Second', 1, 33.33], ['Third', 1, 33.34], ['Wrong', 0, 0.0],
+        ], $this->optionRows('bei_selfeval_option', $question['question'], true));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFormsForAGoneLessonOrLanguageStoreNothing
+    // -----------------------------------------------------------
+    //
+    // A file added on the page of a lesson deleted meanwhile,
+    // a lesson category or a lesson for a language that no
+    // longer exists, are refused, and nothing is stored or
+    // left behind. The file once moved into upload/lm before
+    // its row's foreign key refused it — a 500, the file left
+    // on disk — and the category and the lesson met their
+    // foreign keys the same way (unchecked-hidden-ids).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFormsForAGoneLessonOrLanguageStoreNothing(): void
+    {
+        $gone = $this->world->lmContent($this->category, $this->en);
+        DB::table('bei_lm_content')->where('id', $gone)->delete();
+        $before = glob(public_path('upload/lm/*')) ?: [];
+
+        $posts = [
+            '/admin-panel/lm/file/create'              => ['uid' => $gone, 'name' => 'Checklist', 'embed' => 0, 'doc' => $this->uploadedFile('checklist.pdf', "%PDF-1.4\n%test\n")],
+            '/admin-panel/dialog/lm/categories/create' => ['uid' => 999999, 'name' => 'Nowhere'],
+            '/admin-panel/lm/content/create'           => ['uid' => 999999, 'cat_id' => $this->category, 'title' => 'Nowhere', 'content' => '<p>Gone.</p>', 'hours' => 1],
+        ];
+        $statuses = [];
+        foreach ($posts as $route => $fields) {
+            $statuses[$route] = $this->admin()->from('/admin-panel/lm/content')->post($route, $fields)->getStatusCode();
+        }
+        $added = array_diff(glob(public_path('upload/lm/*')) ?: [], $before);
+        foreach ($added as $path) {
+            @unlink($path);
+        }
+
+        $this->assertSame(array_fill_keys(array_keys($posts), 302), $statuses);
+        $this->assertSame([], array_values($added), 'the upload was left behind');
+        $this->assertFalse(DB::table('bei_lm_content_files')->where('content_id', $gone)->exists());
+        $this->assertFalse(DB::table('bei_lm_category')->where('lang_id', 999999)->exists());
+        $this->assertFalse(DB::table('bei_lm_content')->where('title', 'Nowhere')->exists());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // optionRows
     // -----------------------------------------------------------
     //

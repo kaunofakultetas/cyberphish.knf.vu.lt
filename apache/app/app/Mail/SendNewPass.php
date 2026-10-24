@@ -43,7 +43,8 @@ use Illuminate\Queue\SerializesModels;
 // Used by:
 //   - LoginController::reset_pass (Auth/) — POST
 //     /reset/{reset_token}, the button of the page the
-//     link SendRemindLink carries opens
+//     link SendRemindLink or SendActivationLink carries
+//     opens
 //   - PasswordResetTest (tests/Feature/Auth/) — reads the
 //     new password out of the sent mail
 // -----------------------------------------------------------

@@ -26,7 +26,9 @@
  							<div class="card mb-4 border-left-info">
                                   <div class="card-header"><b>{{ $category_name }}</b> {{ __('main.self_evaluation_test') }}
 
+                                  	@if($offer_retake)
                                   	<a href="{{ env('APP_URL') }}/{{ $lang }}/self-evaluation-test/{{ $cat_id }}" class="btn btn-primary btn-sm" style="float:right">{{ __('main.do_it_again') }}</a>
+                                  	@endif
 
                                   </div>
                                   <div class="card-body">

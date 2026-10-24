@@ -6,9 +6,11 @@
 //  How a visitor becomes a member: the sign-up form and its
 //  POST, which creates an inactive account (status 0) under
 //  a generated User<number> name and mails a verification
-//  link, and the link itself, which switches the account
-//  on. Built on BaseController, whose middleware sets the
-//  language and shares the member's data with every view.
+//  link — or, for an address already in use, answers the
+//  same and mails the address's owner instead — and the
+//  link itself, which switches the account on. Built on
+//  BaseController, whose middleware sets the language and
+//  shares the member's data with every view.
 //
 //  Used by:
 //    - routes/web_user.php — the register and verify routes
@@ -22,7 +24,11 @@ use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
 use App\Http\Controllers\SettingsController;
+use App\Mail\SendAccountDeactivated;
+use App\Mail\SendAccountExists;
+use App\Mail\SendActivationLink;
 use App\Mail\SendVerification;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use App\Models\Members;
 use Illuminate\Foundation\Auth\RegistersUsers;
@@ -135,29 +141,56 @@ class RegisterController extends BaseController
     // POST /register
     //
     // Creates a member. The form needs an email of 4 to 254
-    // characters, the password twice (12 to 50 characters),
-    // one of the country ids the form offers, 0 to 5, and a
-    // solved reCAPTCHA — while Google cannot be reached the
-    // reCAPTCHA counts as unsolved (AppServiceProvider::boot),
-    // after the package's 30-second timeout when the
-    // connection hangs. A new address with matching passwords
-    // gets a 50-character verify token from random_string,
-    // mailed in a SendVerification mail before the row is
-    // written; the row holds the password's hash, a generated
-    // user name, the token and the country, and stays inactive
-    // (status defaults to 0) until the link is opened. When
-    // the mail cannot be sent, the failure is logged, no row
-    // is written and the form says so (mail_failed), where it
-    // once answered with a 500; the address can sign up once
-    // mail goes out again. Mismatched passwords and an address
-    // already registered go back with their message — so
-    // unlike forgot-password, this form tells whether an
-    // address has an account. Every refusal brings the form
-    // back with the email, the country and the terms box as
-    // they were sent, as a refused validation does, and never
-    // the passwords; these three once came back empty. The
-    // email compares without case (the column's
-    // case-insensitive collation).
+    // characters, the password twice (12 to 50 characters,
+    // each one string, and no NUL byte, which bcrypt refuses —
+    // a list once passed the rule's count, and the link was
+    // mailed before Hash::make failed on the list or the byte
+    // with a 500), one of the country ids the form offers, 0
+    // to 5, the privacy policy's box ticked — which once only
+    // the browser asked for, so a post without it made an
+    // account all the same — and a solved reCAPTCHA — while
+    // Google cannot be reached the reCAPTCHA counts as
+    // unsolved (AppServiceProvider::boot), after the package's
+    // 30-second timeout when the connection hangs. Passwords
+    // that differ go back with pass_dont_match, for any
+    // address. Then every sign-up gets the same answer,
+    // user_registered, so that the form tells no one which
+    // addresses have accounts, as forgot-password does not; it
+    // once answered email_already_exists. A new address gets
+    // its row first — the password's hash, a generated user
+    // name, a 50-character verify token from random_string and
+    // the country, inactive (status defaults to 0) — and then
+    // the token in a SendVerification mail. The row comes
+    // before the mail so that a sign-up racing this one meets
+    // the email's unique key instead of mailing a link no row
+    // holds; it once did, and then failed on the key with a
+    // 500. The loser answers as every sign-up does and mails
+    // nothing, the winner's mail carrying the account's link.
+    // An address in use keeps its row, its password included,
+    // and its owner hears of the sign-up by mail — one mail
+    // for every account, as for a new address. One still
+    // waiting for its verification gets SendActivationLink,
+    // the reset page's link (reset_pass), which mails a fresh
+    // password to the address and switches the account on, and
+    // its verification link is cancelled: that link would
+    // switch the account on with the password of whoever
+    // signed the address up first, maybe not the address's
+    // owner. An active account gets a SendAccountExists note,
+    // pointing to the login form, and one an admin switched
+    // off a SendAccountDeactivated note; that one once got no
+    // mail, and so answered sooner, and with user_registered
+    // where the others said mail_failed while mail could not
+    // go out. The password is hashed for every address too, so
+    // no address in use answers faster than a new one. When a
+    // mail cannot be sent, the failure is logged, a row
+    // written for it is deleted again and the form says so
+    // (mail_failed), where it once answered with a 500; the
+    // address can sign up once mail goes out again. Every
+    // refusal brings the form back with the email, the country
+    // and the terms box as they were sent, as a refused
+    // validation does, and never the passwords; these three
+    // once came back empty. The email compares without case
+    // (the column's case-insensitive collation).
     //
     // Used by:
     //   - auth/register.blade.php — the sign-up form posts here
@@ -165,47 +198,98 @@ class RegisterController extends BaseController
 
     public function register(Request $request)
     {
+        // STEP 1: the form, then the passwords, which must match
+        // whatever the address
+        // ======================================================
         $this->validate($request, [
             'email'   => 'required|email|min:4|max:254',
-            'password'=> 'required|min:12|max:50',
-            'password2'=>'required|min:12|max:50',
+            'password'=> 'required|string|min:12|max:50|not_regex:/\x00/',
+            'password2'=>'required|string|min:12|max:50',
             'country'=>'required|integer|between:0,5',
+            'terms'=>'accepted',
             'g-recaptcha-response' => 'required|captcha',
         ]);
 
-        if (Members::where(array('email' => $request->get('email')))->count() == 0) {
+        if($request->get('password') != $request->get('password2')){
 
-            if($request->get('password') == $request->get('password2')){
+            return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.pass_dont_match'));
+        }
 
-                $uid = SettingsController::random_string(50);
 
-                try {
-                    Mail::to($request->get('email'))->send(new SendVerification(['uid'=>$uid]));
-                } catch (\Throwable $e) {
-                    report($e);
+        // STEP 2: the account — a new one for a new address,
+        // written before its mail; the password is hashed for
+        // every address, so that one in use answers no faster
+        // ===================================================
+        $hash = Hash::make($request->get('password'));
+        $member = Members::where(array('email' => $request->get('email')))->first();
+        $created = false;
+        $raced = false;
 
-                    return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.mail_failed'));
-                }
+        if($member === null){
 
-                Members::create([
+            try {
+                $member = Members::create([
                     'username'=> RegisterController::getUsername(),
                     'email' => $request->get('email'),
-                    'password' => Hash::make($request->get('password')),
-                    'verify_token'=>$uid,
+                    'password' => $hash,
+                    'verify_token'=>SettingsController::random_string(50),
                     'country'=>$request->get('country')
                 ]);
+                $created = true;
+            } catch (UniqueConstraintViolationException $e) {
+                $member = Members::where(array('email' => $request->get('email')))->first();
 
-                return back()->withSuccess(__('main.user_registered'));
+                // Not the address: a user name drawn twice at once
+                if($member === null){
+                    throw $e;
+                }
 
+                // A sign-up racing this one wrote the account first,
+                // and its mail carries the account's link
+                $raced = true;
+            }
+        }
+
+
+        // STEP 3: the mail — one for every account, so that no
+        // address answers sooner: the verification link to a new
+        // account, the activation link to one still waiting for
+        // it, a note to an active one or one an admin switched
+        // off; none to a sign-up that lost the race — and one
+        // answer for all of them
+        // ======================================================
+        try {
+            if($created){
+                Mail::to($member->email)->send(new SendVerification(['uid'=>$member->verify_token]));
+            } elseif($raced){
+                // The winner mails the link
+            } elseif($member->status == 0){
+                // Not its verification link, which would switch the
+                // account on with the password of whoever signed the
+                // address up first: the reset page's link, which
+                // mails a new password to the address, and the old
+                // link goes
+                $reset_token = SettingsController::random_string(50);
+                Mail::to($member->email)->send(new SendActivationLink(['uid'=>$reset_token]));
+                Members::where(['id'=>$member->id])->update(['reset_token'=>$reset_token, 'verify_token'=>'']);
+            } elseif($member->status == 1){
+                Mail::to($member->email)->send(new SendAccountExists());
             } else {
+                Mail::to($member->email)->send(new SendAccountDeactivated());
+            }
+        } catch (\Throwable $e) {
+            report($e);
 
-                return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.pass_dont_match'));
+            // A new account goes with its mail, so the address can
+            // sign up again once mail goes out
+            if($created){
+                $member->delete();
             }
 
-        } else {
-
-            return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.email_already_exists'));
+            return back()->withInput($request->only('email', 'country', 'terms'))->withErrors(__('main.mail_failed'));
         }
+
+        return back()->withSuccess(__('main.user_registered'));
     }
 
 

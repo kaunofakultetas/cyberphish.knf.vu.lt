@@ -4,9 +4,10 @@
 //  [*] ValidateReset — 404 for a dead password-reset link
 //
 //  Stands in front of the reset link the forgot-password
-//  mail carries. Only a token that belongs to exactly one
-//  member passes; a used, unknown or blank one is a 404, so
-//  the reset never runs on nothing.
+//  mail, and a sign-up's activation mail, carry. Only a
+//  token that belongs to exactly one member passes; a used,
+//  unknown or blank one is a 404, so the reset never runs on
+//  nothing.
 //
 //  Used by:
 //    - Kernel::$routeMiddleware (app/Http/Kernel.php) — the

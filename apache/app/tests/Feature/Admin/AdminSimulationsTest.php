@@ -452,6 +452,141 @@ class AdminSimulationsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testStepsAreListedInSheetOrder
+    // -----------------------------------------------------------
+    //
+    // A member's run report, the simulation edit page and the
+    // printout list the steps in sheet order, each indented
+    // under its own parent. scenario_step_idx keys the steps
+    // by simulation, parent and level, and with no order of
+    // their own the pages once got them by that key — every
+    // first step ahead, the second steps after them in a
+    // block — as production did from the keys of 23 October
+    // 2026 on (simulation-steps-order). Forty other
+    // simulations make MySQL use the key, as it does on a
+    // table of production's size.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testStepsAreListedInSheetOrder(): void
+    {
+        for ($i = 0; $i < 40; $i++) {
+            $noise = $this->world->scenario($this->en);
+            for ($j = 0; $j < 10; $j++) {
+                $this->world->scenarioOption($noise, 0, 1, 0);
+            }
+        }
+        $scenario = $this->world->scenario($this->en, [], [$this->world->scenarioCategory($this->en)]);
+        $alpha = $this->world->scenarioOption($scenario, 0, 1, 200, ['situation' => 'Alpha']);
+        $this->world->scenarioOption($scenario, $alpha, 2, 100, ['situation' => 'Bravo']);
+        $this->world->scenarioOption($scenario, $alpha, 2, 50, ['situation' => 'Charlie']);
+        $delta = $this->world->scenarioOption($scenario, 0, 1, 0, ['situation' => 'Delta']);
+        $this->world->scenarioOption($scenario, $delta, 2, 0, ['situation' => 'Echo']);
+        $run = $this->world->scenarioAttempt($this->world->member()->id, $scenario, $this->en);
+        $publicId = DB::table('bei_users_scenarios')->where('id', $run)->value('public_id');
+
+        $pages = [
+            'run report' => $this->admin()->get("/admin-panel/user/simulation/report/$publicId")->assertOk()->getContent(),
+            'edit page'  => $this->admin()->get("/admin-panel/admin_simulations/edit/$scenario")->assertOk()->getContent(),
+            'printout'   => $this->admin()->get('/admin-panel/settings/simulations_download_pdf')->assertOk()->getContent(),
+        ];
+
+        foreach ($pages as $page => $html) {
+            $positions = array_map(function ($situation) use ($html) {
+                return strpos($html, $situation);
+            }, ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo']);
+            $sorted = $positions;
+            sort($sorted);
+            $this->assertSame($sorted, $positions, "the $page lists the steps out of sheet order");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testCategoriesDialogStoresTheTickedCategoriesOfItsLanguage
+    // -----------------------------------------------------------
+    //
+    // The categories dialog of a simulation replaces its
+    // categories in the language with the ticked ones: every
+    // box unticked takes it off them all, where nothing
+    // changed once (simulation-categories-clear), and an id
+    // of another language's category is not stored — the way
+    // six Latvian simulations once ended up on no member page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testCategoriesDialogStoresTheTickedCategoriesOfItsLanguage(): void
+    {
+        $first = $this->world->scenarioCategory($this->en);
+        $second = $this->world->scenarioCategory($this->en);
+        $foreign = $this->world->scenarioCategory($this->world->language('lt'));
+        $scenario = $this->world->scenario($this->en, [], [$first]);
+        $dialog = "/admin-panel/dialog/simulation/cat/{$this->en}/$scenario";
+        $categories = function () use ($scenario) {
+            return DB::table('bei_scenarios_in_category')->where('scenario_id', $scenario)->orderBy('cat_id')->pluck('cat_id')->map(function ($id) {
+                return (int) $id;
+            })->all();
+        };
+
+        $this->admin()->from('/admin-panel/admin_simulations')->post($dialog, ['cat' => [$second, $foreign]])->assertSessionHas('success');
+        $this->assertSame([$second], $categories(), 'the ticked categories of the language');
+
+        $this->admin()->from('/admin-panel/admin_simulations')->post($dialog, [])->assertSessionHas('success');
+        $this->assertSame([], $categories(), 'unticking every category changed nothing');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testFormsForAGoneLanguageStoreNothing
+    // -----------------------------------------------------------
+    //
+    // A simulation category, an attribute or an import posted
+    // for a language that no longer exists — a stale page, an
+    // edited form — is refused, where the category and the
+    // attribute were once stored under no language, on no tab,
+    // to be neither edited nor deleted (unchecked-hidden-ids).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testFormsForAGoneLanguageStoreNothing(): void
+    {
+        $posts = [
+            '/admin-panel/dialog/simulations/categories/create' => ['uid' => 999999, 'name' => 'Nowhere'],
+            '/admin-panel/dialog/simulations/attributes/create' => ['uid' => 999999, 'name' => 'Nowhere'],
+            '/admin-panel/admin_simulations/import'             => ['lang_id' => 999999, 'doc' => $this->simulationSheet()],
+        ];
+
+        foreach ($posts as $route => $fields) {
+            $this->admin()->from('/admin-panel/admin_simulations')->post($route, $fields)
+                ->assertRedirect('/admin-panel/admin_simulations')
+                ->assertSessionHasErrors();
+        }
+
+        foreach (['bei_scenarios_category', 'bei_scenarios_attributes', 'bei_scenarios'] as $table) {
+            $this->assertFalse(DB::table($table)->where('lang_id', 999999)->exists(), "$table holds a row of no language");
+        }
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // admin
     // -----------------------------------------------------------
     //

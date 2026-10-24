@@ -134,7 +134,9 @@ class LMUsers extends Model
     // or more) and 25 for the simulations finished. The
     // lessons are those filed under a category, the ones a
     // member page lists, each counted once however often
-    // its completion was stored; the self-evaluations are
+    // its completion was stored; the simulations, those a
+    // category of their language offers
+    // (Scenarios::scopeOffered); the self-evaluations are
     // one per category that has questions, counted once
     // however often it is taken. A share the language does
     // not offer counts 0, so in a language without
@@ -170,36 +172,35 @@ class LMUsers extends Model
     // country_progress
     // -----------------------------------------------------------
     //
-    // The course progress of every member of the country —
-    // of every country when every_country is set, and of the
-    // members without a country when the country is null —
-    // in every language, keyed by language id and then
-    // member id, from one statement; a pair at 0 is left
-    // out, so a pair missing from the result is 0. The
-    // statement works out the stored function's four shares
-    // for all the pairs at once instead of calling
-    // bei_user_course_progress per
+    // The course progress of every member of the country — of
+    // every country when every_country is set, and of the
+    // members without a country when the country is null — in
+    // every language, keyed by language id and then member id,
+    // from one statement; a pair at 0 is left out, so a pair
+    // missing from the result is 0. The statement works out
+    // the stored function's four shares for all the pairs at
+    // once instead of calling bei_user_course_progress per
     // pair — seven queries a call, which made the dashboard of
     // every country take over a second. The rows the shares
-    // count — completed lessons, each once and only
-    // those filed under a category, finished
-    // self-evaluations, passed tests, finished runs —
-    // are stacked into one list and grouped by member
-    // and language in a single pass, then set against
-    // each language's totals: joining the four groupings
-    // to every member and language instead leaned on
-    // keys MySQL builds only while its table statistics
-    // are settled, and took 3.8 seconds on a freshly
-    // restored database. The arithmetic is the
+    // count — completed lessons, each once and only those
+    // filed under a category, finished self-evaluations,
+    // passed tests, finished runs of the simulations on offer
+    // (Scenarios::scopeOffered) — are stacked into one list
+    // and grouped by member and language in a single pass,
+    // then set against each language's totals: joining the
+    // four groupings to every member and language instead
+    // leaned on keys MySQL builds only while its table
+    // statistics are settled, and took 3.8 seconds on a
+    // freshly restored database. The arithmetic is the
     // function's, expression for expression, on the same
-    // column types, so MySQL rounds alike: the lesson
-    // hours are a FLOAT, whose doubles round half to
-    // even, the counts are exact and round half away
-    // from zero, and the sum turns into a whole number
-    // as the function's INT return does. A change to the
-    // function must be made here too, as mysql/init.sql
-    // notes beside it; AdminDashboardTest holds these
-    // figures to the function's, halfway cases included.
+    // column types, so MySQL rounds alike: the lesson hours
+    // are a FLOAT, whose doubles round half to even, the
+    // counts are exact and round half away from zero, and the
+    // sum turns into a whole number as the function's INT
+    // return does. A change to the function must be made here
+    // too, as mysql/init.sql notes beside it;
+    // AdminDashboardTest holds these figures to the
+    // function's, halfway cases included.
     //
     // Used by:
     //   - Admin\ManagerMainController::dashboard — the course
@@ -231,7 +232,10 @@ class LMUsers extends Model
                     UNION ALL
                     SELECT user_id, lang_id, NULL, NULL, 1, NULL FROM bei_users_knowledge_test WHERE finished = 1 AND results >= 75
                     UNION ALL
-                    SELECT user_id, lang_id, NULL, NULL, 0, scenario_id FROM bei_users_scenarios WHERE finished = 1
+                    SELECT r.user_id, r.lang_id, NULL, NULL, 0, r.scenario_id
+                        FROM bei_users_scenarios r JOIN bei_scenarios s ON s.id = r.scenario_id AND s.lang_id = r.lang_id
+                        WHERE r.finished = 1 AND EXISTS (SELECT 1 FROM bei_scenarios_in_category ic JOIN bei_scenarios_category c ON c.id = ic.cat_id
+                            WHERE ic.scenario_id = s.id AND ic.lang_id = s.lang_id AND c.lang_id = s.lang_id)
                 ) AS shares
                 WHERE shares.user_id IN (SELECT id FROM bei_users WHERE ? = 1 OR country <=> ?)
                 GROUP BY shares.user_id, shares.lang_id
@@ -240,7 +244,8 @@ class LMUsers extends Model
                 SELECT bei_lang.id AS lang_id,
                     (SELECT SUM(hours) FROM bei_lm_content WHERE bei_lm_content.lang_id = bei_lang.id AND bei_lm_content.cat_id IS NOT NULL) AS hours,
                     (SELECT COUNT(DISTINCT q.cat_id) FROM bei_selfeval_question q JOIN bei_lm_category c ON c.id = q.cat_id WHERE c.lang_id = bei_lang.id) AS categories,
-                    (SELECT COUNT(*) FROM bei_scenarios WHERE bei_scenarios.lang_id = bei_lang.id) AS scenarios
+                    (SELECT COUNT(*) FROM bei_scenarios s WHERE s.lang_id = bei_lang.id AND EXISTS (SELECT 1 FROM bei_scenarios_in_category ic JOIN bei_scenarios_category c ON c.id = ic.cat_id
+                        WHERE ic.scenario_id = s.id AND ic.lang_id = s.lang_id AND c.lang_id = s.lang_id)) AS scenarios
                 FROM bei_lang
             ) AS totals ON totals.lang_id = pairs.lang_id
             HAVING progress <> 0", [$every_country ? 1 : 0, $country]);

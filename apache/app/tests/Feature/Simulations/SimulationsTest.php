@@ -841,4 +841,77 @@ class SimulationsTest extends FeatureTestCase
         $this->assertTrue(DB::table('bei_users_badges')
             ->where(['user_id' => $this->member->id, 'lang_id' => $this->en, 'name' => 'badge_all_simulations'])->exists(), 'finishing every simulation on offer earned no badge_all_simulations');
     }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testModeOutlivesTheSession
+    // -----------------------------------------------------------
+    //
+    // A run keeps the mode it was started in on its own row
+    // (simulation_type), so a session that ends halfway — 120
+    // idle minutes, any restart of the container, whose
+    // sessions live on a tmpfs — leaves a run that still
+    // shows each choice's feedback at the next step in mode 1
+    // and lists it all at the end in mode 2. Kept in the
+    // session alone, the mode once went with it, and the run
+    // resumed showed no feedback at all
+    // (simulation-mode-session-only).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testModeOutlivesTheSession(): void
+    {
+        $stepByStep = $this->startSimulation($this->member, $this->scenario, 1);
+        $this->flushSession();
+        $this->chooseSimulationOption($this->member, $stepByStep, $this->check);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$stepByStep")
+            ->assertSee('Good: the domain is wrong');
+
+        $summary = $this->startSimulation($this->member, $this->scenario, 2);
+        $this->chooseSimulationOption($this->member, $summary, $this->check);
+        $this->flushSession();
+        $this->chooseSimulationOption($this->member, $summary, $this->report);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$summary")
+            ->assertSeeInOrder(['Check the sender', 'Good: the domain is wrong', 'Report it to IT', 'Right: IT can block the sender']);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testRunWithoutAKeptModeFallsBackOnTheSession
+    // -----------------------------------------------------------
+    //
+    // A run started before runs kept their mode — its
+    // simulation_type empty — takes the mode its session
+    // still holds under simulation_type_ and the public id,
+    // where every run kept it until then: here 2, the
+    // feedback listed at the end, over the row's emptied 1.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRunWithoutAKeptModeFallsBackOnTheSession(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario, 1);
+        DB::table('bei_users_scenarios')->where('public_id', $publicId)->update(['simulation_type' => null]);
+        $this->withSession(['simulation_type_'.$publicId => 2]);
+
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")
+            ->assertSeeInOrder(['Check the sender', 'Good: the domain is wrong', 'Report it to IT', 'Right: IT can block the sender']);
+    }
 }

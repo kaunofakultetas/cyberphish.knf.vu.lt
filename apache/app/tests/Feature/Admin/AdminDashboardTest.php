@@ -113,8 +113,9 @@ class AdminDashboardTest extends FeatureTestCase
         $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
         $ltCategory = $this->world->lmCategory($this->lt);
         $this->world->selfEvalQuestion($ltCategory, [['Right', true, 100], ['Wrong', false, 0]]);
-        $scenario = $this->world->scenario($this->en);
-        $ltScenario = $this->world->scenario($this->lt);
+        $scenario = $this->world->scenario($this->en, [], [$this->world->scenarioCategory($this->en)]);
+        $ltScenario = $this->world->scenario($this->lt, [], [$this->world->scenarioCategory($this->lt)]);
+        $this->world->scenario($this->en, ['descr' => 'Filed under no category']);
 
         $busy = $this->world->member(['country' => 2]);
         $this->world->lessonDone($busy->id, $lesson);
@@ -353,8 +354,10 @@ class AdminDashboardTest extends FeatureTestCase
     // comes out exactly as bei_user_course_progress has it,
     // rounding included: half the lessons alone is 12, where
     // the double 12.5 rounds to the even 12. So do a lesson
-    // stored twice, which counts once, and a lesson without a
-    // category, which counts not at all.
+    // stored twice, which counts once, a lesson without a
+    // category, which counts not at all, and a simulation no
+    // category offers, which counts neither in the total nor
+    // for the member who finished it.
     //
     // Used by:
     //   - PHPUnit — the Feature suite (runTests.sh)
@@ -370,8 +373,10 @@ class AdminDashboardTest extends FeatureTestCase
             $categories[] = $category = $this->world->lmCategory($this->en);
             $this->world->selfEvalQuestion($category, [['Right', true, 100], ['Wrong', false, 0]]);
         }
-        $scenario = $this->world->scenario($this->en);
-        $this->world->scenario($this->en);
+        $simulationCategory = $this->world->scenarioCategory($this->en);
+        $scenario = $this->world->scenario($this->en, [], [$simulationCategory]);
+        $this->world->scenario($this->en, [], [$simulationCategory]);
+        $unoffered = $this->world->scenario($this->en);
 
         $halfLessons = $this->world->member(['country' => 2]);
         $this->world->lessonDone($halfLessons->id, $lesson);
@@ -398,10 +403,13 @@ class AdminDashboardTest extends FeatureTestCase
         $unreachable = $this->world->member(['country' => 2]);
         $this->world->lessonDone($unreachable->id, $lesson);
         $this->world->lessonDone($unreachable->id, $uncategorised);
+        $offTheMenu = $this->world->member(['country' => 2]);
+        $this->world->scenarioAttempt($offTheMenu->id, $scenario, $this->en);
+        $this->world->scenarioAttempt($offTheMenu->id, $unoffered, $this->en);
 
         $progress = LMUsers::country_progress(2, false);
 
-        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle, $twice, $unreachable] as $member) {
+        foreach ([$halfLessons, $halfRuns, $halves, $third, $passed, $twoThirds, $idle, $twice, $unreachable, $offTheMenu] as $member) {
             foreach ([$this->en, $this->lt] as $langId) {
                 $this->assertEquals(LMUsers::course_progress($member->id, $langId), $progress[$langId][$member->id] ?? 0, "member {$member->id} in language $langId");
             }
@@ -409,6 +417,7 @@ class AdminDashboardTest extends FeatureTestCase
         $this->assertEquals(12, $progress[$this->en][$halfLessons->id]);
         $this->assertEquals(12, $progress[$this->en][$twice->id]);
         $this->assertEquals(12, $progress[$this->en][$unreachable->id]);
+        $this->assertEquals(12, $progress[$this->en][$offTheMenu->id]);
     }
 
 
@@ -481,15 +490,53 @@ class AdminDashboardTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testSimulationsFigureCountsTheSimulationsOnOffer
+    // -----------------------------------------------------------
+    //
+    // A row's simulations figure sets the simulations a
+    // category of the language offers against the distinct
+    // ones of them the member began: a simulation filed under
+    // no category counts in neither, where it once held every
+    // member short of the whole (simulation-share-counts-
+    // unoffered). The row's progress agrees with the stored
+    // function's (figuresOf), the finished run of the
+    // simulation out of reach adding nothing to either.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testSimulationsFigureCountsTheSimulationsOnOffer(): void
+    {
+        $offered = $this->world->scenario($this->en, [], [$this->world->scenarioCategory($this->en)]);
+        $unoffered = $this->world->scenario($this->en, ['descr' => 'Filed under no category']);
+        $member = $this->world->member(['country' => 2]);
+        $this->world->scenarioAttempt($member->id, $offered, $this->en);
+        $this->world->scenarioAttempt($member->id, $unoffered, $this->en);
+
+        $rows = $this->signInManager($this->manager)->get('/admin-panel/dashboard')->assertOk()->viewData('recordlist')[$this->en];
+
+        $row = $this->rowOf($rows, $member->id);
+        $this->assertSame('1 / 1', $row['simulations']);
+        $this->assertEquals($this->figuresOf($member->id, $this->en), [$row['course_progress'], $row['simulations'], $row['knowledge_results']]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // figuresOf
     // -----------------------------------------------------------
     //
     // The course progress, simulations count and knowledge
     // results of one member in one language, asked one member
     // and language at a time: the progress straight from the
-    // stored function, the language's simulations over the
-    // distinct ones the member started, and the member's
-    // finished tests, oldest first, in the dashboard's line.
+    // stored function, the simulations a category of the
+    // language offers over the distinct ones of them the
+    // member started, and the member's finished tests, oldest
+    // first, in the dashboard's line.
     //
     // Used by:
     //   - testEveryRowShowsTheMembersOwnFigures (above)
@@ -497,8 +544,12 @@ class AdminDashboardTest extends FeatureTestCase
 
     private function figuresOf(int $userId, int $langId): array
     {
-        $simulations = DB::table('bei_scenarios')->where('lang_id', $langId)->count();
-        $started = DB::table('bei_users_scenarios')->where(['user_id' => $userId, 'lang_id' => $langId])->distinct()->count('scenario_id');
+        $offered = DB::table('bei_scenarios_in_category')
+            ->join('bei_scenarios_category', 'bei_scenarios_category.id', '=', 'bei_scenarios_in_category.cat_id')
+            ->where(['bei_scenarios_in_category.lang_id' => $langId, 'bei_scenarios_category.lang_id' => $langId])
+            ->pluck('scenario_id')->all();
+        $simulations = DB::table('bei_scenarios')->where('lang_id', $langId)->whereIn('id', $offered)->count();
+        $started = DB::table('bei_users_scenarios')->where(['user_id' => $userId, 'lang_id' => $langId])->whereIn('scenario_id', $offered)->distinct()->count('scenario_id');
         $results = DB::table('bei_users_knowledge_test')
             ->where(['user_id' => $userId, 'lang_id' => $langId, 'finished' => 1])
             ->orderBy('id')

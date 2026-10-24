@@ -611,6 +611,48 @@ class LearningMaterialTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testBadgeAnnouncementStaysWithItsMember
+    // -----------------------------------------------------------
+    //
+    // The announcement of badge_finished_course waiting in the
+    // session belongs to the member who earned it on a page
+    // without messages: signing out drops it, and a session
+    // that passes to another member without a sign-out keeps
+    // it from them too. It once waited as a bare flag, and
+    // the next member on that browser heard of a badge they
+    // never earned (badge-note-outlives-the-member).
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testBadgeAnnouncementStaysWithItsMember(): void
+    {
+        $this->world->badge($this->member->id, $this->en, 'badge_all_presentations');
+        $this->world->badge($this->member->id, $this->en, 'badge_all_simulations');
+        $this->signInMember($this->member)->get('/en/simulations')->assertOk();
+        $this->signInMember($this->member)->post('/cp/logout');
+
+        $html = $this->signInMember($this->world->member())->get('/cp/dashboard')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString(__('main.new_badge'), $html, 'the next member heard of a badge they never earned');
+
+        $earner = $this->world->member();
+        $this->world->badge($earner->id, $this->en, 'badge_all_presentations');
+        $this->world->badge($earner->id, $this->en, 'badge_all_simulations');
+        $this->signInMember($earner)->get('/en/simulations')->assertOk();
+
+        $html = $this->signInMember($this->world->member())->get('/cp/dashboard')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString(__('main.new_badge'), $html, 'a member who took over the session heard of a badge they never earned');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // complete
     // -----------------------------------------------------------
     //

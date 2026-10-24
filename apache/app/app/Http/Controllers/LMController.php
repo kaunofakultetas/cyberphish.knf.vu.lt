@@ -63,8 +63,8 @@ use App\Models\LMUsers;
 //   index, content          — the overview and a lesson
 //   category_content_list   — the lesson menu of every page
 //   mark_completed          — a lesson done, and its badge
-//   check_if_all_presentations_finished, show_self_eval
-//                           — what the member has finished
+//   check_if_all_presentations_finished, show_self_eval,
+//   category_done           — what the member has finished
 //   self_evaluation_test, self_eval_test,
 //   self_eval_test_save     — an attempt, question by
 //                             question
@@ -340,10 +340,10 @@ class LMController extends BaseController
     // -----------------------------------------------------------
     //
     // True when the signed-in member has completed every
-    // lesson of the given lesson's category — the moment the
-    // lesson page offers the category's self-evaluation and
-    // the category badge falls due. Always false for a
-    // visitor.
+    // lesson of the given lesson's category (category_done) —
+    // the moment the lesson page offers the category's
+    // self-evaluation and the category badge falls due.
+    // Always false for a visitor.
     //
     // Used by:
     //   - content, mark_completed,
@@ -352,11 +352,35 @@ class LMController extends BaseController
 
     public static function show_self_eval($content_id)
     {
+        return LMController::category_done(LMContent::where(['id'=>$content_id])->pluck('cat_id')->first());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // category_done
+    // -----------------------------------------------------------
+    //
+    // True when the signed-in member has completed every
+    // lesson of the category — at once for a category without
+    // lessons — and always false for a visitor. One rule for
+    // the lesson page's self-evaluation button
+    // (show_self_eval), the start of an attempt and the
+    // results page's do-it-again button.
+    //
+    // Used by:
+    //   - show_self_eval, self_evaluation_test,
+    //     self_eval_test_results (this class)
+    // -----------------------------------------------------------
+
+    public static function category_done($cat_id)
+    {
         $user_id = Auth::guard('mem')->id();
 
         if($user_id !== null){
-
-            $cat_id = LMContent::where(['id'=>$content_id])->pluck('cat_id')->first();
 
             $completed_category = LMContent::where(['cat_id'=>$cat_id])->get()->pluck('id')->toArray();
 
@@ -394,13 +418,17 @@ class LMController extends BaseController
     // category): a new bei_users_selfeval_test row for the
     // member in the category's own language — a lesson opens
     // under any language's URL, so the URL's need not be it —
-    // started now, under a fresh public id, then a redirect
-    // to its first question.
-    // An attempt of the category the member still has open is
-    // resumed instead, so another visit of the URL — a second
-    // click on the button, a browser's prefetch — opens no new
-    // one. Nothing here checks that the member has completed
-    // the category's lessons — only the button waits for that.
+    // started now, under a fresh public id, then a redirect to
+    // its first question. An attempt of the category the
+    // member still has open is resumed instead, so another
+    // visit of the URL — a second click on the button, a
+    // browser's prefetch — opens no new one. A new attempt
+    // waits, as the button does, until the member has done
+    // every lesson of the category (category_done); before
+    // that the visit goes to the learning material. The
+    // address alone once started one, whose close earned
+    // badge_self_evaluation_test and counted in the progress
+    // and the ranking.
     //
     // Used by:
     //   - lm-content.blade.php — the self-evaluation button
@@ -414,6 +442,10 @@ class LMController extends BaseController
 
         if($open != null){
             return redirect('/cp/se/'.$open.'/'.$cat_id);
+        }
+
+        if(!LMController::category_done($cat_id)){
+            return redirect('/'.$lang.'/cp/learning-material');
         }
 
         $p_id = LMController::gen_test_id();
@@ -556,6 +588,12 @@ class LMController extends BaseController
         // ======================================================
         $a = $request->get('a');
 
+        // The options come as a list of single values: a list
+        // among them reached array_unique or whereIn, a 500
+        if(is_array($a) && count(array_filter($a, 'is_array')) > 0){
+            $a = null;
+        }
+
         // The hash comes as one string: a list would reach the
         // binding as several values, which PDO refuses with a 500
         $pbid = $request->get('pbid');
@@ -654,7 +692,12 @@ class LMController extends BaseController
     // The points, the answers and the category id behind the
     // do-it-again button come only from a finished attempt; an
     // open one shows its category's name and its dates, and
-    // nothing else. Answers self_eval_results.blade.php.
+    // nothing else. The button shows only where the start
+    // address opens an attempt (self_evaluation_test), as the
+    // lesson page's does: it once showed always, and since new
+    // attempts wait for the lessons it led a member whose
+    // category had gained one to the learning material with no
+    // word why. Answers self_eval_results.blade.php.
     //
     // Used by:
     //   - FinishedSe — its redirect once the last answer is in
@@ -694,12 +737,18 @@ class LMController extends BaseController
             $i++;
         }
 
+        // The start address resumes the member's open attempt of
+        // the category, and opens a new one only once every
+        // lesson of it is done
+        $offer_retake = $cat_id !== null && (SelfEvalUserTest::where(['user_id'=>Auth::guard('mem')->id(), 'cat_id'=>$cat_id, 'finished'=>0])->exists() || LMController::category_done($cat_id));
+
         return view('self_eval_results', [
             'category_name'=>LMCategory::where(['id'=>SelfEvalUserTest::where(['public_id'=>$public_id])->get()->pluck('cat_id')->first()])->get()->pluck('name')->first(),
             'started'=>SelfEvalUserTest::where(['public_id'=>$public_id])->get()->pluck('started')->first(),
             'ended'=>SelfEvalUserTest::where(['public_id'=>$public_id])->get()->pluck('ended')->first(),
             'points_collected'=>$points,
             'cat_id'=>$cat_id,
+            'offer_retake'=>$offer_retake,
             'results'=>$results
         ]);
     }

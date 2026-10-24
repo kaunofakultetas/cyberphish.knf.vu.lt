@@ -16,7 +16,7 @@
   						<small class="text-muted">{{ \App\Http\Controllers\SettingsController::local_time($content['created'], 'Y-m-d H:i') }}</small>
   						<br><br>
 
-  						 @if(isset($content['feat_img']))
+  						 @if(!empty($content['feat_img']))
 
 							<img src="{{ env('APP_URL') }}/upload/{{ $content['feat_img'] }}" style="float:left; min-width:250px; max-width:450px; padding:10px;">
 
