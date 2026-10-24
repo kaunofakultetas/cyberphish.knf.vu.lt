@@ -108,8 +108,63 @@ fixes people see followed the same evening (see Fixed defects).
 
 A third review followed that night and found 18 more, each pinned by a
 test that reproduced it. All 18 were fixed the same night (see Fixed
-defects), so no defect is pinned now. The next one found is pinned in its
-folder's `*DefectsTest.php`, as the rules above describe.
+defects).
+
+A fourth review, the same night, ran twelve hunters over the whole
+codebase: eight on areas of the app and four on cross-cutting concerns
+(output escaping, authorization, data and SQL, the platform). Each hunter
+proved its findings with a test. A skeptic per hunter re-ran every test
+and tried to refute it, which turned down one finding. Seven others were
+the same defect found twice. That left 42 defects. The 40 below are
+pinned; the other two are in the infrastructure (see Found but not
+pinned). The medium ones come first in the table; the rest are low.
+
+| Id | Pinned in | What breaks |
+|---|---|---|
+| `reset-link-typed-address` | `AuthDefectsTest` | The reset link goes to the address as typed. The collation ignores accents, so a look-alike domain's owner gets the link of a real account, can reset its password, and can switch on a pending one |
+| `rich-text-body-over-packet` | `AdminDefectsTest` | A news, information or lesson body with a pasted photo over MySQL's 4 MB packet is a 500, and nothing is saved |
+| `rich-text-edit-unescapes` | `AdminDefectsTest` | The editors load the stored HTML with one level of escaping undone, so editing and saving a lesson, article or page corrupts it |
+| `knowledge-question-without-correct` | `KnowledgeDefectsTest` | A knowledge question with no correct option is imported and drawn into members' tests, where it can only count as wrong |
+| `login-throttle-collation-bypass` | `AuthDefectsTest` | A locked login opens under a spelling of the address (ß for s) that the collation folds and the lockout key does not |
+| `register-password-loose-compare` | `AuthDefectsTest` | The sign-up takes two different numeric passwords for the same |
+| `reset-captcha-language` | `AuthDefectsTest` | The reset request page's reCAPTCHA ignores the site language |
+| `news-delete-keeps-picture` | `AdminDefectsTest` | Deleting a news article leaves its picture on disk, still public |
+| `update-of-a-deleted-item` | `AdminDefectsTest` | Saving an article or page deleted meanwhile says "Updated!" and keeps the new picture |
+| `language-delete-orphans` | `AdminDefectsTest` | Deleting a language leaves its members' badges, tests, self-evaluations and runs behind |
+| `language-locale-taken` | `AdminDefectsTest` | The language dialog takes a locale another language has, and the site then shows only one of them |
+| `selfeval-history-deleted-question` | `AdminDefectsTest` | Deleting a question turns members' right answers to it wrong in the panel's history |
+| `selfeval-history-duplicate-answer` | `AdminDefectsTest` | The panel's history counts an answer stored twice as wrong |
+| `question-import-encoding` | `AdminDefectsTest` | A question file not in UTF-8 is stored cut short, or not at all, under "Questions imported!" |
+| `question-import-bom` | `AdminDefectsTest` | A question file with a UTF-8 byte order mark loses its first question |
+| `simulation-import-level-text` | `AdminDefectsTest` | A level written as text with a space passes the check, then the save is a 500 |
+| `simulation-import-unreadable` | `AdminDefectsTest` | A file named .xlsx that is no spreadsheet makes the import a 500 |
+| `simulation-categories-gone` | `AdminDefectsTest` | The categories dialog of a deleted simulation files it under categories, and members see an empty button |
+| `simulation-delete-badge` | `AdminDefectsTest` | Taking a member's last simulation off the offer awards no badge_all_simulations, as deleting lessons does |
+| `admin-knowledge-empty-label` | `AdminDefectsTest` | The empty knowledge-question list speaks of self-evaluation questions |
+| `panel-login-bounces-members` | `AdminDefectsTest` | A member signed in on the course can neither open nor use the panel login |
+| `admin-form-list-500` | `AdminDefectsTest` | Panel forms answer a field sent as a list with a 500 |
+| `admin-report-unknown-ids` | `AdminDefectsTest` | A main admin's reports of an unknown run or member open as blank pages instead of a 404 |
+| `category-delete-ranking` | `AdminDefectsTest` | A deleted category's attempts still count in the ranking, which the histories no longer list |
+| `admin-login-email-list-500` | `AdminDefectsTest` | The panel login page is a 500 after an email posted as a list |
+| `selfeval-share-counts-unreachable` | `LearningDefectsTest` | The progress counts self-evaluations no member can take (no lesson) or finish (no answerable question) |
+| `category-done-without-category` | `LearningDefectsTest` | A category that is gone counts as finished: a wrong badge_category and self-evaluation buttons leading to a 404 |
+| `selfeval-deleted-question-scores-nothing` | `LearningDefectsTest` | A right answer to a question deleted during the attempt scores nothing |
+| `selfeval-results-blank-question` | `LearningDefectsTest` | The results show a deleted question as an empty entry |
+| `badge-images-not-shipped` | `LearningDefectsTest` | The badges page and the rankings link 16 pictures that neither the repository nor the image ships. Production has them in its data folder; a fresh install shows broken images |
+| `progress-shown-before-the-close` | `KnowledgeDefectsTest`, `SimulationDefectsTest` | The page that closes a knowledge test or a simulation run shows the course progress from before it counted |
+| `knowledge-page-bold` | `KnowledgeDefectsTest` | The question page never closes its header's bold tag, so the whole page is bold |
+| `simulation-choice-json-true` | `SimulationDefectsTest` | A choice posted as JSON true passes the step check and records option 1 |
+| `simulations-list-last-ended` | `SimulationDefectsTest` | "Last ended" shows the end of the run started last, not the latest end |
+| `cors-api-paths` | `SiteDefectsTest` | Every page served under /api/ sends Access-Control-Allow-Origin: * |
+| `ranks-tied-positions` | `SiteDefectsTest` | Equal totals get different places in the rankings, in an order MySQL picks |
+| `login-redirect-language` | `SiteDefectsTest` | A member page's link under a language opens the login form in English |
+| `cookie-notice-english` | `SiteDefectsTest` | The cookie notice is English in every language |
+| `html-lang-english` | `SiteDefectsTest` | Every page declares itself English with `<html lang="en">` |
+| `lang-segment-line-break` | `ApacheDefectsTest` | A line break in a member page's {lang} segment is a 500 over HTTP |
+
+The pins live in one `*DefectsTest.php` per folder: `Feature/Auth`,
+`Feature/Admin`, `Feature/Learning`, `Feature/Knowledge`,
+`Feature/Simulations` and `Feature/Site`, plus `Apache/ApacheDefectsTest.php`.
 
 The move to Laravel 13 released two pins, through the framework's own
 changes rather than any fix in the app. They are now ordinary tests in
@@ -632,6 +687,23 @@ Two follow-ups to the sign-up came next, also at the user's request:
 
 These were found during review but not pinned. Some have no impact in
 production; others can't be tested deterministically.
+
+- **Backups lose characters and the progress function.** The fourth review
+  found this. Both backup services run dkruger/mysql-backup, whose
+  mysqldump (MariaDB 10.1.22) defaults to the 3-byte `utf8` and leaves out
+  stored routines. docker-compose sets no MYSQLDUMP_OPTIONS. Every nightly
+  dump turns emoji and other 4-byte characters into `?`, and lacks
+  `bei_user_course_progress`; a restore from it breaks every progress
+  figure. The fix is outside the app: set MYSQLDUMP_OPTIONS to
+  `--single-transaction --default-character-set=utf8mb4 --routines` on both
+  backup services. `--routines` needs a dump user allowed to read the
+  function, whose definer is root.
+- **The upload mount that never shows.** Also from the fourth review.
+  docker-compose mounts `_DATA/apache/upload` at `public/upload`, but the
+  image makes `public/upload` a symlink to `storage/app/public`, where
+  `_DATA/apache/public` is mounted on top. Docker follows the symlink, so
+  the `upload` folder never shows. The live uploads, badge pictures
+  included, sit in `_DATA/apache/public`. Keep one of the two mounts.
 
 - **Signing up someone else's address.** Anyone can sign up an address
   that is not theirs, with a password of their own. The verification
