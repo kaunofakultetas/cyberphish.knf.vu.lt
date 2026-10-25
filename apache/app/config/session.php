@@ -41,8 +41,8 @@ use Illuminate\Support\Str;
 return [
 
     // Where sessions are kept, from SESSION_DRIVER — not set,
-    // so file. Laravel supports file, cookie, database, apc,
-    // memcached, redis, dynamodb and array
+    // so file. The drivers this config can serve are file,
+    // cookie, database, apc, memcached, dynamodb and array
     'driver' => env('SESSION_DRIVER', 'file'),
 
     // Minutes a session may sit idle before it expires, from
@@ -60,7 +60,7 @@ return [
     // emptied by every restart
     'files' => storage_path('framework/sessions'),
 
-    // The connection of the database and redis drivers, from
+    // The connection of the database driver, from
     // SESSION_CONNECTION; unused with file sessions
     'connection' => env('SESSION_CONNECTION', null),
 
@@ -68,8 +68,8 @@ return [
     // mysql/init.sql creates no sessions table
     'table' => 'sessions',
 
-    // The cache store of the apc, dynamodb, memcached and
-    // redis drivers, from SESSION_STORE; unused
+    // The cache store of the apc, dynamodb and memcached
+    // drivers, from SESSION_STORE; unused
     'store' => env('SESSION_STORE', null),
 
     // The odds that a request sweeps out the expired session

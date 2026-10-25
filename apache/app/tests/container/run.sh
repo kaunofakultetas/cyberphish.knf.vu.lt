@@ -35,7 +35,6 @@ export DB_HOST=127.0.0.1
 export DB_DATABASE=cyberphish
 export DB_USERNAME=cyberphish
 export DB_PASSWORD=cyberphish-tests
-export REDIS_HOST=127.0.0.1
 export NOCAPTCHA_SECRET=test-secret
 export NOCAPTCHA_SITEKEY=test-sitekey
 export MAIL_MAILER=smtp

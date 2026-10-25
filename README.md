@@ -96,7 +96,6 @@ simulations, and the course is ready for learners.
 | `cyberphish-apache` | The course site and the admin panel: Laravel on PHP 8.4 under Apache |
 | `cyberphish-static` | The shared stylesheets, fonts and flag icons under `/static` |
 | `cyberphish-mysql` | MySQL 5.7, created from `mysql/init.sql` on the first start |
-| `cyberphish-redis` | Redis, configured for the app, which keeps its sessions and cache in files for now |
 | `cyberphish-dbback-st`, `cyberphish-dbback-lt` | Database backups at 03:00: every night, keeping 20, and every Saturday, keeping 60 |
 | `cyberphish-dbgate` | Database browser at `/dbgate` (user `admin`, password in `.env`) |
 

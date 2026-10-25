@@ -21,13 +21,11 @@
 return [
 
     // The broadcaster events go to, from BROADCAST_DRIVER —
-    // not set, so null, which discards them. Laravel
-    // supports pusher, redis, log and null
+    // not set, so null, which discards them
     'default' => env('BROADCAST_DRIVER', 'null'),
 
     // One entry per broadcaster: Pusher with its keys from
-    // the PUSHER_ variables, Redis over the default
-    // connection of config/database.php, the log, and null
+    // the PUSHER_ variables, the log, and null
     'connections' => [
 
         'pusher' => [
@@ -39,11 +37,6 @@ return [
                 'cluster' => env('PUSHER_APP_CLUSTER'),
                 'useTLS' => true,
             ],
-        ],
-
-        'redis' => [
-            'driver' => 'redis',
-            'connection' => 'default',
         ],
 
         'log' => [

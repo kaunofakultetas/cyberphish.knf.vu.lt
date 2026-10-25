@@ -31,13 +31,12 @@ return [
 
     // The store the Cache facade uses, from CACHE_DRIVER —
     // not set, so file; the in-process tests use array
-    // (phpunit.xml). Laravel supports apc, array, database,
-    // file, memcached, redis and dynamodb
+    // (phpunit.xml). The stores below are apc, array,
+    // database, file, memcached and dynamodb
     'default' => env('CACHE_DRIVER', 'file'),
 
     // One entry per store. database would need a cache table
-    // mysql/init.sql does not create, and redis the phpredis
-    // extension the image does not have
+    // mysql/init.sql does not create
     'stores' => [
 
         'apc' => [
@@ -76,11 +75,6 @@ return [
                     'weight' => 100,
                 ],
             ],
-        ],
-
-        'redis' => [
-            'driver' => 'redis',
-            'connection' => 'cache',
         ],
 
         'dynamodb' => [

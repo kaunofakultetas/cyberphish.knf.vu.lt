@@ -6,8 +6,8 @@
 //  The app's one database: the MySQL 5.7 server of the
 //  cyberphish-mysql container, whose schema mysql/init.sql
 //  creates on the container's first start. The sqlite,
-//  pgsql and sqlsrv connections and the Redis section are
-//  Laravel's stock entries and go unused.
+//  pgsql and sqlsrv connections are Laravel's stock entries
+//  and go unused.
 //
 //  The file keeps the layout of Laravel 7's stock file,
 //  which Laravel 13 still reads. Changed from it: the
@@ -19,18 +19,12 @@
 //  DB_HOST (cyberphish-mysql) and DB_DATABASE, DB_USERNAME
 //  and DB_PASSWORD (the MYSQL_ variables the database
 //  container is created with); the app ships no .env file.
-//  It also sets REDIS_HOST to the cyberphish-redis
-//  container, but nothing talks to Redis — no cache,
-//  session or queue uses it, and the image has no phpredis
-//  extension to reach it with.
 //
 //  Used by:
 //    - Laravel's DatabaseManager — every model and every DB
 //      query of the app
 // -----------------------------------------------------------
 
-
-use Illuminate\Support\Str;
 
 return [
 
@@ -113,42 +107,5 @@ return [
     // The table artisan migrate records its runs in; nothing
     // migrates, and mysql/init.sql creates no such table
     'migrations' => 'migrations',
-
-    // Laravel's Redis connections, unused: nothing talks to
-    // Redis
-    'redis' => [
-
-        // The client library, from REDIS_CLIENT — not set, so
-        // phpredis, an extension the image does not have
-        'client' => env('REDIS_CLIENT', 'phpredis'),
-
-        // Cluster mode, and the prefix of every key: APP_NAME
-        // as a slug plus _database_
-        'options' => [
-            'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
-        ],
-
-        // The connection broadcasting and the redis queue
-        // would use; REDIS_HOST is cyberphish-redis
-        'default' => [
-            'url' => env('REDIS_URL'),
-            'host' => env('REDIS_HOST', '127.0.0.1'),
-            'password' => env('REDIS_PASSWORD', null),
-            'port' => env('REDIS_PORT', '6379'),
-            'database' => env('REDIS_DB', '0'),
-        ],
-
-        // The connection of the redis cache store, on its own
-        // database
-        'cache' => [
-            'url' => env('REDIS_URL'),
-            'host' => env('REDIS_HOST', '127.0.0.1'),
-            'password' => env('REDIS_PASSWORD', null),
-            'port' => env('REDIS_PORT', '6379'),
-            'database' => env('REDIS_CACHE_DB', '1'),
-        ],
-
-    ],
 
 ];

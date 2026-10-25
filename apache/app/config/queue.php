@@ -26,9 +26,9 @@ return [
     // request that dispatched it
     'default' => env('QUEUE_CONNECTION', 'sync'),
 
-    // One entry per back end; Laravel's drivers are sync,
-    // database, beanstalkd, sqs, redis and null. database
-    // would need a jobs table mysql/init.sql does not create
+    // One entry per back end: sync, database, beanstalkd and
+    // sqs. database would need a jobs table mysql/init.sql
+    // does not create
     'connections' => [
 
         'sync' => [
@@ -58,14 +58,6 @@ return [
             'queue' => env('SQS_QUEUE', 'your-queue-name'),
             'suffix' => env('SQS_SUFFIX'),
             'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-        ],
-
-        'redis' => [
-            'driver' => 'redis',
-            'connection' => 'default',
-            'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => 90,
-            'block_for' => null,
         ],
 
     ],

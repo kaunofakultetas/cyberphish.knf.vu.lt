@@ -77,9 +77,6 @@ services:
       DB_USERNAME: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
 
-      # Redis
-      REDIS_HOST: cyberphish-redis
-
       # NoCAPTCHA
       NOCAPTCHA_SECRET: ${NOCAPTCHA_SECRET}
       NOCAPTCHA_SITEKEY: ${NOCAPTCHA_SITEKEY}
@@ -127,13 +124,6 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    restart: unless-stopped
-
-
-  cyberphish-redis:
-    container_name: cyberphish-redis
-    image: redis:alpine
-    read_only: true
     restart: unless-stopped
   # ------------------------------------------------------------
   # ------------------------------------------------------------
