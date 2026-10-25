@@ -180,9 +180,12 @@ class FinishedSe
     // once cut to whole numbers first: 33 three times, 99. A
     // question deleted while the attempt was open keeps, for
     // each right option chosen, the points that option was
-    // stored with, and a wrong one costs nothing: its worth
-    // once went with its options, so a right answer scored
-    // nothing. A negative total counts as 0.
+    // stored with, to the hundredth as well, and a wrong one
+    // costs nothing: its worth once went with its options, so
+    // a right answer scored nothing, and the answers' points
+    // column once held whole numbers, so three thirds of a
+    // deleted question scored 99. A negative total counts as
+    // 0.
     //
     // Used by:
     //   - handle (above) — when it closes an attempt

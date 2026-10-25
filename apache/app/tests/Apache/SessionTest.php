@@ -25,6 +25,7 @@ use Illuminate\Cookie\CookieValuePrefix;
 use Illuminate\Support\Facades\Crypt;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\ApacheTestCase;
+use Tests\Support\ApacheClient;
 use Tests\Support\World;
 
 
@@ -213,6 +214,56 @@ class SessionTest extends ApacheTestCase
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('https://cyberphish.knf.vu.lt', $response->getHeaderLine('Location'));
         $this->assertSame(302, $this->http->get('/cp/dashboard')->getStatusCode());
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewPasswordSignsOutTheOtherBrowser
+    // -----------------------------------------------------------
+    //
+    // A member signed in on two browsers who changes the
+    // password in one stays signed in there, and the other is
+    // sent to the login page at its next request. So is a copy
+    // of the first browser's own cookie taken before the
+    // change — an intruder's — since the session moves to a
+    // new id as the password changes. Over HTTP every request
+    // is a process of its own, which reads the member afresh,
+    // as production does. The other browser once went on with
+    // the old password until its session ran out.
+    //
+    // Used by:
+    //   - PHPUnit — the Apache suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewPasswordSignsOutTheOtherBrowser(): void
+    {
+        $member = $this->world->member();
+        $first = $this->http;
+        $this->signInOverHttp($member);
+        $this->http = $second = new ApacheClient();
+        $this->signInOverHttp($member);
+        $this->http = $first;
+        $this->assertSame(200, $second->get('/cp/dashboard')->getStatusCode(), 'the other browser did not sign in');
+        $copy = $first->cookie(self::SESSION_COOKIE);
+
+        $response = $first->post('/cp/change-pass', [
+            '_token'    => $first->csrfToken('/cp/dashboard'),
+            'password'  => World::PASSWORD,
+            'newpass'   => 'Fresh-Http-Password-1',
+            'renewpass' => 'Fresh-Http-Password-1',
+        ]);
+        $this->assertSame(302, $response->getStatusCode());
+
+        $this->assertSame(200, $first->get('/cp/dashboard')->getStatusCode(), 'the browser that changed the password was signed out');
+        $response = $second->get('/cp/dashboard');
+        $this->assertSame(302, $response->getStatusCode(), 'the other browser is still signed in');
+        $this->assertSame('https://cyberphish.knf.vu.lt/login', $response->getHeaderLine('Location'));
+        $response = (new ApacheClient())->get('/cp/dashboard', ['Cookie' => $copy->getName() . '=' . $copy->getValue()]);
+        $this->assertSame(302, $response->getStatusCode(), 'a copy of the cookie from before the change is still signed in');
     }
 
 

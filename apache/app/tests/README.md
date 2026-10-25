@@ -799,6 +799,76 @@ The two infrastructure defects are fixed in docker-compose:
   folder. The uploads live in `_DATA/apache/public`, mounted at
   `storage/app/public`, where the image's `public/upload` link points.
 
+Three follow-ups came next, at the user's request:
+
+- A new password ends the member's or manager's other sessions at their
+  next request. That covers the account settings, the panel's password
+  dialog, the reset link and a main admin's manager dialog. Laravel's
+  `AuthenticateSession` stays off: it checks only the request's default
+  guard and flushes the whole session. Instead `SignOutChangedPassword`
+  keeps a mark of each guard's password in the session, an HMAC of the
+  stored hash tied to the account's id, and holds it against the row on
+  every web request.
+  - The mark is set when the guard signs in, on Laravel's `Login` event,
+    from the hash the login checked the password against. Only a login
+    that rewrote a hash of an older cost takes the row's.
+  - It is set again only when the session changes its own password, in
+    the two password forms, to the hash the form wrote, so whoever made
+    the change stays signed in. The session also moves to a new id, so a
+    copy of its cookie that someone else holds ends too. It keeps its
+    CSRF token, so the browser's other open tabs can still post.
+  - The mark is never read back from the row after a request, a login or
+    a change. One with a request or a login under way as the password
+    changed elsewhere would otherwise adopt the new password.
+  - A login that rewrites an older-cost hash signs out the other sessions
+    holding that hash, once per account.
+  - A browser signed in on both sides loses only the side whose password
+    changed.
+  - A session without a mark takes one at its next request, so the check
+    itself signs no one out.
+- A run's end page no longer reads an empty list of simulations on offer
+  as every one finished. That happened when a run's simulation left the
+  offer while it was under way.
+- The answers' `points` column has the options' type, `float(100,2)`, so
+  a question deleted during an attempt keeps its options' points with
+  their decimals: three right thirds add 99.99, not 99. Production needs
+  the column changed by hand; answers stored before keep their whole
+  numbers.
+
+Two independent reviews of these found gaps and an older hole, all
+fixed:
+
+- The first version marked every session again after each request. A
+  session with a request under way as the password changed then took
+  the new password over, and an intruder who kept requesting pages would
+  have survived most changes.
+- The second version marked a new login, and a session's own change,
+  from the row as it was after the check. A login with the old password
+  overlapping a change, or a change overtaken by the owner's reset,
+  took the new password over in the same way. An intruder signing in
+  again and again would almost surely have had a login under way.
+- A session that changed its own password kept its id, so a stolen copy
+  of its cookie stayed signed in. It now moves to a new id, keeping its
+  CSRF token: a first try with a new token as well would have answered
+  the browser's other open tabs with a 419 at their next post.
+- A member or manager deleted while signed in left their id in the
+  session. The guard loaded no one from it, but the id stayed, and the
+  next account given that id would have been signed in in that browser:
+  MySQL 5.7 hands the highest id out again after a restart.
+  `SignOutSwitchedOff` now drops such an id.
+
+| What | Tests |
+|---|---|
+| Other sessions end | `AccountSettingsTest::testNewPasswordSetElsewhereSignsTheMemberOut`, `testPasswordChangedDuringARequestStillEndsTheSession`, `testOwnChangeOvertakenByAnotherEndsTheSession`, `LoginTest::testLoginOverlappingAPasswordChangeEndsAtItsNextPage`, `PasswordResetTest::testResetLinkSignsTheMemberOutEverywhere`, `AdminLoginTest::testNewPasswordSetElsewhereSignsTheManagerOut`, and `SessionTest::testNewPasswordSignsOutTheOtherBrowser` over HTTP, which also replays a copy of the changing browser's old cookie; with `AccountSettingsTest::testOwnPasswordChangeKeepsTheMemberSignedIn`, `AdminLoginTest::testOwnPasswordChangeKeepsTheManagerSignedIn`, `AdminLoginTest::testMembersSignOutLeavesTheManagerSignedIn` and `LoginTest::testLoginThatRehashesThePasswordStaysSignedIn` |
+| Deleted accounts | `LoginTest::testDeletedMembersSessionSignsInNoOneLater`, `AdminLoginTest::testDeletedManagersSessionSignsInNoOneLater` |
+| Empty offer | `SimulationsTest::testRunOfASimulationTakenOffTheOfferEarnsNoBadge` |
+| Decimals kept | `SelfEvaluationTest::testDeletedQuestionOfPartlyWorthyOptionsKeepsItsWholeScore` |
+
+The suite caught two slips on the way. The end page's new check first
+reused the method's `$finished`, the run's own flag, so the end page no
+longer said the run was over. And a mark not tied to its account signed
+out the tests that hand one session from member to member.
+
 ## Found but not pinned
 
 These were found during review but not pinned. Some have no impact in
@@ -894,6 +964,16 @@ Things the suite learned the hard way:
   which see only committed rows. `ApacheTestCase` therefore gives its
   tests no transaction. `World::removeAll` deletes their rows and the
   rows the app wrote for the World's members.
+- **The password mark.** `SignOutChangedPassword` holds each signed-in
+  guard's session against the password in its row before every request.
+  A login marks the session through the `Login` event. The sign-in
+  helpers fire no event, so a session they sign in takes its mark at its
+  first request. A test that changes a signed-in member's or manager's
+  password in the database, then makes another request in the same
+  session, finds them signed out, as a browser would. `flushSession`
+  starts a session without a mark. Marks belong to an account id, so a
+  test may still hand one session from member to member with
+  `signInMember`.
 - **Session cookies.** Apache's cookies are kept by hand, not in
   Guzzle's jar. The jar would hold back a Secure cookie over plain
   HTTP, and since Laravel 13 the session cookie is Secure.

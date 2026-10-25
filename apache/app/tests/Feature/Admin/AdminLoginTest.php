@@ -27,6 +27,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Managers;
 use Dom\HTMLDocument;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use Tests\FeatureTestCase;
@@ -646,6 +647,146 @@ class AdminLoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testOwnPasswordChangeKeepsTheManagerSignedIn
+    // -----------------------------------------------------------
+    //
+    // The manager who changes their password in the dialog
+    // stays signed in there: the next panel page opens, the
+    // session marked with the new password as the change went
+    // through, while the manager's other sessions end. The
+    // session keeps its CSRF token as it moves to a new id, so
+    // the panel's other open tabs can still post.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOwnPasswordChangeKeepsTheManagerSignedIn(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $this->signInManager($manager)->get('/admin-panel/dashboard')->assertOk();
+        $token = session()->token();
+
+        $this->from('/admin-panel/dashboard')->post('/admin-panel/change-pass', [
+            'password'  => World::PASSWORD,
+            'newpass'   => 'Fresh-Own-Panel-Pass-1',
+            'renewpass' => 'Fresh-Own-Panel-Pass-1',
+        ])->assertSessionHas('success', __('main.pass_changed'));
+        $this->assertSame($token, session()->token(), 'the change gave the session a new CSRF token, which the other open tabs lack');
+
+        $this->get('/admin-panel/dashboard')->assertOk();
+        $this->assertAuthenticated('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewPasswordSetElsewhereSignsTheManagerOut
+    // -----------------------------------------------------------
+    //
+    // A manager's password changed outside this session — by
+    // a main admin's manager dialog, or by the manager in
+    // another browser — ends it: the next panel page sends the
+    // manager to the panel's login form, signed out. A session
+    // once went on with the old password until it ran out.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewPasswordSetElsewhereSignsTheManagerOut(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $this->signInManager($manager)->get('/admin-panel/dashboard')->assertOk();
+
+        // What the change elsewhere leaves in the row
+        DB::table('bei_managers')->where('id', $manager->id)->update(['password' => Hash::make('Fresh-Elsewhere-Pass-1')]);
+
+        $this->get('/admin-panel/dashboard')->assertRedirect('/admin-panel');
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testMembersSignOutLeavesTheManagerSignedIn
+    // -----------------------------------------------------------
+    //
+    // A browser signed in on both sides — an organiser who
+    // also takes the course — loses only the side whose
+    // password changed: the member is signed out, and the
+    // manager's panel pages go on opening.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testMembersSignOutLeavesTheManagerSignedIn(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $member = $this->world->member();
+        $this->signInManager($manager)->get('/admin-panel/dashboard')->assertOk();
+        $this->signInMember($member)->get('/cp/dashboard')->assertOk();
+
+        DB::table('bei_users')->where('id', $member->id)->update(['password' => Hash::make('Fresh-Member-Pass-12')]);
+
+        $this->get('/admin-panel/dashboard')->assertOk();
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertAuthenticated('man');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedManagersSessionSignsInNoOneLater
+    // -----------------------------------------------------------
+    //
+    // The session of a manager deleted while signed in drops
+    // the manager's id, main and country at its next request,
+    // so it signs in no one later given that id — MySQL 5.7
+    // hands the highest id out again after a restart. The id
+    // once stayed in the session, ready for the next manager
+    // to take it. The browser is the session the test keeps
+    // aside and puts back.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedManagersSessionSignsInNoOneLater(): void
+    {
+        $manager = $this->world->manager(['main' => 0, 'country' => 2]);
+        $this->signIn($manager->email, World::PASSWORD)->assertRedirect('/admin-panel/dashboard');
+        $browser = session()->all();
+
+        DB::table('bei_managers')->where('id', $manager->id)->delete();
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/admin-panel/dashboard')->assertRedirect('/admin-panel');
+        $browser = session()->all();
+        $this->assertArrayNotHasKey('main', $browser);
+
+        DB::table('bei_managers')->insert(['id' => $manager->id, 'email' => 'newcomer-manager' . $manager->id . '@example.test', 'password' => Hash::make('Newcomer-Password-12'), 'main' => 0, 'status' => '1', 'country' => 4]);
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/admin-panel/dashboard')->assertRedirect('/admin-panel');
+        $this->assertGuest('man');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testAdminLoginIgnoresAMemberPagesParking
     // -----------------------------------------------------------
     //
@@ -752,5 +893,29 @@ class AdminLoginTest extends FeatureTestCase
     private function signIn(string $email, string $password): TestResponse
     {
         return $this->from('/admin-panel')->post('/admin-panel', ['email' => $email, 'password' => $password]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // leaveTheBrowser
+    // -----------------------------------------------------------
+    //
+    // Leaves the browser the test acted in: its session goes,
+    // and so does whoever the guards had signed in, so the
+    // next request comes from another browser — or, given a
+    // session kept aside, from that one again.
+    //
+    // Used by:
+    //   - testDeletedManagersSessionSignsInNoOneLater (above)
+    // -----------------------------------------------------------
+
+    private function leaveTheBrowser(): void
+    {
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
     }
 }

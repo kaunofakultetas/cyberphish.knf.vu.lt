@@ -313,6 +313,47 @@ class PasswordResetTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testResetLinkSignsTheMemberOutEverywhere
+    // -----------------------------------------------------------
+    //
+    // The new password the reset link mails ends every session
+    // the member had signed in with the old one: a browser
+    // signed in before the link was followed, elsewhere, is
+    // sent to the login form at its next page. The browsers
+    // are the session the test keeps aside and puts back; that
+    // it puts them back signed in shows before the reset. Such
+    // a session once went on with the old password.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testResetLinkSignsTheMemberOutEverywhere(): void
+    {
+        $member = $this->world->member();
+        $this->from('/login')->post('/login', ['email' => $member->email, 'password' => World::PASSWORD])->assertRedirect('/cp/dashboard');
+        $this->get('/cp/dashboard')->assertOk();
+        $browser = session()->all();
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/cp/dashboard')->assertOk();
+
+        // The link is followed in another browser; signing in
+        // empties a pending token, so it comes afterwards
+        Members::where('id', $member->id)->update(['reset_token' => self::TOKEN]);
+        $this->leaveTheBrowser();
+        $this->post('/reset/' . self::TOKEN)->assertRedirect('/login');
+
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testOpeningTheResetLinkChangesNothing
     // -----------------------------------------------------------
     //
@@ -645,5 +686,29 @@ class PasswordResetTest extends FeatureTestCase
             'email'                => $email,
             'g-recaptcha-response' => 'token-from-the-widget',
         ]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // leaveTheBrowser
+    // -----------------------------------------------------------
+    //
+    // Leaves the browser the test acted in: its session goes,
+    // and so does whoever the guards had signed in, so the
+    // next request comes from another browser — or, given a
+    // session kept aside, from that one again.
+    //
+    // Used by:
+    //   - testResetLinkSignsTheMemberOutEverywhere (above)
+    // -----------------------------------------------------------
+
+    private function leaveTheBrowser(): void
+    {
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
     }
 }

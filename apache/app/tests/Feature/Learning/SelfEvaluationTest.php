@@ -1233,6 +1233,46 @@ class SelfEvaluationTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testDeletedQuestionOfPartlyWorthyOptionsKeepsItsWholeScore
+    // -----------------------------------------------------------
+    //
+    // A question whose three right options are worth 33.33
+    // points each, answered with all three and then deleted,
+    // still adds its 99.99 to the attempt, which closes with
+    // 300 beside two questions answered right: the answers
+    // keep the options' points with their two decimals. The
+    // answers' column once held whole numbers, so each third
+    // was stored as 33 and the attempt closed with 299.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedQuestionOfPartlyWorthyOptionsKeepsItsWholeScore(): void
+    {
+        $this->world->setting(2, 'self_eval_pertime', null, null, 3);
+        $thirds = $this->world->selfEvalQuestion($this->category, [
+            ['First', true, 33.33], ['Second', true, 33.33], ['Third', true, 33.33], ['Wrong', false, 0],
+        ]);
+        $publicId = $this->startSelfEvaluation($this->member, $this->category);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->first['question'], [$this->first['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $this->second['question'], [$this->second['options'][0]]);
+        $this->answerSelfEvaluation($this->member, $publicId, $this->category, $thirds['question'], array_slice($thirds['options'], 0, 3));
+
+        $this->signInManager($this->world->manager())->from("/admin-panel/lm/self_eval/{$this->category}")
+            ->post("/admin-panel/lm/self_eval/delete/{$thirds['question']}");
+        $this->assertFalse(DB::table('bei_selfeval_question')->where('id', $thirds['question'])->exists(), 'the question was not deleted');
+        $this->signInMember($this->member)->get("/cp/se/$publicId/{$this->category}")->assertRedirect("/cp/se_r/$publicId");
+
+        $this->assertEquals(300, DB::table('bei_users_selfeval_test')->where('public_id', $publicId)->value('points'), 'the deleted question\'s thirds lost their decimals');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testResultsListNoQuestionThatIsGone
     // -----------------------------------------------------------
     //

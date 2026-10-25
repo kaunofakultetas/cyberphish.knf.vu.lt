@@ -272,7 +272,7 @@ CREATE TABLE IF NOT EXISTS `bei_users_selfeval` (
   `user_id` int(21) NOT NULL,
   `question_id` int(21) NOT NULL,
   `correct` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0 - incorrect, 1 - correct',
-  `points` int(21) NOT NULL DEFAULT '0',
+  `points` float(100,2) NOT NULL DEFAULT '0.00',
   PRIMARY KEY (`id`),
   KEY `test_id_idx` (`test_id`),
   KEY `public_id_idx` (`public_id`)

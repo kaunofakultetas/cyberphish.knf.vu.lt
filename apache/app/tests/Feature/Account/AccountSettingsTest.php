@@ -26,7 +26,9 @@
 namespace Tests\Feature\Account;
 
 use App\Models\Members;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\View;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\FeatureTestCase;
@@ -124,6 +126,149 @@ class AccountSettingsTest extends FeatureTestCase
             ->assertSessionHas('success', __('main.pass_changed'));
 
         $this->assertTrue(Hash::check(self::NEW_PASSWORD, Members::find($this->member->id)->password));
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testOwnPasswordChangeKeepsTheMemberSignedIn
+    // -----------------------------------------------------------
+    //
+    // The browser that changes the password stays signed in:
+    // its next page opens, the session marked with the new
+    // password (SignOutChangedPassword) as the change went
+    // through, while the member's other sessions end. The
+    // session keeps its CSRF token as it moves to a new id, so
+    // the browser's other open tabs can still post.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOwnPasswordChangeKeepsTheMemberSignedIn(): void
+    {
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk();
+        $token = session()->token();
+
+        $this->changePassword(World::PASSWORD, self::NEW_PASSWORD, self::NEW_PASSWORD)
+            ->assertSessionHas('success', __('main.pass_changed'));
+        $this->assertSame($token, session()->token(), 'the change gave the session a new CSRF token, which the other open tabs lack');
+
+        $this->get('/cp/dashboard')->assertOk();
+        $this->assertAuthenticated('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testNewPasswordSetElsewhereSignsTheMemberOut
+    // -----------------------------------------------------------
+    //
+    // A password changed outside this session — in another
+    // browser's settings, through the reset link — ends it:
+    // the next member page sends the member to the login
+    // form, signed out. A session once went on with the old
+    // password until it ran out, Laravel's AuthenticateSession
+    // being switched off.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testNewPasswordSetElsewhereSignsTheMemberOut(): void
+    {
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk();
+
+        // What the change elsewhere leaves in the row
+        DB::table('bei_users')->where('id', $this->member->id)->update(['password' => Hash::make(self::NEW_PASSWORD)]);
+
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testPasswordChangedDuringARequestStillEndsTheSession
+    // -----------------------------------------------------------
+    //
+    // A password changed elsewhere while a page of this session
+    // is still being served ends the session all the same, at
+    // its next request: the page under way had passed its
+    // check before the change, and the session keeps the mark
+    // it had. A mark set afresh after every request would have
+    // taken the new password over, and a session that kept
+    // requesting pages — an intruder's — would survive most
+    // changes.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testPasswordChangedDuringARequestStillEndsTheSession(): void
+    {
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk();
+        $changed = false;
+        View::composer('dashboard', function () use (&$changed) {
+            if (!$changed) {
+                $changed = true;
+                DB::table('bei_users')->where('id', $this->member->id)->update(['password' => Hash::make(self::NEW_PASSWORD)]);
+            }
+        });
+
+        $this->get('/cp/dashboard')->assertOk();
+        $this->assertTrue($changed, 'the change did not land while the page was served');
+
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testOwnChangeOvertakenByAnotherEndsTheSession
+    // -----------------------------------------------------------
+    //
+    // A change made in this session and overtaken at once by
+    // another — the owner's reset landing right after it —
+    // ends this session at its next page: the session is
+    // marked with the hash it wrote, not the one the row holds
+    // by then, so an intruder's change cannot adopt the
+    // owner's.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testOwnChangeOvertakenByAnotherEndsTheSession(): void
+    {
+        $this->signInMember($this->member)->get('/cp/dashboard')->assertOk();
+        $overtaken = false;
+        DB::listen(function ($query) use (&$overtaken) {
+            if (!$overtaken && str_contains($query->sql, 'update `bei_users`') && str_contains($query->sql, '`password`')) {
+                $overtaken = true;
+                DB::table('bei_users')->where('id', $this->member->id)->update(['password' => Hash::make('Owners-Reset-Pass-1')]);
+            }
+        });
+
+        $this->changePassword(World::PASSWORD, self::NEW_PASSWORD, self::NEW_PASSWORD)
+            ->assertSessionHas('success', __('main.pass_changed'));
+        $this->assertTrue($overtaken, 'no other change overtook this one');
+
+        $this->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertGuest('mem');
     }
 
 

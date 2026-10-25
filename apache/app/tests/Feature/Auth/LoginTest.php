@@ -30,7 +30,10 @@ use App\Models\Members;
 use DateTime;
 use DateTimeZone;
 use Dom\HTMLDocument;
+use Illuminate\Auth\Events\Validated;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use Tests\FeatureTestCase;
 use Tests\Support\World;
@@ -541,6 +544,119 @@ class LoginTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testLoginThatRehashesThePasswordStaysSignedIn
+    // -----------------------------------------------------------
+    //
+    // A login whose stored hash has another cost than the
+    // configured one rewrites the hash, and the session it
+    // opens carries on: it is marked with the password the row
+    // holds once the login is done (SignOutChangedPassword),
+    // not the hash the guard read before the rewrite, which
+    // would end the session at its very next page.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLoginThatRehashesThePasswordStaysSignedIn(): void
+    {
+        $member = $this->world->member(['password' => password_hash(World::PASSWORD, PASSWORD_BCRYPT, ['cost' => 12])]);
+        $before = Members::find($member->id)->password;
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+        $this->assertNotSame($before, Members::find($member->id)->password, 'the login rewrote no hash');
+
+        $this->get('/cp/dashboard')->assertOk();
+        $this->assertAuthenticated('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testDeletedMembersSessionSignsInNoOneLater
+    // -----------------------------------------------------------
+    //
+    // The session of a member deleted while signed in drops the
+    // member's id at its next request, so it signs in no one
+    // who is later given that id — MySQL 5.7 hands the highest
+    // id out again after a restart. The guard could load no
+    // one from the id, and the id once stayed in the session,
+    // ready for the next account to take it. The browser is
+    // the session the test keeps aside and puts back.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testDeletedMembersSessionSignsInNoOneLater(): void
+    {
+        $member = $this->world->member();
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+        $browser = session()->all();
+
+        DB::table('bei_users')->where('id', $member->id)->delete();
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/cp/dashboard')->assertRedirect('/login');
+        $browser = session()->all();
+
+        DB::table('bei_users')->insert(['id' => $member->id, 'email' => 'newcomer' . $member->id . '@example.test', 'password' => Hash::make('Newcomer-Password-12'), 'status' => 1]);
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // testLoginOverlappingAPasswordChangeEndsAtItsNextPage
+    // -----------------------------------------------------------
+    //
+    // A login with the old password whose check is still
+    // running as the password changes elsewhere — the reset
+    // link, the settings — signs in, and its session ends at
+    // its next page: it is marked with the hash the login
+    // checked, not the one the row holds by then. Marked from
+    // the row, an intruder signing in again and again would
+    // almost surely have a login under way at the change, and
+    // keep it. The change lands right after Laravel's check,
+    // on its Validated event.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testLoginOverlappingAPasswordChangeEndsAtItsNextPage(): void
+    {
+        $member = $this->world->member();
+        $changed = false;
+        Event::listen(Validated::class, function (Validated $event) use ($member, &$changed) {
+            if (!$changed && $event->guard === 'mem') {
+                $changed = true;
+                DB::table('bei_users')->where('id', $member->id)->update(['password' => Hash::make('Changed-Meanwhile-12')]);
+            }
+        });
+
+        $this->signIn($member->email, World::PASSWORD)->assertRedirect('/cp/dashboard');
+        $this->assertTrue($changed, 'the change did not land during the login');
+        $browser = session()->all();
+
+        $this->leaveTheBrowser();
+        $this->withSession($browser)->get('/cp/dashboard')->assertRedirect('/login');
+        $this->assertGuest('mem');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testSignedInMemberIsSentAwayFromTheLoginForm
     // -----------------------------------------------------------
     //
@@ -913,5 +1029,31 @@ class LoginTest extends FeatureTestCase
     private function signIn(string $email, string $password): TestResponse
     {
         return $this->from('/login')->post('/login', ['email' => $email, 'password' => $password]);
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // leaveTheBrowser
+    // -----------------------------------------------------------
+    //
+    // Leaves the browser the test acted in: its session goes,
+    // and so does whoever the guards had signed in, so the
+    // next request comes from another browser — or, given a
+    // session kept aside, from that one again.
+    //
+    // Used by:
+    //   - testDeletedMembersSessionSignsInNoOneLater,
+    //     testLoginOverlappingAPasswordChangeEndsAtItsNextPage
+    //     (above)
+    // -----------------------------------------------------------
+
+    private function leaveTheBrowser(): void
+    {
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
     }
 }

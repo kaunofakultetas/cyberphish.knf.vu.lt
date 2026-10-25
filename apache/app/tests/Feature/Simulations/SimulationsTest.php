@@ -849,6 +849,41 @@ class SimulationsTest extends FeatureTestCase
 
 
     // -----------------------------------------------------------
+    // testRunOfASimulationTakenOffTheOfferEarnsNoBadge
+    // -----------------------------------------------------------
+    //
+    // A run that ends when its language has no simulation on
+    // offer earns no badge_all_simulations: here the
+    // language's only simulation leaves its category while the
+    // run is under way. The end page once read the empty list
+    // of simulations on offer as every one finished, though
+    // the progress counts no simulation share then, and the
+    // panel's award gives such a member nothing.
+    //
+    // Used by:
+    //   - PHPUnit — the Feature suite (runTests.sh)
+    // -----------------------------------------------------------
+
+    public function testRunOfASimulationTakenOffTheOfferEarnsNoBadge(): void
+    {
+        $publicId = $this->startSimulation($this->member, $this->scenario);
+        $this->chooseSimulationOption($this->member, $publicId, $this->check);
+        DB::table('bei_scenarios_in_category')->where('scenario_id', $this->scenario)->delete();
+        $this->chooseSimulationOption($this->member, $publicId, $this->report);
+
+        $this->signInMember($this->member)->get("/en/simulation/progress/$publicId")->assertOk();
+
+        $this->assertEquals(1, DB::table('bei_users_scenarios')->where('public_id', $publicId)->value('finished'), 'the run did not end');
+        $this->assertFalse(DB::table('bei_users_badges')
+            ->where(['user_id' => $this->member->id, 'name' => 'badge_all_simulations'])->exists(), 'a run with nothing left on offer earned badge_all_simulations');
+    }
+
+
+
+
+
+
+    // -----------------------------------------------------------
     // testModeOutlivesTheSession
     // -----------------------------------------------------------
     //

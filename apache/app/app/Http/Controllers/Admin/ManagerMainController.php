@@ -27,6 +27,7 @@ namespace App\Http\Controllers\Admin;
 use Session;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SettingsController;
+use App\Http\Middleware\SignOutChangedPassword;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -271,7 +272,12 @@ class ManagerMainController extends BaseController
     // reaches it (auth.admin:man), and it changes only that
     // manager's own password; perms once kept it to main
     // admins, so a country manager's dialog opened empty, a
-    // 404.
+    // 404. The new password ends the manager's other sessions
+    // at their next request (SignOutChangedPassword). This one
+    // is marked with the hash just written, so the manager
+    // stays signed in here, and moves to a new session id, so
+    // a copy of its cookie someone else holds ends too; its
+    // CSRF token stays, for the browser's other open tabs.
     //
     // Used by:
     //   - admin-panel/dialog/changepass.blade.php — the
@@ -312,7 +318,16 @@ class ManagerMainController extends BaseController
 
         }
 
-        Managers::where('id', Auth::id())->update(['password' => Hash::make($request->get('newpass'))]);
+        $hash = Hash::make($request->get('newpass'));
+        Managers::where('id', Auth::id())->update(['password' => $hash]);
+
+        // This browser goes on under the new password, its
+        // session under a new id: the old id, and any copy of
+        // its cookie, ends with the manager's other sessions.
+        // The CSRF token stays, so the browser's other open
+        // tabs can still post
+        SignOutChangedPassword::mark('man', null, $hash);
+        $request->session()->migrate(true);
 
         return redirect()->back()->withSuccess(__('main.pass_changed'));
     }

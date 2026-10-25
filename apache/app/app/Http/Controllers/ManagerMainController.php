@@ -22,6 +22,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\SignOutChangedPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -135,7 +136,13 @@ class ManagerMainController extends BaseController
     // password_verify and strcmp take one string, and a list
     // reaching them was a TypeError, a 500. A new password
     // with a NUL byte gets the list's refusal: bcrypt refuses
-    // the byte, and Hash::make failed on it with a 500.
+    // the byte, and Hash::make failed on it with a 500. The
+    // new password ends the member's other sessions at their
+    // next request (SignOutChangedPassword). This one is
+    // marked with the hash just written, so the member stays
+    // signed in here, and moves to a new session id, so a
+    // copy of its cookie someone else holds ends too; its
+    // CSRF token stays, for the browser's other open tabs.
     //
     // Used by:
     //   - parts/change_password.blade.php — the password form
@@ -181,7 +188,16 @@ class ManagerMainController extends BaseController
 
         }
 
-        Members::where('id', Auth::guard('mem')->id())->update(['password' => Hash::make($request->get('newpass'))]);
+        $hash = Hash::make($request->get('newpass'));
+        Members::where('id', Auth::guard('mem')->id())->update(['password' => $hash]);
+
+        // This browser goes on under the new password, its
+        // session under a new id: the old id, and any copy of
+        // its cookie, ends with the member's other sessions.
+        // The CSRF token stays, so the browser's other open
+        // tabs can still post
+        SignOutChangedPassword::mark('mem', null, $hash);
+        $request->session()->migrate(true);
 
         return redirect()->back()->withSuccess(__('main.pass_changed'));
     }
